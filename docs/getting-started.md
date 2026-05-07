@@ -1,46 +1,50 @@
 ﻿# Getting Started
 
-## Prerequisites
-
-- Python 3.10+
-- Access to questionnaire and reference files
-- Access to template repository path configured in `configuration/validation_config.yaml`
-
-## Runtime Environment
+## 1. Create and Activate Conda Environment
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+conda create -n diem-validation python=3.11 -y
+conda activate diem-validation
 ```
 
-## Configure a Run
+## 2. Install Dependencies
 
-Edit `configuration/validation_config.yaml` and set at least:
-
-```yaml
-tool: "kobo"                # kobo | geopoll
-questionnaire_file: "..."
-language: "en"              # en | fr | ar | es
-iso3: "XXX"
-reference_mode: "latest_template"   # or previous_round
+```powershell
+conda install -c conda-forge polars openpyxl pyyaml mkdocs mkdocs-material -y
 ```
 
-If `reference_mode` is `previous_round`, set `previous_round_file`.
+## 3. Launch Interactive Documentation (Recommended)
 
-## Run Validation
+From repository root:
+
+```powershell
+.\documentation
+```
+
+Open `http://127.0.0.1:8000/`.
+
+### Optional: install global `documentation` command in this conda env
+
+```powershell
+.\install-documentation-command.cmd
+```
+
+After that, with this env activated, you can run:
+
+```powershell
+documentation
+```
+
+## 4. Run Validation
+
+Edit `configuration/validation_config.yaml`, then run:
 
 ```powershell
 python validate.py
 ```
 
-The entrypoint reads `tool:` and dispatches to the corresponding validator script.
-
-## Local Documentation Preview
+or
 
 ```powershell
-pip install -r requirements-docs.txt
-mkdocs serve
+.\validate.bat
 ```
-
-Open `http://127.0.0.1:8000/`.

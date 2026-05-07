@@ -4,28 +4,40 @@
 
 | Severity | Meaning | Action |
 |---|---|---|
-| `high` | Blocking risk for deployment quality | Must be fixed before release |
-| `medium` | Important inconsistency | Review and resolve when justified |
-| `info` | Informational difference | Track for traceability |
-| `pass` | Rule passed | No action needed |
+| `high` | Deployment-blocking quality risk | Fix before release |
+| `medium` | Significant difference needing review | Resolve or document rationale |
+| `info` | Informational delta | Track for traceability |
+| `pass` | Rule passed | No action |
 
-## Common Cross-Tool Checks
+## Cross-Tool Core Checks
 
-- Non-optional question removed.
-- Mandatory category changed.
-- Option label mismatch.
-- Option added or removed.
+- Question added/removed.
+- Mandatory category mismatch.
+- Label/metadata drift.
+- Option/choice drift.
 
-## KoBo-Focused Checks
+## GeoPoll-Focused Families
 
-- Broken `${variable}` references in `relevant`.
-- Relevant expression changes.
-- Placeholder replacement integrity.
-- Choice list refresh checks for crop/admin lists in validated outputs.
+- Critical sets and minimum-count thresholds.
+- Crop-harvest structure completeness.
+- Skip-pattern consistency and option-code integrity.
+- Q-type integrity and duplicate question names.
+- Placeholder replacement diagnostics.
 
-## GeoPoll-Focused Checks
+## KoBo-Focused Families
 
-- Prefix-count thresholds for critical sections.
-- Crop/harvest set completeness rules.
-- Skip-pattern consistency and reference integrity.
-- Codes and options consistency against reference.
+- Relevant logic reference integrity.
+- KoBo variable syntax and missing reference checks.
+- Duplicate question or choice-name checks.
+- Placeholder/template/additional-info consistency.
+- Validated-questionnaire replacement status checks.
+
+??? warning "Interpretation reminder"
+
+    Option/choice-level differences should be interpreted together with question-level differences.
+    If a question is removed, you may not see every downstream option removal as separate rows.
+
+## Deep Dive Pages
+
+- [GeoPoll Logic](geopoll-logic.md)
+- [KoBo Logic](kobo-logic.md)

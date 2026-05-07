@@ -2,32 +2,58 @@
 
 Automated validation of DIEM household questionnaires for GeoPoll and KoBo.
 
-## Full Documentation
+## Recommended Reading Path
 
-- GitHub Pages project site (after publish): `https://<your-username>.github.io/DIEM_Questionnaire_Validation/`
-- Documentation source in this repo: `docs/`
+1. Read this `README.md` for setup and run commands.
+2. Launch the interactive documentation web view.
+3. Read detailed logic pages from the left menu under `Validation Workflow`.
 
-## Quick Setup
-
-1. Create and activate a virtual environment.
-2. Install runtime dependencies.
+## One-Time Environment Setup (Conda)
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+conda create -n diem-validation python=3.11 -y
+conda activate diem-validation
+conda install -c conda-forge polars openpyxl pyyaml mkdocs mkdocs-material -y
+```
+
+## Launch Interactive Documentation (Recommended)
+
+From the repository root:
+
+```powershell
+.\documentation
+```
+
+This starts the local docs site and opens `http://127.0.0.1:8000/`.
+
+### Optional: enable plain `documentation` command in this conda env
+
+Run once after activating the environment:
+
+```powershell
+.\install-documentation-command.cmd
+```
+
+Then you can launch docs from any folder with:
+
+```powershell
+documentation
 ```
 
 ## Run Validation
 
-1. Edit `configuration/validation_config.yaml` for your run.
-2. Run from the repository root:
+1. Edit `configuration/validation_config.yaml`.
+2. Run:
 
 ```powershell
 python validate.py
 ```
 
-`validate.py` reads `tool:` from config and dispatches to the matching validator.
+or
+
+```powershell
+.\validate.bat
+```
 
 ## Essential Workflow
 
@@ -36,27 +62,8 @@ python validate.py
 3. Run validation.
 4. Review output reports in `output_dir/<tool>_output`.
 
-## Project Structure
+## Documentation Sources
 
-```text
-DIEM_Questionnaire_Validation/
-|-- validate.py
-|-- configuration/
-|   |-- validation_config.yaml
-|   `-- critical_sets.yaml
-|-- scripts/
-|   |-- geopoll_validator.py
-|   `-- kobo_validator.py
-|-- docs/
-|   `-- ... full detailed documentation
-`-- mkdocs.yml
-```
-
-## Local Docs Preview (Optional)
-
-```powershell
-pip install -r requirements-docs.txt
-mkdocs serve
-```
-
-Open `http://127.0.0.1:8000/`.
+- Local docs source: `docs/`
+- MkDocs config: `mkdocs.yml`
+- GitHub Pages site (after publish): `https://<your-username>.github.io/DIEM_Questionnaire_Validation/`

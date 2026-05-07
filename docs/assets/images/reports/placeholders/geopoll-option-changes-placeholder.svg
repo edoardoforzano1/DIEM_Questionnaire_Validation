@@ -1,0 +1,13 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="620" viewBox="0 0 1360 620" role="img" aria-label="GeoPoll Option Changes Screenshot Placeholder">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f6fbff" />
+      <stop offset="100%" stop-color="#e7f3fb" />
+    </linearGradient>
+  </defs>
+  <rect width="1360" height="620" fill="url(#bg)" />
+  <rect x="24" y="24" width="1312" height="572" rx="12" fill="none" stroke="#009edb" stroke-width="4" stroke-dasharray="12 10" />
+  <text x="680" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="42" fill="#0f4f84" font-weight="700">GeoPoll Option Changes Screenshot Placeholder</text>
+  <text x="680" y="330" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" fill="#1f3558">Replace this file with the real report screenshot</text>
+  <text x="680" y="372" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" fill="#1f3558">Path: docs/assets/images/reports/placeholders/geopoll-option-changes-placeholder.svg</text>
+</svg>

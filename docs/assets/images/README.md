@@ -1,9 +1,9 @@
 ﻿# Image Assets
 
-Place screenshots and example images in these folders:
+Put real screenshots in `docs/assets/images/reports/`.
 
-- `overview/`
-- `logic/`
-- `reports/`
+Current workflow pages use placeholder files from:
 
-Keep filenames stable so page links do not break.
+- `docs/assets/images/reports/placeholders/`
+
+When ready, replace each placeholder reference with your real screenshot path.

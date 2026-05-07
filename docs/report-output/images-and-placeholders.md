@@ -1,31 +1,50 @@
 ﻿# Images and Placeholders
 
-Use this structure for all report and workflow screenshots:
+All report screenshots are loaded from repository paths under `docs/assets/images/reports/`.
 
-- `docs/assets/images/overview/`
-- `docs/assets/images/logic/`
-- `docs/assets/images/reports/`
+## Folder Structure
+
+- `docs/assets/images/reports/placeholders/`:
+  - Current placeholder images used by workflow pages.
+- `docs/assets/images/reports/`:
+  - Your real screenshots (recommended destination).
+
+## How to Replace Placeholders
+
+1. Open the relevant workflow page and note the target screenshot name shown in the blue note.
+2. Export or capture the screenshot from your report.
+3. Save it into `docs/assets/images/reports/` with the suggested filename.
+4. Replace the placeholder link in the page with the real image path.
+
+Example replacement:
+
+```md
+![GeoPoll Summary](../assets/images/reports/geopoll-summary.png)
+```
+
+## Current Placeholder Files
+
+- `geopoll-summary-placeholder.svg`
+- `geopoll-critical-sets-placeholder.svg`
+- `geopoll-structure-placeholder.svg`
+- `geopoll-replacement-placeholder.svg`
+- `geopoll-question-changes-placeholder.svg`
+- `geopoll-option-changes-placeholder.svg`
+- `kobo-summary-placeholder.svg`
+- `kobo-critical-sets-placeholder.svg`
+- `kobo-structure-placeholder.svg`
+- `kobo-replacement-placeholder.svg`
+- `kobo-question-changes-placeholder.svg`
+- `kobo-choice-changes-placeholder.svg`
+- `kobo-validated-output-placeholder.svg`
 
 ## Upload Methods
 
-1. Local git workflow:
-   - Copy images into one of the folders above.
-   - Commit and push.
+1. Local git flow:
+   - copy images into folder
+   - commit and push
 2. GitHub web UI:
-   - Open repo.
-   - Navigate to target folder.
-   - `Add file` -> `Upload files`.
+   - open target folder
+   - `Add file` -> `Upload files`
 
-## Example Markdown Snippets
-
-```md
-![GeoPoll summary example](../assets/images/reports/geopoll-summary.png)
-![KoBo relevant changes example](../assets/images/reports/kobo-relevant-changes.png)
-```
-
-## Recommended Naming
-
-- `<tool>-summary.png`
-- `<tool>-critical-sets.png`
-- `<tool>-question-changes.png`
-- `<tool>-option-changes.png`
+MkDocs will include everything under `docs/` automatically in local serve and site build.

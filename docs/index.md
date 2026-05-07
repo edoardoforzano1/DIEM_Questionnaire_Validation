@@ -1,25 +1,22 @@
 ﻿# DIEM Questionnaire Validation Documentation
 
-This documentation explains how DIEM questionnaire validation works for KoBo and GeoPoll, including reference modes, logic, report interpretation, and function-level behavior.
+This site is the detailed guide for how validation works across GeoPoll and KoBo.
 
 ## Start Here
 
-- [Getting Started](getting-started.md)
-- [Process Overview](workflow/process-overview.md)
-- [Reference Modes](workflow/reference-modes.md)
-- [Checks and Severity](workflow/checks-and-severity.md)
-- [Report Output](report-output/index.md)
+1. [Getting Started](getting-started.md)
+2. [Validation Workflow / Process Overview](workflow/process-overview.md)
+3. [Validation Workflow / Reference Modes](workflow/reference-modes.md)
+4. [Validation Workflow / GeoPoll Logic](workflow/geopoll-logic.md)
+5. [Validation Workflow / KoBo Logic](workflow/kobo-logic.md)
 
-=== "KoBo"
+## Fast Notes
 
-    KoBo validation includes skip-logic checks, placeholder normalization, and generation of a validated questionnaire file in `previous_round` mode.
-
-=== "GeoPoll"
-
-    GeoPoll validation includes critical set completeness checks, crop and harvest logic checks, and structured sheet-level report output.
+- Read `README.md` first for installation and launcher commands.
+- Recommended launcher command from repo root: `.\documentation` in PowerShell.
 
 ??? info "What this documentation is designed for"
 
-    - Internal team onboarding.
-    - Repeatable validation operations across rounds.
-    - Troubleshooting report findings quickly.
+    - Internal onboarding and handover.
+    - Reliable run-by-run validation interpretation.
+    - Faster debugging from report section to root cause.

@@ -1,0 +1,122 @@
+﻿:root > * {
+  --md-primary-fg-color: #009edb;
+  --md-primary-fg-color--light: #33b1e2;
+  --md-primary-fg-color--dark: #007eaf;
+  --md-accent-fg-color: #007eaf;
+  --md-typeset-a-color: #006ea6;
+}
+
+.md-typeset p,
+.md-typeset li {
+  color: #1f3558;
+}
+
+.md-typeset p {
+  font-weight: 500;
+  line-height: 1.65;
+}
+
+.md-typeset strong {
+  color: #123c73;
+  font-weight: 700;
+}
+
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4 {
+  color: #173b6d;
+}
+
+.md-typeset :not(pre) > code {
+  background: #dff1ff;
+  color: #0f4f84;
+  border: 1px solid #b9ddf5;
+}
+
+.sev {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.sev-high {
+  background: #ff8a80;
+  color: #111111;
+}
+
+.sev-medium {
+  background: #ffb74d;
+  color: #111111;
+}
+
+.sev-info {
+  background: #90caf9;
+  color: #111111;
+}
+
+.sev-pass {
+  background: #81c784;
+  color: #111111;
+}
+
+.issue-tag {
+  display: inline-block;
+  border-radius: 0.3rem;
+  padding: 0.08rem 0.35rem;
+  border: 1px solid transparent;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+.issue-tag code {
+  background: transparent !important;
+  color: inherit !important;
+  border: none !important;
+  padding: 0 !important;
+  font-size: inherit !important;
+}
+
+.issue-high {
+  background: #fde2e2;
+  border-color: #f2b6b6;
+  color: #8b1111;
+}
+
+.issue-medium {
+  background: #fff0de;
+  border-color: #ffd3a3;
+  color: #8c4b00;
+}
+
+.issue-info {
+  background: #e4f1ff;
+  border-color: #b9ddf5;
+  color: #0f4f84;
+}
+
+.issue-pass {
+  background: #e6f6e9;
+  border-color: #b9dfc0;
+  color: #1d5e27;
+}
+
+.img-note {
+  border-left: 4px solid #009edb;
+  background: #f2f9fd;
+  padding: 0.65rem 0.9rem;
+  margin: 0.7rem 0 1rem;
+  border-radius: 0.2rem;
+  color: #1f3558;
+  font-size: 0.9rem;
+}
+
+.sheet-placeholder {
+  border: 1px solid #c6d9e8;
+  border-radius: 0.35rem;
+  background: #f7fbfe;
+  padding: 0.4rem;
+}

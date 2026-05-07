@@ -1,27 +1,65 @@
 ﻿# KoBo Report
 
-## Expected Core Sheets
+This page is a compact visual checklist. For deep interpretation, use [KoBo Logic](../workflow/kobo-logic.md).
 
-- Summary
-- Critical Sets
-- Relevant Changes
-- Question Changes
-- Choice Changes
-- Replacement Issues
+## Sheet Sequence
 
-## How to Read
+1. Summary
+2. Critical Sets
+3. Questionnaire Structure
+4. Replacement Issues
+5. Question Changes
+6. Choice Changes
+7. Validated Questionnaire Output checks (if previous-round workflow)
 
-1. Resolve all High issues first.
-2. Review relevant logic changes before deployment.
-3. Use Replacement Issues to verify placeholder integrity.
+## Severity Legend
 
-## Screenshot Placeholders
+- Blocking issues: HIGH
+- Review-required issues: MEDIUM
+- Informational differences: INFO
 
-Add screenshots to:
+## Placeholders to Replace
 
-- `docs/assets/images/reports/kobo-summary.png`
-- `docs/assets/images/reports/kobo-relevant-changes.png`
-- `docs/assets/images/reports/kobo-choice-changes.png`
-- `docs/assets/images/reports/kobo-replacement-issues.png`
+<div class="img-note"><strong>Add real screenshots in:</strong> <code>docs/assets/images/reports/</code>. Suggested names are shown under each placeholder.</div>
 
-Then embed in this page using standard Markdown image syntax.
+### Summary
+
+![KoBo Summary Placeholder](../assets/images/reports/placeholders/kobo-summary-placeholder.svg){: .sheet-placeholder }
+
+Suggested real file: `docs/assets/images/reports/kobo-summary.png`
+
+### Critical Sets
+
+![KoBo Critical Sets Placeholder](../assets/images/reports/placeholders/kobo-critical-sets-placeholder.svg){: .sheet-placeholder }
+
+Suggested real file: `docs/assets/images/reports/kobo-critical-sets.png`
+
+### Questionnaire Structure
+
+![KoBo Structure Placeholder](../assets/images/reports/placeholders/kobo-structure-placeholder.svg){: .sheet-placeholder }
+
+Suggested real file: `docs/assets/images/reports/kobo-structure.png`
+
+### Replacement Issues
+
+![KoBo Replacement Placeholder](../assets/images/reports/placeholders/kobo-replacement-placeholder.svg){: .sheet-placeholder }
+
+Suggested real file: `docs/assets/images/reports/kobo-replacement-issues.png`
+
+### Question Changes
+
+![KoBo Question Changes Placeholder](../assets/images/reports/placeholders/kobo-question-changes-placeholder.svg){: .sheet-placeholder }
+
+Suggested real file: `docs/assets/images/reports/kobo-question-changes.png`
+
+### Choice Changes
+
+![KoBo Choice Changes Placeholder](../assets/images/reports/placeholders/kobo-choice-changes-placeholder.svg){: .sheet-placeholder }
+
+Suggested real file: `docs/assets/images/reports/kobo-choice-changes.png`
+
+### Validated Questionnaire Output
+
+![KoBo Validated Output Placeholder](../assets/images/reports/placeholders/kobo-validated-output-placeholder.svg){: .sheet-placeholder }
+
+Suggested real file: `docs/assets/images/reports/kobo-validated-output.png`

@@ -4,6 +4,10 @@ site_url: https://your-username.github.io/DIEM_Questionnaire_Validation/
 
 theme:
   name: material
+  palette:
+    scheme: default
+    primary: custom
+    accent: custom
   features:
     - navigation.tabs
     - navigation.sections
@@ -20,12 +24,15 @@ plugins:
 
 markdown_extensions:
   - admonition
+  - attr_list
   - pymdownx.details
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
   - toc:
       permalink: true
+extra_css:
+  - stylesheets/extra.css
 
 nav:
   - Home: index.md
@@ -33,6 +40,8 @@ nav:
   - Validation Workflow:
       - Process Overview: workflow/process-overview.md
       - Reference Modes: workflow/reference-modes.md
+      - GeoPoll Logic: workflow/geopoll-logic.md
+      - KoBo Logic: workflow/kobo-logic.md
       - Checks and Severity: workflow/checks-and-severity.md
   - Data Sources:
       - Overview: data-sources/index.md

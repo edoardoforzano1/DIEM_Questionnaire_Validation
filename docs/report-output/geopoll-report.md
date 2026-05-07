@@ -1,25 +1,58 @@
 ﻿# GeoPoll Report
 
-## Expected Core Sheets
+This page is a compact visual checklist. For deep interpretation, use [GeoPoll Logic](../workflow/geopoll-logic.md).
 
-- Summary
-- Critical Sets
-- Question Changes
-- Option Changes
-- Structure and skip related findings
+## Sheet Sequence
 
-## How to Read
+1. Summary
+2. Critical Sets
+3. Questionnaire Structure
+4. Replacement Issues
+5. Question Changes
+6. Option Changes
 
-1. Start from Summary for blocking issues.
-2. Move to Critical Sets for structural violations.
-3. Review Question/Option sheets for detailed deltas.
+## Severity Legend
 
-## Screenshot Placeholders
+- Blocking issues: HIGH
+- Review-required issues: MEDIUM
+- Informational differences: INFO
 
-Add screenshots to:
+## Placeholders to Replace
 
-- `docs/assets/images/reports/geopoll-summary.png`
-- `docs/assets/images/reports/geopoll-critical-sets.png`
-- `docs/assets/images/reports/geopoll-question-changes.png`
+<div class="img-note"><strong>Add real screenshots in:</strong> <code>docs/assets/images/reports/</code>. Suggested names are shown under each placeholder.</div>
 
-Then embed in this page using standard Markdown image syntax.
+### Summary
+
+![GeoPoll Summary](../assets/images/reports/geopoll-summary.png){: .sheet-placeholder }
+
+Suggested real file: `docs/assets/images/reports/geopoll-summary.png`
+
+### Critical Sets
+
+![GeoPoll Critical Sets Placeholder](../assets/images/reports/placeholders/geopoll-critical-sets-placeholder.svg){: .sheet-placeholder }
+
+Suggested real file: `docs/assets/images/reports/geopoll-critical-sets.png`
+
+### Questionnaire Structure
+
+![GeoPoll Questionnaire Structure Placeholder](../assets/images/reports/placeholders/geopoll-structure-placeholder.svg){: .sheet-placeholder }
+
+Suggested real file: `docs/assets/images/reports/geopoll-structure.png`
+
+### Replacement Issues
+
+![GeoPoll Replacement Issues Placeholder](../assets/images/reports/placeholders/geopoll-replacement-placeholder.svg){: .sheet-placeholder }
+
+Suggested real file: `docs/assets/images/reports/geopoll-replacement-issues.png`
+
+### Question Changes
+
+![GeoPoll Question Changes Placeholder](../assets/images/reports/placeholders/geopoll-question-changes-placeholder.svg){: .sheet-placeholder }
+
+Suggested real file: `docs/assets/images/reports/geopoll-question-changes.png`
+
+### Option Changes
+
+![GeoPoll Option Changes Placeholder](../assets/images/reports/placeholders/geopoll-option-changes-placeholder.svg){: .sheet-placeholder }
+
+Suggested real file: `docs/assets/images/reports/geopoll-option-changes.png`
