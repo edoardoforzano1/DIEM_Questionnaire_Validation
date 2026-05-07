@@ -1,0 +1,52 @@
+site_name: DIEM Questionnaire Validation
+site_description: Documentation for DIEM questionnaire validation workflows and logic.
+site_url: https://your-username.github.io/DIEM_Questionnaire_Validation/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+
+plugins:
+  - search
+  - offline
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Validation Workflow:
+      - Process Overview: workflow/process-overview.md
+      - Reference Modes: workflow/reference-modes.md
+      - Checks and Severity: workflow/checks-and-severity.md
+  - Data Sources:
+      - Overview: data-sources/index.md
+      - KoBo Inputs: data-sources/kobo.md
+      - GeoPoll Inputs: data-sources/geopoll.md
+      - Template and Previous Round: data-sources/template-and-previous-round.md
+  - Function Reference:
+      - Overview: function-reference/index.md
+      - Entrypoint: function-reference/entrypoint.md
+      - KoBo Validator: function-reference/kobo-validator.md
+      - GeoPoll Validator: function-reference/geopoll-validator.md
+  - Report Output:
+      - Overview: report-output/index.md
+      - GeoPoll Report: report-output/geopoll-report.md
+      - KoBo Report: report-output/kobo-report.md
+      - Images and Placeholders: report-output/images-and-placeholders.md
+  - FAQ: faq.md
