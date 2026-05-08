@@ -1,22 +1,27 @@
-﻿# DIEM Questionnaire Validation Documentation
+# DIEM Questionnaire Validation
 
-This site is the detailed guide for how validation works across GeoPoll and KoBo.
+Internal documentation for the GeoPoll and KoBo questionnaire validation workflows.
 
-## Start Here
+## What this system does
 
-1. [Getting Started](getting-started.md)
-2. [Validation Workflow / Process Overview](workflow/process-overview.md)
-3. [Validation Workflow / Reference Modes](workflow/reference-modes.md)
-4. [Validation Workflow / GeoPoll Logic](workflow/geopoll-logic.md)
-5. [Validation Workflow / KoBo Logic](workflow/kobo-logic.md)
+Validates a questionnaire file against a reference (official template or previous round) and produces a structured Excel report. Every detected difference is classified by issue type and severity — HIGH blocks deployment, MEDIUM needs review, INFO is tracked for traceability.
 
-## Fast Notes
+## How to get started
 
-- Read `README.md` first for installation and launcher commands.
-- Recommended launcher command from repo root: `.\documentation` in PowerShell.
+1. Read `README.md` for environment setup and the launcher commands.
+2. Edit `configuration/validation_config.yaml` to point to your questionnaire file.
+3. Run `python validate.py` (or `.\validate.bat`).
+4. Open the report in `output_dir/geopoll_output/` or `output_dir/kobo_output/`.
 
-??? info "What this documentation is designed for"
+For documentation: run `.\documentation` from the repo root to open this site at `http://127.0.0.1:8000/`.
 
-    - Internal onboarding and handover.
-    - Reliable run-by-run validation interpretation.
-    - Faster debugging from report section to root cause.
+## Documentation map
+
+| Section | What it covers |
+|---|---|
+| [Getting Started](getting-started.md) | Environment setup, dependency install, first run |
+| [Process Overview](workflow/process-overview.md) | Full pipeline diagram — inputs, steps, outputs |
+| [Reference Modes](workflow/reference-modes.md) | When to use `latest_template` vs `previous_round` |
+| [Severity Reference](workflow/checks-and-severity.md) | Severity levels, dynamic severity logic, issue index by sheet |
+| [GeoPoll Logic](workflow/geopoll-logic.md) | All GeoPoll sheets with issue cards and report screenshots |
+| [KoBo Logic](workflow/kobo-logic.md) | All KoBo sheets with issue cards and report screenshots |

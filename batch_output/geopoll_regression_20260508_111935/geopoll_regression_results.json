@@ -1,0 +1,164 @@
+[
+  {
+    "scenario": "geopoll_COD_R9_vs_R8_prev",
+    "reference_mode": "previous_round",
+    "questionnaire_file": "GeoPoll_FAO_DRC_DIEM_Round_9_CATI_VF_copy.xlsx",
+    "previous_round_file": "GeoPoll_FAO_DRC_Round_8_CATI_V4_copy.xlsx",
+    "language": "en",
+    "iso3": "COD",
+    "run_id": 1,
+    "return_code": 0,
+    "summary": {
+      "high": 176,
+      "medium": 249,
+      "info": 29,
+      "pass": "no"
+    },
+    "stdout_tail": "==================================================================\n  DIEM Questionnaire Validation v2\n  Tool: GEOPOLL  |  Language: EN  |  Country: COD\n  Reference mode: previous_round\n==================================================================\n  Config       C:\\git\\DIEM_Questionnaire_Validation\\configuration\\validation_config.yaml\n  File         GeoPoll_FAO_DRC_DIEM_Round_9_CATI_VF_copy.xlsx\n  Output       C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\n  [2/10] Resolving reference file ....................\n  [3/10] Reading survey sheets .......................\n  [4/10] Parsing answer options ......................\n  [5/10] Normalising placeholders ....................\n  [6/10] Normalisation helpers .......................\n  [7/10] Comparison functions ........................\n  [8/10] Issue unifiers ..............................\n  [9/10] Running pipeline ............................\n  [10/10] Exporting report ............................\n\n------------------------------------------------------------------\n  VALIDATION SUMMARY\n------------------------------------------------------------------\n  HIGH        176   Must fix before deployment\n  MEDIUM      249   Review suggested\n  INFO         29   Informational\n  PASS         no\n\n  Report  : C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\report_geopoll_en_COD_R1_20260508.xlsx\n  Validated: C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\validated_questionnaire_geopoll_en_COD_R1_20260508.xlsx\n  Time    : 10.8s\n==================================================================",
+    "stderr_tail": ""
+  },
+  {
+    "scenario": "geopoll_YEM_R29_vs_R28_prev_ar",
+    "reference_mode": "previous_round",
+    "questionnaire_file": "validated_questionnaire_geopoll_ar_YEM_20250529101116_R29.xlsx",
+    "previous_round_file": "validated_questionnaire_geopoll_ar_YEM_202503_for validation_R28.xlsx",
+    "language": "ar",
+    "iso3": "YEM",
+    "run_id": 2,
+    "return_code": 0,
+    "summary": {
+      "high": 8,
+      "medium": 6,
+      "info": 4,
+      "pass": "no"
+    },
+    "stdout_tail": "==================================================================\n  DIEM Questionnaire Validation v2\n  Tool: GEOPOLL  |  Language: AR  |  Country: YEM\n  Reference mode: previous_round\n==================================================================\n  Config       C:\\git\\DIEM_Questionnaire_Validation\\configuration\\validation_config.yaml\n  File         validated_questionnaire_geopoll_ar_YEM_20250529101116_R29.xlsx\n  Output       C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\n  [2/10] Resolving reference file ....................\n  [3/10] Reading survey sheets .......................\n  [4/10] Parsing answer options ......................\n  [5/10] Normalising placeholders ....................\n  [6/10] Normalisation helpers .......................\n  [7/10] Comparison functions ........................\n  [8/10] Issue unifiers ..............................\n  [9/10] Running pipeline ............................\n  [10/10] Exporting report ............................\n\n------------------------------------------------------------------\n  VALIDATION SUMMARY\n------------------------------------------------------------------\n  HIGH          8   Must fix before deployment\n  MEDIUM        6   Review suggested\n  INFO          4   Informational\n  PASS         no\n\n  Report  : C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\report_geopoll_ar_YEM_R2_20260508.xlsx\n  Validated: C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\validated_questionnaire_geopoll_ar_YEM_R2_20260508.xlsx\n  Time    : 7.0s\n==================================================================",
+    "stderr_tail": ""
+  },
+  {
+    "scenario": "geopoll_YEM_R30_vs_R29_prev_ar",
+    "reference_mode": "previous_round",
+    "questionnaire_file": "GeoPoll_FAO_Yemen Quarterly Monitoring_Survey_R30_V1_copy.xlsx",
+    "previous_round_file": "validated_questionnaire_geopoll_ar_YEM_20250529101116_R29.xlsx",
+    "language": "ar",
+    "iso3": "YEM",
+    "run_id": 3,
+    "return_code": 0,
+    "summary": {
+      "high": 53,
+      "medium": 140,
+      "info": 33,
+      "pass": "no"
+    },
+    "stdout_tail": "==================================================================\n  DIEM Questionnaire Validation v2\n  Tool: GEOPOLL  |  Language: AR  |  Country: YEM\n  Reference mode: previous_round\n==================================================================\n  Config       C:\\git\\DIEM_Questionnaire_Validation\\configuration\\validation_config.yaml\n  File         GeoPoll_FAO_Yemen Quarterly Monitoring_Survey_R30_V1_copy.xlsx\n  Output       C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\n  [2/10] Resolving reference file ....................\n  [3/10] Reading survey sheets .......................\n  [4/10] Parsing answer options ......................\n  [5/10] Normalising placeholders ....................\n  [6/10] Normalisation helpers .......................\n  [7/10] Comparison functions ........................\n  [8/10] Issue unifiers ..............................\n  [9/10] Running pipeline ............................\n  [10/10] Exporting report ............................\n\n------------------------------------------------------------------\n  VALIDATION SUMMARY\n------------------------------------------------------------------\n  HIGH         53   Must fix before deployment\n  MEDIUM      140   Review suggested\n  INFO         33   Informational\n  PASS         no\n\n  Report  : C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\report_geopoll_ar_YEM_R3_20260508.xlsx\n  Validated: C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\validated_questionnaire_geopoll_ar_YEM_R3_20260508.xlsx\n  Time    : 2.7s\n==================================================================",
+    "stderr_tail": ""
+  },
+  {
+    "scenario": "geopoll_YEM_R30_vs_R28_prev_ar",
+    "reference_mode": "previous_round",
+    "questionnaire_file": "GeoPoll_FAO_Yemen Quarterly Monitoring_Survey_R30_V1_copy.xlsx",
+    "previous_round_file": "validated_questionnaire_geopoll_ar_YEM_202503_for validation_R28.xlsx",
+    "language": "ar",
+    "iso3": "YEM",
+    "run_id": 4,
+    "return_code": 0,
+    "summary": {
+      "high": 52,
+      "medium": 140,
+      "info": 35,
+      "pass": "no"
+    },
+    "stdout_tail": "==================================================================\n  DIEM Questionnaire Validation v2\n  Tool: GEOPOLL  |  Language: AR  |  Country: YEM\n  Reference mode: previous_round\n==================================================================\n  Config       C:\\git\\DIEM_Questionnaire_Validation\\configuration\\validation_config.yaml\n  File         GeoPoll_FAO_Yemen Quarterly Monitoring_Survey_R30_V1_copy.xlsx\n  Output       C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\n  [2/10] Resolving reference file ....................\n  [3/10] Reading survey sheets .......................\n  [4/10] Parsing answer options ......................\n  [5/10] Normalising placeholders ....................\n  [6/10] Normalisation helpers .......................\n  [7/10] Comparison functions ........................\n  [8/10] Issue unifiers ..............................\n  [9/10] Running pipeline ............................\n  [10/10] Exporting report ............................\n\n------------------------------------------------------------------\n  VALIDATION SUMMARY\n------------------------------------------------------------------\n  HIGH         52   Must fix before deployment\n  MEDIUM      140   Review suggested\n  INFO         35   Informational\n  PASS         no\n\n  Report  : C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\report_geopoll_ar_YEM_R4_20260508.xlsx\n  Validated: C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\validated_questionnaire_geopoll_ar_YEM_R4_20260508.xlsx\n  Time    : 2.6s\n==================================================================",
+    "stderr_tail": ""
+  },
+  {
+    "scenario": "geopoll_COD_R8_template",
+    "reference_mode": "latest_template",
+    "questionnaire_file": "GeoPoll_FAO_DRC_Round_8_CATI_V4_copy.xlsx",
+    "previous_round_file": "",
+    "language": "en",
+    "iso3": "COD",
+    "run_id": 5,
+    "return_code": 0,
+    "summary": {
+      "high": 161,
+      "medium": 115,
+      "info": 49,
+      "pass": "no"
+    },
+    "stdout_tail": "==================================================================\n  DIEM Questionnaire Validation v2\n  Tool: GEOPOLL  |  Language: EN  |  Country: COD\n  Reference mode: latest_template\n==================================================================\n  Config       C:\\git\\DIEM_Questionnaire_Validation\\configuration\\validation_config.yaml\n  File         GeoPoll_FAO_DRC_Round_8_CATI_V4_copy.xlsx\n  Output       C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\n  [2/10] Resolving reference file ....................\n  [3/10] Reading survey sheets .......................\n  [4/10] Parsing answer options ......................\n  [5/10] Normalising placeholders ....................\n  [6/10] Normalisation helpers .......................\n  [7/10] Comparison functions ........................\n  [8/10] Issue unifiers ..............................\n  [9/10] Running pipeline ............................\n  [10/10] Exporting report ............................\n\n------------------------------------------------------------------\n  VALIDATION SUMMARY\n------------------------------------------------------------------\n  HIGH        161   Must fix before deployment\n  MEDIUM      115   Review suggested\n  INFO         49   Informational\n  PASS         no\n\n  Report  : C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\report_geopoll_en_COD_R5_20260508.xlsx\n  Validated: C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\validated_questionnaire_geopoll_en_COD_R5_20260508.xlsx\n  Time    : 8.9s\n==================================================================",
+    "stderr_tail": ""
+  },
+  {
+    "scenario": "geopoll_COD_R9_template",
+    "reference_mode": "latest_template",
+    "questionnaire_file": "GeoPoll_FAO_DRC_DIEM_Round_9_CATI_VF_copy.xlsx",
+    "previous_round_file": "",
+    "language": "en",
+    "iso3": "COD",
+    "run_id": 6,
+    "return_code": 0,
+    "summary": {
+      "high": 45,
+      "medium": 158,
+      "info": 63,
+      "pass": "no"
+    },
+    "stdout_tail": "==================================================================\n  DIEM Questionnaire Validation v2\n  Tool: GEOPOLL  |  Language: EN  |  Country: COD\n  Reference mode: latest_template\n==================================================================\n  Config       C:\\git\\DIEM_Questionnaire_Validation\\configuration\\validation_config.yaml\n  File         GeoPoll_FAO_DRC_DIEM_Round_9_CATI_VF_copy.xlsx\n  Output       C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\n  [2/10] Resolving reference file ....................\n  [3/10] Reading survey sheets .......................\n  [4/10] Parsing answer options ......................\n  [5/10] Normalising placeholders ....................\n  [6/10] Normalisation helpers .......................\n  [7/10] Comparison functions ........................\n  [8/10] Issue unifiers ..............................\n  [9/10] Running pipeline ............................\n  [10/10] Exporting report ............................\n\n------------------------------------------------------------------\n  VALIDATION SUMMARY\n------------------------------------------------------------------\n  HIGH         45   Must fix before deployment\n  MEDIUM      158   Review suggested\n  INFO         63   Informational\n  PASS         no\n\n  Report  : C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\report_geopoll_en_COD_R6_20260508.xlsx\n  Validated: C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\validated_questionnaire_geopoll_en_COD_R6_20260508.xlsx\n  Time    : 8.7s\n==================================================================",
+    "stderr_tail": ""
+  },
+  {
+    "scenario": "geopoll_YEM_R28_template",
+    "reference_mode": "latest_template",
+    "questionnaire_file": "validated_questionnaire_geopoll_ar_YEM_202503_for validation_R28.xlsx",
+    "previous_round_file": "",
+    "language": "ar",
+    "iso3": "YEM",
+    "run_id": 7,
+    "return_code": 0,
+    "summary": {
+      "high": 51,
+      "medium": 110,
+      "info": 59,
+      "pass": "no"
+    },
+    "stdout_tail": "==================================================================\n  DIEM Questionnaire Validation v2\n  Tool: GEOPOLL  |  Language: AR  |  Country: YEM\n  Reference mode: latest_template\n==================================================================\n  Config       C:\\git\\DIEM_Questionnaire_Validation\\configuration\\validation_config.yaml\n  File         validated_questionnaire_geopoll_ar_YEM_202503_for validation_R28.xlsx\n  Output       C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\n  [2/10] Resolving reference file ....................\n  [3/10] Reading survey sheets .......................\n  [4/10] Parsing answer options ......................\n  [5/10] Normalising placeholders ....................\n  [6/10] Normalisation helpers .......................\n  [7/10] Comparison functions ........................\n  [8/10] Issue unifiers ..............................\n  [9/10] Running pipeline ............................\n  [10/10] Exporting report ............................\n\n------------------------------------------------------------------\n  VALIDATION SUMMARY\n------------------------------------------------------------------\n  HIGH         51   Must fix before deployment\n  MEDIUM      110   Review suggested\n  INFO         59   Informational\n  PASS         no\n\n  Report  : C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\report_geopoll_ar_YEM_R7_20260508.xlsx\n  Validated: C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\validated_questionnaire_geopoll_ar_YEM_R7_20260508.xlsx\n  Time    : 2.7s\n==================================================================",
+    "stderr_tail": ""
+  },
+  {
+    "scenario": "geopoll_YEM_R29_template",
+    "reference_mode": "latest_template",
+    "questionnaire_file": "validated_questionnaire_geopoll_ar_YEM_20250529101116_R29.xlsx",
+    "previous_round_file": "",
+    "language": "ar",
+    "iso3": "YEM",
+    "run_id": 8,
+    "return_code": 0,
+    "summary": {
+      "high": 53,
+      "medium": 114,
+      "info": 61,
+      "pass": "no"
+    },
+    "stdout_tail": "==================================================================\n  DIEM Questionnaire Validation v2\n  Tool: GEOPOLL  |  Language: AR  |  Country: YEM\n  Reference mode: latest_template\n==================================================================\n  Config       C:\\git\\DIEM_Questionnaire_Validation\\configuration\\validation_config.yaml\n  File         validated_questionnaire_geopoll_ar_YEM_20250529101116_R29.xlsx\n  Output       C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\n  [2/10] Resolving reference file ....................\n  [3/10] Reading survey sheets .......................\n  [4/10] Parsing answer options ......................\n  [5/10] Normalising placeholders ....................\n  [6/10] Normalisation helpers .......................\n  [7/10] Comparison functions ........................\n  [8/10] Issue unifiers ..............................\n  [9/10] Running pipeline ............................\n  [10/10] Exporting report ............................\n\n------------------------------------------------------------------\n  VALIDATION SUMMARY\n------------------------------------------------------------------\n  HIGH         53   Must fix before deployment\n  MEDIUM      114   Review suggested\n  INFO         61   Informational\n  PASS         no\n\n  Report  : C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\report_geopoll_ar_YEM_R8_20260508.xlsx\n  Validated: C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\validated_questionnaire_geopoll_ar_YEM_R8_20260508.xlsx\n  Time    : 6.9s\n==================================================================",
+    "stderr_tail": ""
+  },
+  {
+    "scenario": "geopoll_YEM_R30_template",
+    "reference_mode": "latest_template",
+    "questionnaire_file": "GeoPoll_FAO_Yemen Quarterly Monitoring_Survey_R30_V1_copy.xlsx",
+    "previous_round_file": "",
+    "language": "ar",
+    "iso3": "YEM",
+    "run_id": 9,
+    "return_code": 0,
+    "summary": {
+      "high": 40,
+      "medium": 145,
+      "info": 75,
+      "pass": "no"
+    },
+    "stdout_tail": "==================================================================\n  DIEM Questionnaire Validation v2\n  Tool: GEOPOLL  |  Language: AR  |  Country: YEM\n  Reference mode: latest_template\n==================================================================\n  Config       C:\\git\\DIEM_Questionnaire_Validation\\configuration\\validation_config.yaml\n  File         GeoPoll_FAO_Yemen Quarterly Monitoring_Survey_R30_V1_copy.xlsx\n  Output       C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\n  [2/10] Resolving reference file ....................\n  [3/10] Reading survey sheets .......................\n  [4/10] Parsing answer options ......................\n  [5/10] Normalising placeholders ....................\n  [6/10] Normalisation helpers .......................\n  [7/10] Comparison functions ........................\n  [8/10] Issue unifiers ..............................\n  [9/10] Running pipeline ............................\n  [10/10] Exporting report ............................\n\n------------------------------------------------------------------\n  VALIDATION SUMMARY\n------------------------------------------------------------------\n  HIGH         40   Must fix before deployment\n  MEDIUM      145   Review suggested\n  INFO         75   Informational\n  PASS         no\n\n  Report  : C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\report_geopoll_ar_YEM_R9_20260508.xlsx\n  Validated: C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_regression_20260508_111935\\geopoll_output\\validated_questionnaire_geopoll_ar_YEM_R9_20260508.xlsx\n  Time    : 2.4s\n==================================================================",
+    "stderr_tail": ""
+  }
+]

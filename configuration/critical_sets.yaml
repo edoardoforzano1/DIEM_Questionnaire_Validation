@@ -34,8 +34,9 @@ exact_sets:
 # CS rule: each respondent profile must receive at least 10 coping strategies
 #          (4 STRESS + 3 CRISIS + 3 EMERGENCY).
 #
-# WEALTH rule: at least one hh_wealth_* question must be present
-#              (covers hh_wealth_toilet, hh_wealth_water, hh_wealth_light, etc.)
+# WEALTH rule: at least one wealth question must be present
+#              (hh_wealth_* OR optional variant o_hh_wealth_*)
+#              Examples: hh_wealth_toilet / o_hh_wealth_toilet
 #              More than one is fine.
 
 min_count_sets:
@@ -43,7 +44,7 @@ min_count_sets:
   WEALTH:
     prefix: hh_wealth_
     min_count: 1
-    description: "At least 1 hh_wealth_* question required (toilet / water / light)"
+    description: "At least 1 wealth question required (hh_wealth_* or o_hh_wealth_*)"
 
 
   CS_stress:

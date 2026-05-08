@@ -1,0 +1,38 @@
+﻿[
+    {
+        "case":  "COD_R9_vs_R8",
+        "exit_code":  0,
+        "report":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_post_tuning_20260508_120047\\geopoll_output\\report_geopoll_en_COD_R1_20260508.xlsx",
+        "log":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_post_tuning_20260508_120047\\run_COD_R9_vs_R8.log"
+    },
+    {
+        "case":  "COD_R9_vs_template",
+        "exit_code":  0,
+        "report":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_post_tuning_20260508_120047\\geopoll_output\\report_geopoll_en_COD_R1_20260508.xlsx",
+        "log":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_post_tuning_20260508_120047\\run_COD_R9_vs_template.log"
+    },
+    {
+        "case":  "YEM_R29_vs_R28",
+        "exit_code":  0,
+        "report":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_post_tuning_20260508_120047\\geopoll_output\\report_geopoll_ar_YEM_R1_20260508.xlsx",
+        "log":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_post_tuning_20260508_120047\\run_YEM_R29_vs_R28.log"
+    },
+    {
+        "case":  "YEM_R30_vs_R29",
+        "exit_code":  0,
+        "report":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_post_tuning_20260508_120047\\geopoll_output\\report_geopoll_ar_YEM_R1_20260508.xlsx",
+        "log":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_post_tuning_20260508_120047\\run_YEM_R30_vs_R29.log"
+    },
+    {
+        "case":  "YEM_R30_vs_R28",
+        "exit_code":  0,
+        "report":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_post_tuning_20260508_120047\\geopoll_output\\report_geopoll_ar_YEM_R1_20260508.xlsx",
+        "log":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_post_tuning_20260508_120047\\run_YEM_R30_vs_R28.log"
+    },
+    {
+        "case":  "YEM_R30_vs_template",
+        "exit_code":  0,
+        "report":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_post_tuning_20260508_120047\\geopoll_output\\report_geopoll_ar_YEM_R1_20260508.xlsx",
+        "log":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\geopoll_post_tuning_20260508_120047\\run_YEM_R30_vs_template.log"
+    }
+]

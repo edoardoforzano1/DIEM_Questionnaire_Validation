@@ -88,6 +88,9 @@ _STEP_TOTAL = 10
 # ======================================================================
 # --- CODE CELL 1 ---
 import re
+import shutil
+import tempfile
+import uuid
 import yaml
 import polars as pl
 import polars.selectors as cs
@@ -561,6 +564,15 @@ CORE_COLUMNS = [
 
 
 COLUMN_ALIASES: dict[str, list[str]] = {
+    "Q Name": [
+        "Q Name", "QName", "Qname", "Q name", "Q_Name", "Q-Name",
+    ],
+    "Q Type": [
+        "Q Type", "QType", "Q type", "Qtype", "Question Type", "Question type",
+    ],
+    "Mandatory": [
+        "Mandatory", "mandatory", "Mandatory ", "Required", "required",
+    ],
     "Skip Pattern": [
         "Skip Pattern", "Skip pattern", "Skip Pattern ",
     ],
@@ -598,6 +610,75 @@ def _resolve_column_by_aliases(columns: list[str], aliases: list[str]) -> str | 
     return None
 
 
+def _canonical_column_from_header(name: str) -> str | None:
+    n = _normalize_header_name(name)
+    for canonical, aliases in COLUMN_ALIASES.items():
+        alias_norm = {_normalize_header_name(canonical)} | {_normalize_header_name(a) for a in aliases}
+        if n in alias_norm:
+            return canonical
+    return None
+
+
+def _as_text_cell(value):
+    """
+    Preserve cell content while forcing a stable string/None shape.
+    This avoids Polars schema crashes on mixed typed columns (e.g. '#REF!' strings
+    appearing in otherwise numeric-looking columns).
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.strip()
+    return str(value).strip()
+
+
+def _load_workbook_readonly(path: Path, data_only: bool = True, read_only: bool = True):
+    """
+    Best-effort workbook loader:
+    1) normal open
+    2) if locked (PermissionError), try a temp copy and open the copy
+    """
+    p = Path(path)
+    try:
+        return openpyxl.load_workbook(p, data_only=data_only, read_only=read_only)
+    except PermissionError as e:
+        tmp_dir = Path(tempfile.gettempdir()) / "diem_qval_wb_cache"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        tmp_path = tmp_dir / f"{uuid.uuid4().hex}_{p.name}"
+        try:
+            shutil.copy2(p, tmp_path)
+            wb = openpyxl.load_workbook(tmp_path, data_only=data_only, read_only=read_only)
+            setattr(wb, "_temp_copy_path", str(tmp_path))
+            print(f"  Warning: workbook locked, reading temp copy: {p.name}")
+            return wb
+        except Exception as copy_err:
+            try:
+                if tmp_path.exists():
+                    tmp_path.unlink()
+            except Exception:
+                pass
+            raise PermissionError(
+                f"Cannot open workbook '{p}'. It may be locked by Excel/OneDrive sync. "
+                "Close the workbook (or disable Office co-authoring sync on this file) and retry."
+            ) from copy_err
+
+
+def _close_workbook(wb) -> None:
+    if wb is None:
+        return
+    tmp_copy = getattr(wb, "_temp_copy_path", "")
+    try:
+        wb.close()
+    finally:
+        if tmp_copy:
+            try:
+                tmp_path = Path(tmp_copy)
+                if tmp_path.exists():
+                    tmp_path.unlink()
+            except Exception:
+                pass
+
+
 def read_survey_sheet(path: Path, sheet_name: str = "survey", header_row: int = 3, _wb=None) -> pl.DataFrame:
     """
     Reads the survey sheet from an xlsx file into a Polars DataFrame.
@@ -613,7 +694,7 @@ def read_survey_sheet(path: Path, sheet_name: str = "survey", header_row: int = 
     the same file multiple times).
     """
     owns_wb = _wb is None
-    wb = _wb or openpyxl.load_workbook(path, data_only=True, read_only=True)
+    wb = _wb or _load_workbook_readonly(path, data_only=True, read_only=True)
     try:
         ws = next(
             (wb[n] for n in wb.sheetnames if n.strip().lower() == sheet_name.lower()),
@@ -624,9 +705,11 @@ def read_survey_sheet(path: Path, sheet_name: str = "survey", header_row: int = 
 
         row_iter = ws.iter_rows(values_only=True)
         for _ in range(header_row - 1):
-            next(row_iter)   # skip the two title rows
+            next(row_iter, None)   # skip title rows safely
 
-        raw_headers = next(row_iter)
+        raw_headers = next(row_iter, None)
+        if raw_headers is None:
+            raise ValueError(f"Header row {header_row} is missing in sheet '{sheet_name}' for file {path.name}")
         headers = [
             str(h).replace("\n", " ").strip() if h is not None else f"unnamed_{i}"
             for i, h in enumerate(raw_headers, 1)
@@ -639,23 +722,45 @@ def read_survey_sheet(path: Path, sheet_name: str = "survey", header_row: int = 
             if all(v is None for v in values):
                 excel_row += 1
                 continue
-            row_dict = {headers[i]: values[i] for i in range(len(headers))}
+            row_dict = {}
+            for i in range(len(headers)):
+                raw_val = values[i] if i < len(values) else None
+                row_dict[headers[i]] = _as_text_cell(raw_val)
             row_dict["excel_row"]   = excel_row
             row_dict["source_file"] = Path(path).name
             rows.append(row_dict)
             excel_row += 1
 
-        df = pl.DataFrame(rows)
-        
+        if rows:
+            df = pl.DataFrame(rows, infer_schema_length=None)
+        else:
+            schema = {h: pl.Utf8 for h in headers}
+            schema["excel_row"] = pl.Int64
+            schema["source_file"] = pl.Utf8
+            df = pl.DataFrame(schema=schema)
+
+        # Canonicalize known alias columns before any strict presence checks.
+        mapped_cols: list[tuple[str, str]] = []
+        for canonical, aliases in COLUMN_ALIASES.items():
+            if canonical in df.columns:
+                continue
+            matched = _resolve_column_by_aliases(df.columns, [canonical] + aliases)
+            if matched and matched != canonical:
+                df = df.with_columns(pl.col(matched).alias(canonical))
+                mapped_cols.append((matched, canonical))
+        if mapped_cols:
+            print(f"  Header aliases mapped in {path.name}: {mapped_cols}")
+
         if "Q Name" not in df.columns:
             raise KeyError(f"'Q Name' column not found after reading the sheet. Available columns: {df.columns}")
 
-        df = df.filter(pl.col("Q Name").is_not_null())
-   
-        return df.with_columns(pl.col("Q Name").cast(pl.Utf8).str.strip_chars())
+        return (
+            df.with_columns(pl.col("Q Name").cast(pl.Utf8).fill_null("").str.strip_chars().alias("Q Name"))
+            .filter(pl.col("Q Name") != "")
+        )
     finally:
         if owns_wb:
-            wb.close()
+            _close_workbook(wb)
 
 def build_questions_df(df: pl.DataFrame) -> pl.DataFrame:
     """
@@ -687,6 +792,12 @@ def build_questions_df(df: pl.DataFrame) -> pl.DataFrame:
             mapped_cols.append((matched, canonical))
     if mapped_cols:
         print(f"  Columns mapped: {mapped_cols}")
+
+    # Mandatory may be absent in some operational files; keep pipeline running
+    # by synthesizing a blank column so risk logic still applies deterministically.
+    if "Mandatory" not in df.columns:
+        df = df.with_columns(pl.lit("").alias("Mandatory"))
+        print("  Column synthesized: Mandatory (blank default)")
 
     missing = [
         c for c in CORE_COLUMNS
@@ -968,7 +1079,7 @@ def read_generic_sheet(path: Path, sheet_name: str, header_row: int, _wb=None) -
     Used for auxiliary sheets such as Crop list and Additional information.
     """
     owns_wb = _wb is None
-    wb = _wb or openpyxl.load_workbook(path, data_only=True, read_only=True)
+    wb = _wb or _load_workbook_readonly(path, data_only=True, read_only=True)
     try:
         ws = next((wb[n] for n in wb.sheetnames if n.strip().lower() == sheet_name.lower()), None)
         if ws is None:
@@ -976,9 +1087,11 @@ def read_generic_sheet(path: Path, sheet_name: str, header_row: int, _wb=None) -
 
         row_iter = ws.iter_rows(values_only=True)
         for _ in range(header_row - 1):
-            next(row_iter)
+            next(row_iter, None)
 
-        raw_headers = next(row_iter)
+        raw_headers = next(row_iter, None)
+        if raw_headers is None:
+            raise ValueError(f"Header row {header_row} is missing in sheet '{sheet_name}' for file {path.name}")
         headers = [
             _clean_header(h) if h is not None else f"unnamed_{i}"
             for i, h in enumerate(raw_headers, 1)
@@ -988,12 +1101,16 @@ def read_generic_sheet(path: Path, sheet_name: str, header_row: int, _wb=None) -
         for values in row_iter:
             if all(v is None for v in values):
                 continue
-            rows.append({headers[i]: values[i] for i in range(len(headers))})
+            row = {}
+            for i in range(len(headers)):
+                raw_val = values[i] if i < len(values) else None
+                row[headers[i]] = _as_text_cell(raw_val)
+            rows.append(row)
 
-        return pl.DataFrame(rows) if rows else pl.DataFrame(schema={h: pl.Utf8 for h in headers})
+        return pl.DataFrame(rows, infer_schema_length=None) if rows else pl.DataFrame(schema={h: pl.Utf8 for h in headers})
     finally:
         if owns_wb:
-            wb.close()
+            _close_workbook(wb)
 
 def read_additional_information(path: Path, _wb=None) -> pl.DataFrame:
     return read_generic_sheet(path, sheet_name="Additional information", header_row=2, _wb=_wb)
@@ -1561,7 +1678,7 @@ def rebuild_crop_questions_for_deployed_form(
 
 
 # --- CODE CELL 7 ---
-current_wb = openpyxl.load_workbook(run["questionnaire_path"], data_only=True, read_only=True)
+current_wb = _load_workbook_readonly(run["questionnaire_path"], data_only=True, read_only=True)
 current_raw = read_survey_sheet(run["questionnaire_path"], _wb=current_wb)
 reference_raw = read_survey_sheet(run["reference_path"])
 
@@ -1575,7 +1692,7 @@ except Exception:
     reference_crop_list = pl.DataFrame()
 current_text_replacements_by_language = build_additional_info_replacements_by_language(run["questionnaire_path"], _wb=current_wb)
 current_text_replacements = current_text_replacements_by_language.get(cfg.language, {}) or current_text_replacements_by_language.get("EN", {})
-current_wb.close()
+_close_workbook(current_wb)
 restore_log                = pl.DataFrame(schema={"Q Name": pl.Utf8, "field": pl.Utf8, "restored_value": pl.Utf8})
 template_questions_for_restore = reference_questions_raw
 
@@ -1893,6 +2010,39 @@ def _extract_qname_like(text: str, known_qnames: set[str]) -> list[str]:
             if t in known_qnames or "_" in t]
 
 
+def _extract_codes_from_numeric_spec(
+    spec: str,
+    max_range_span: int = 200,
+    max_total_codes: int = 500,
+) -> set[int]:
+    """
+    Safely parse numeric code specs like "1-4, 7, 9 to 11".
+    Large ranges are truncated to endpoints to prevent memory blowups while still
+    preserving strong validation signal.
+    """
+    out: set[int] = set()
+    if not spec:
+        return out
+
+    for a, b in re.findall(r"\b(\d+)\s*(?:-|to)\s*(\d+)\b", spec, re.IGNORECASE):
+        lo, hi = sorted((int(a), int(b)))
+        span = hi - lo + 1
+        if span <= max_range_span and (len(out) + span) <= max_total_codes:
+            out.update(range(lo, hi + 1))
+        else:
+            out.add(lo)
+            out.add(hi)
+        if len(out) >= max_total_codes:
+            return out
+
+    clean = re.sub(r"\b\d+\s*(?:-|to)\s*\d+\b", " ", spec, flags=re.IGNORECASE)
+    for n in re.findall(r"\b\d+\b", clean):
+        out.add(int(n))
+        if len(out) >= max_total_codes:
+            break
+    return out
+
+
 def _extract_condition_codes(stmt: str) -> set[int]:
     """
     Extract option codes from a full Default-column rule statement by finding
@@ -1908,13 +2058,7 @@ def _extract_condition_codes(stmt: str) -> set[int]:
     if not match:
         return set()
     rng = match.group(1).strip()
-    codes: set[int] = set()
-    for a, b in re.findall(r'\b(\d+)\s*(?:-|to)\s*(\d+)\b', rng, re.IGNORECASE):
-        lo, hi = sorted((int(a), int(b)))
-        codes.update(range(lo, hi + 1))
-    clean = re.sub(r'\b\d+\s*(?:-|to)\s*\d+\b', ' ', rng, flags=re.IGNORECASE)
-    codes.update(int(n) for n in re.findall(r'\b\d+\b', clean))
-    return codes
+    return _extract_codes_from_numeric_spec(rng)
 
 def _extract_skip_codes_for_target(skip_text: str, target: str) -> set[int]:
     """
@@ -1926,13 +2070,7 @@ def _extract_skip_codes_for_target(skip_text: str, target: str) -> set[int]:
       "if q = 1, go to a if q = 2-4, go to b"
     """
     def _codes_from_spec(spec: str) -> set[int]:
-        out: set[int] = set()
-        for a, b in re.findall(r'\b(\d+)\s*(?:-|to)\s*(\d+)\b', spec, re.IGNORECASE):
-            lo, hi = sorted((int(a), int(b)))
-            out.update(range(lo, hi + 1))
-        clean = re.sub(r'\b\d+\s*(?:-|to)\s*\d+\b', ' ', spec, flags=re.IGNORECASE)
-        out.update(int(n) for n in re.findall(r'\b\d+\b', clean))
-        return out
+        return _extract_codes_from_numeric_spec(spec)
 
     compact_re = re.compile(
         r'(\d+(?:\s*(?:-|to)\s*\d+)?(?:\s*,\s*\d+(?:\s*(?:-|to)\s*\d+)?)*)\s*=\s*(\[[^\]]+\]|[A-Za-z_]\w*)',
@@ -2071,6 +2209,37 @@ def _semantic_skip_signature(skip_text: str, known_qnames: set[str]) -> tuple[se
 
     return sig, True
 
+
+def _skip_signatures_equivalent(sig_a: set[tuple], sig_b: set[tuple]) -> bool:
+    """
+    Semantic equivalence for skip signatures with permissive wildcard handling:
+    - same routing keys (target/flex/next) are required
+    - for a given key, empty code tuple () means "any response" and is treated as wildcard
+    """
+    def _group(sig: set[tuple]) -> dict[tuple, set[tuple]]:
+        out: dict[tuple, set[tuple]] = {}
+        for item in sig:
+            # item = (target, codes_tuple, is_flexible, is_next_question)
+            target, codes, is_flexible, is_next = item
+            key = (target, is_flexible, is_next)
+            out.setdefault(key, set()).add(tuple(codes))
+        return out
+
+    ga = _group(sig_a)
+    gb = _group(sig_b)
+    if set(ga.keys()) != set(gb.keys()):
+        return False
+
+    for key in ga.keys():
+        ca = ga[key]
+        cb = gb[key]
+        if () in ca or () in cb:
+            # one side says "any response" for this target route
+            continue
+        if ca != cb:
+            return False
+    return True
+
 def _check_skip_consistency(
     skip_text      : str,
     rules          : list[dict],
@@ -2148,6 +2317,16 @@ def _check_skip_consistency(
                     if q_mandatory_map.get(q) not in ("mandatory", "mandatory-panel")
                 ]
                 if not non_mand:
+                    mandatory_targets = sorted(
+                        q for q in skip_present
+                        if q_mandatory_map.get(q) in ("mandatory", "mandatory-panel")
+                    )
+                    if mandatory_targets:
+                        issues.append(
+                            "invalid qname category: "
+                            f"expected optional/non-mandatory target; got mandatory target(s) {mandatory_targets}"
+                        )
+                        continue
                     issues.append(
                         f"expected {targets} (or non-mandatory alternative) not found in skip pattern"
                     )
@@ -2193,12 +2372,10 @@ def validate_skip_patterns(
     reference_questions  : pl.DataFrame,
     current_options_en   : pl.DataFrame | None = None,
     reference_options_en : pl.DataFrame | None = None,
-    option_issue_qnames  : set[str] | None = None,
-    option_issue_reasons : dict[str, set[str]] | None = None,
     q_mandatory_map      : dict[str, str] | None = None,
 ) -> pl.DataFrame:
     """
-    Four-layer skip-pattern validation:
+    Three-layer skip-pattern validation:
 
     1. Template consistency check (mostly medium): current effective skip rule
        should align with template effective rule. Broken references remain high.
@@ -2212,8 +2389,8 @@ def validate_skip_patterns(
     2. Option code validity (high): numeric codes referenced in Skip Pattern
        must actually exist in the question's answer options.
 
-    3. Option drift risk (medium): a question that has skip logic also had its
-       option set changed, so skip ranges may need review.
+    3. Option code validity (high): numeric codes referenced in Skip Pattern
+       must actually exist in the question's answer options.
     """
     EMPTY_SCHEMA = {
         "issue_type": pl.Utf8, "set_name": pl.Utf8, "Q Name": pl.Utf8,
@@ -2240,8 +2417,6 @@ def validate_skip_patterns(
     ref_qnames  = set(reference_questions["Q Name"].to_list())
     known_qnames = curr_qnames | ref_qnames
     q_mandatory_map     = q_mandatory_map or {}
-    option_issue_qnames = option_issue_qnames or set()
-    option_issue_reasons = option_issue_reasons or {}
 
     # Option code lookup for validity check (layer 3)
     curr_opt_map: dict[str, set[int]] = {}
@@ -2267,7 +2442,6 @@ def validate_skip_patterns(
                   for i, q in enumerate(qname_list) if i + 1 < len(qname_list)}
 
     issues = []
-    seen_drift = set()
 
     for qname, cr in cur_rows.items():
         excel_row = cr.get("excel_row")
@@ -2286,6 +2460,48 @@ def validate_skip_patterns(
         # Reference/template effective rule: Specify > Skip Pattern > Default
         reference_effective = ref_spec_text if ref_spec_text else (ref_skip_text if ref_skip_text else ref_def_text)
 
+        # Current-file emptiness check:
+        # Flag when default exists but both Specify and Skip Pattern are empty.
+        if def_text and (not spec_text) and (not skip_text):
+            issues.append({
+                "issue_type": "skip_pattern_empty",
+                "set_name": "",
+                "Q Name": qname,
+                "field": SKIP_COL,
+                "current": "Specify + Skip Pattern are empty",
+                "reference": f"default present: {def_text[:200]}",
+                "severity": "high",
+                "excel_row": excel_row,
+            })
+
+        # Current-file semantic warning:
+        # If Specify is blank and both Skip Pattern + Default are present, flag only when
+        # Skip Pattern is semantically inconsistent with the current Default rule.
+        if (not spec_text) and skip_text and def_text:
+            _def_rules = _parse_default_skip_rules(def_text, known_qnames)
+            _default_consistency_issues = []
+            if _def_rules:
+                _default_consistency_issues = _check_skip_consistency(
+                    skip_text,
+                    _def_rules,
+                    q_mandatory_map,
+                    curr_qnames,
+                    known_qnames,
+                    qname,
+                    qname_next.get(qname),
+                )
+            if _default_consistency_issues:
+                issues.append({
+                    "issue_type": "default_skip_modified",
+                    "set_name": "",
+                    "Q Name": qname,
+                    "field": SKIP_COL,
+                    "current": skip_text[:220],
+                    "reference": f"default: {def_text[:200]}",
+                    "severity": "info",
+                    "excel_row": excel_row,
+                })
+
         # Layer 1: Current effective rule must align with template effective rule.
         if reference_effective and current_effective:
             rules = _parse_default_skip_rules(reference_effective, known_qnames)
@@ -2300,14 +2516,25 @@ def validate_skip_patterns(
             ):
                 is_range = desc.startswith("option range mismatch")
                 is_broken_target = desc.startswith("target question(s) not found in current questionnaire")
+                is_invalid_category = desc.startswith("invalid qname category")
                 is_empty = desc.startswith("skip pattern is empty")
-                severity = "high" if (is_broken_target or is_empty) else "medium"
+                severity = "high" if (is_broken_target or is_invalid_category or is_empty) else "info"
+                if is_broken_target:
+                    issue_type = "skipPattern_invalid_qname"
+                elif is_invalid_category:
+                    issue_type = "skipPattern_invalid_qnameCategory"
+                elif is_range:
+                    issue_type = "skipPattern_range_mismatch"
+                elif is_empty:
+                    issue_type = "skip_pattern_empty"
+                else:
+                    issue_type = "skipPattern_changes"
                 issues.append({
-                    "issue_type": "skip_range_mismatch" if is_range else "skip_consistency_error",
+                    "issue_type": issue_type,
                     "set_name": "",
                     "Q Name": qname, "field": SKIP_COL,
                     "current": current_effective[:220], "reference": reference_effective[:220],
-                    "severity": "medium" if is_range else severity,
+                    "severity": severity,
                     "excel_row": excel_row,
                 })
 
@@ -2321,31 +2548,15 @@ def validate_skip_patterns(
                 invalid = sorted(c for c in mentioned if c not in available)
                 if invalid:
                     issues.append({
-                        "issue_type": "skip_pattern_invalid_option_code", "set_name": "",
+                        "issue_type": "skipPattern_range_invalid", "set_name": "",
                         "Q Name": qname, "field": SKIP_COL,
                         "current": f"invalid option code(s): {invalid}",
                         "reference": f"valid codes: {sorted(available)}",
                         "severity": "high", "excel_row": excel_row,
                     })
 
-        # Layer 4: Option drift risk
-        if current_effective and qname in option_issue_qnames:
-            key = (qname, SKIP_COL)
-            if key not in seen_drift:
-                seen_drift.add(key)
-                _reasons = sorted(option_issue_reasons.get(qname, set()))
-                _trigger_txt = (
-                    f"Option drift triggers: {'; '.join(_reasons)}"
-                    if _reasons else
-                    "Option drift trigger detected; see Option Changes for this Q Name"
-                )
-                issues.append({
-                    "issue_type": "potential_skip_pattern_option_drift", "set_name": "",
-                    "Q Name": qname, "field": SKIP_COL,
-                    "current": _trigger_txt,
-                    "reference": "",
-                    "severity": "medium", "excel_row": excel_row,
-                })
+        # Speculative drift warnings are intentionally not emitted.
+        # Option changes are already surfaced in Option Changes and should be reviewed there.
 
     if not issues:
         return pl.DataFrame(schema=EMPTY_SCHEMA)
@@ -2682,6 +2893,41 @@ def compare_mandatory(
             "Mandatory": pl.Utf8, "Mandatory_ref": pl.Utf8, "excel_row": pl.Int64,
         })
 
+    curr_non_blank = (
+        current_questions
+        .select(pl.col("Mandatory").cast(pl.Utf8).fill_null("").str.strip_chars().alias("_m"))
+        .filter(pl.col("_m") != "")
+        .height
+    )
+    ref_non_blank = (
+        reference_questions
+        .select(pl.col("Mandatory").cast(pl.Utf8).fill_null("").str.strip_chars().alias("_m"))
+        .filter(pl.col("_m") != "")
+        .height
+    )
+
+    # If one side has no usable mandatory values at all, row-by-row mismatch output
+    # becomes noisy and low-signal. Emit one structural issue instead.
+    if curr_non_blank == 0 and ref_non_blank == 0:
+        return pl.DataFrame(schema={
+            "issue_type": pl.Utf8, "Q Name": pl.Utf8, "field": pl.Utf8,
+            "Mandatory": pl.Utf8, "Mandatory_ref": pl.Utf8, "excel_row": pl.Int64,
+        })
+    if curr_non_blank == 0 or ref_non_blank == 0:
+        return pl.DataFrame([
+            {
+                "issue_type": "mandatory_source_missing",
+                "Q Name": "",
+                "field": "Mandatory",
+                "Mandatory": f"non_blank_values={curr_non_blank}",
+                "Mandatory_ref": f"non_blank_values={ref_non_blank}",
+                "excel_row": None,
+            }
+        ], schema={
+            "issue_type": pl.Utf8, "Q Name": pl.Utf8, "field": pl.Utf8,
+            "Mandatory": pl.Utf8, "Mandatory_ref": pl.Utf8, "excel_row": pl.Int64,
+        })
+
     joined = (
         current_questions.select(["Q Name", "Mandatory", "excel_row"])
         .join(reference_questions.select(["Q Name", "Mandatory"]), on="Q Name", how="inner", suffix="_ref")
@@ -2746,21 +2992,51 @@ def _qtype_mode(value: str) -> str:
     return "non_option"
 
 
-def _qtype_change_severity(curr_mode: str, ref_mode: str, mandatory_cat: str) -> str:
-    high_mand = str(mandatory_cat or "") in {"mandatory", "mandatory-panel"}
-    modes = {str(curr_mode or ""), str(ref_mode or "")}
+def _qtype_change_severity(
+    curr_mode: str,
+    ref_mode: str,
+    curr_option_count: int,
+    ref_option_count: int,
+) -> str:
+    """
+    Severity policy:
+    - HIGH for incompatible/invalid transitions (including non-mandatory questions)
+    - MEDIUM for valid type changes
+    """
+    cm = str(curr_mode or "")
+    rm = str(ref_mode or "")
+    modes = {cm, rm}
+
+    # Incompatible family change: single <-> multi.
     if "single_select" in modes and "multi_select" in modes:
-        return "high" if high_mand else "medium"
+        return "high"
+
+    # Incompatible option-bearing <-> non-option mode.
     if "non_option" in modes and (("single_select" in modes) or ("multi_select" in modes) or ("option_bearing" in modes)):
         return "high"
-    if curr_mode != ref_mode:
-        return "high" if high_mand else "medium"
-    return "high" if high_mand else "medium"
+
+    # Invalid option-count correctness checks:
+    # option-bearing/select questions should normally have at least 2 options.
+    curr_option_like = cm in {"single_select", "multi_select", "option_bearing"}
+    ref_option_like = rm in {"single_select", "multi_select", "option_bearing"}
+    if curr_option_like and int(curr_option_count or 0) <= 1:
+        return "high"
+    if ref_option_like and int(ref_option_count or 0) <= 1:
+        return "high"
+    if (cm == "non_option") and int(curr_option_count or 0) > 0:
+        return "high"
+    if (rm == "non_option") and int(ref_option_count or 0) > 0:
+        return "high"
+
+    # Changed but compatible/valid.
+    return "medium"
 
 
 def compare_qtype_changes(
     current_questions: pl.DataFrame,
     reference_questions: pl.DataFrame,
+    current_options_en: pl.DataFrame | None = None,
+    reference_options_en: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     """
     Risk-based Q Type comparison:
@@ -2774,6 +3050,25 @@ def compare_qtype_changes(
     }
     if "Q Type" not in current_questions.columns or "Q Type" not in reference_questions.columns:
         return pl.DataFrame(schema=EMPTY)
+
+    # Option counts per Q Name (English options baseline).
+    if current_options_en is not None and current_options_en.height > 0:
+        _cur_opt_counts = (
+            current_options_en
+            .group_by("Q Name")
+            .agg(pl.len().alias("_curr_opt_n"))
+        )
+    else:
+        _cur_opt_counts = pl.DataFrame(schema={"Q Name": pl.Utf8, "_curr_opt_n": pl.Int64})
+
+    if reference_options_en is not None and reference_options_en.height > 0:
+        _ref_opt_counts = (
+            reference_options_en
+            .group_by("Q Name")
+            .agg(pl.len().alias("_ref_opt_n"))
+        )
+    else:
+        _ref_opt_counts = pl.DataFrame(schema={"Q Name": pl.Utf8, "_ref_opt_n": pl.Int64})
 
     joined = (
         current_questions
@@ -2792,16 +3087,22 @@ def compare_qtype_changes(
             pl.col("Q Type_ref").map_elements(_normalize_qtype_value, return_dtype=pl.Utf8).alias("_type_norm_ref"),
             pl.col("Q Type").map_elements(_qtype_mode, return_dtype=pl.Utf8).alias("_type_mode"),
             pl.col("Q Type_ref").map_elements(_qtype_mode, return_dtype=pl.Utf8).alias("_type_mode_ref"),
-            _mandatory_cat_expr("Q Name", "_mand_base").alias("_mandatory_cat"),
+        ])
+        .join(_cur_opt_counts, on="Q Name", how="left")
+        .join(_ref_opt_counts, on="Q Name", how="left")
+        .with_columns([
+            pl.col("_curr_opt_n").fill_null(0).cast(pl.Int64),
+            pl.col("_ref_opt_n").fill_null(0).cast(pl.Int64),
         ])
         .filter(pl.col("_type_norm") != pl.col("_type_norm_ref"))
         .with_columns(
-            pl.struct(["_type_mode", "_type_mode_ref", "_mandatory_cat"])
+            pl.struct(["_type_mode", "_type_mode_ref", "_curr_opt_n", "_ref_opt_n"])
             .map_elements(
                 lambda r: _qtype_change_severity(
                     r.get("_type_mode"),
                     r.get("_type_mode_ref"),
-                    r.get("_mandatory_cat"),
+                    r.get("_curr_opt_n"),
+                    r.get("_ref_opt_n"),
                 ),
                 return_dtype=pl.Utf8,
             )
@@ -2972,12 +3273,13 @@ def build_question_changes_view(
             en_label_diff
             .with_columns([
                 pl.lit("").alias("set_name"),
+                pl.lit("EN").alias("lang_scope"),
                 pl.col("current").cast(pl.Utf8).fill_null("").alias("current"),
                 pl.col("reference").cast(pl.Utf8).fill_null("").alias("reference"),
                 pl.col("severity").cast(pl.Utf8).fill_null("info").alias("severity"),
                 pl.col("excel_row").cast(pl.Int64).alias("excel_row"),
             ])
-            .select(["issue_type", "set_name", "Q Name", "field", "current", "reference", "severity", "excel_row"])
+            .select(["issue_type", "set_name", "Q Name", "field", "lang_scope", "current", "reference", "severity", "excel_row"])
         )
 
         core_view = (
@@ -2985,12 +3287,13 @@ def build_question_changes_view(
             .with_columns([
                 pl.col("set_name").cast(pl.Utf8).fill_null("").alias("set_name"),
                 pl.col("field").cast(pl.Utf8).fill_null("").alias("field"),
+                pl.lit("N/A").alias("lang_scope"),
                 pl.col("current").cast(pl.Utf8).fill_null("").alias("current"),
                 pl.col("reference").cast(pl.Utf8).fill_null("").alias("reference"),
                 pl.col("severity").cast(pl.Utf8).fill_null("info").alias("severity"),
                 pl.col("excel_row").cast(pl.Int64),
             ])
-            .select(["issue_type", "set_name", "Q Name", "field", "current", "reference", "severity", "excel_row"])
+            .select(["issue_type", "set_name", "Q Name", "field", "lang_scope", "current", "reference", "severity", "excel_row"])
         )
         return pl.concat([core_view, label_view], how="vertical")
 
@@ -3033,9 +3336,26 @@ def build_question_changes_view(
             .when(pl.col("severity_en") == "medium").then(pl.lit("medium"))
             .otherwise(pl.lit("info")).alias("severity"),
             pl.coalesce([pl.col("excel_row_tgt"), pl.col("excel_row_en")]).alias("excel_row"),
+            pl.when(
+                ((pl.col("current_en").cast(pl.Utf8).fill_null("").str.strip_chars() != "")
+                 | (pl.col("reference_en").cast(pl.Utf8).fill_null("").str.strip_chars() != ""))
+                &
+                ((pl.col("current_tgt").cast(pl.Utf8).fill_null("").str.strip_chars() != "")
+                 | (pl.col("reference_tgt").cast(pl.Utf8).fill_null("").str.strip_chars() != ""))
+            ).then(pl.lit(f"EN+{target_lang}"))
+            .when(
+                (pl.col("current_en").cast(pl.Utf8).fill_null("").str.strip_chars() != "")
+                | (pl.col("reference_en").cast(pl.Utf8).fill_null("").str.strip_chars() != "")
+            ).then(pl.lit("EN"))
+            .when(
+                (pl.col("current_tgt").cast(pl.Utf8).fill_null("").str.strip_chars() != "")
+                | (pl.col("reference_tgt").cast(pl.Utf8).fill_null("").str.strip_chars() != "")
+            ).then(pl.lit(target_lang))
+            .otherwise(pl.lit(target_lang))
+            .alias("lang_scope"),
         ])
         .select([
-            "issue_type", "set_name", "Q Name", "field", "current", "reference",
+            "issue_type", "set_name", "Q Name", "field", "lang_scope", "current", "reference",
             "current_lang", "reference_lang", "severity", "excel_row",
         ])
     )
@@ -3045,6 +3365,7 @@ def build_question_changes_view(
         .with_columns([
             pl.col("set_name").cast(pl.Utf8).fill_null("").alias("set_name"),
             pl.col("field").cast(pl.Utf8).fill_null("").alias("field"),
+            pl.lit("N/A").alias("lang_scope"),
             pl.col("current").cast(pl.Utf8).fill_null("").alias("current"),
             pl.col("reference").cast(pl.Utf8).fill_null("").alias("reference"),
             pl.lit("").alias("current_lang"),
@@ -3053,7 +3374,7 @@ def build_question_changes_view(
             pl.col("excel_row").cast(pl.Int64),
         ])
         .select([
-            "issue_type", "set_name", "Q Name", "field", "current", "reference",
+            "issue_type", "set_name", "Q Name", "field", "lang_scope", "current", "reference",
             "current_lang", "reference_lang", "severity", "excel_row",
         ])
     )
@@ -3432,34 +3753,31 @@ def validate_critical_sets(
         )
 
     present_qnames = set(questions_df["Q Name"].to_list())
+
+    def _wealth_optional_variant(q_name: str) -> str:
+        q = str(q_name or "").strip()
+        if q.startswith("hh_wealth_"):
+            return "o_hh_wealth_" + q[len("hh_wealth_"):]
+        return ""
+
     issues = []
 
     for set_name, rules in exact_sets.items():
         required_names   = [r["q_name"] for r in rules if r.get("required", True)]
-        present_in_set   = [r["q_name"] for r in rules if r["q_name"] in present_qnames]
-        present_required = [q for q in required_names if q in present_qnames]
-
-        if 0 < len(present_required) < len(required_names):
-            issues.append({
-                "issue_type": "partial_critical_set",
-                "set_name"  : set_name, "Q Name": "",
-                "field"     : "Q Name",
-                "current"   : ", ".join(sorted(present_in_set)),
-                "reference" : f"Expected all {len(required_names)} required questions",
-                "severity"  : "high", "excel_row": None,
-            })
 
         for rule in rules:
             q_name   = rule["q_name"]
             expected = rule.get("expected_mandatory", "")
             required = rule.get("required", True)
+            alt_q_name = _wealth_optional_variant(q_name)
+            matched_q_name = q_name if q_name in present_qnames else (alt_q_name if alt_q_name in present_qnames else "")
 
-            if q_name not in present_qnames:
+            if not matched_q_name:
                 issues.append({
                     "issue_type": "missing_critical_question" if required else "advisory_question",
                     "set_name"  : set_name, "Q Name": q_name,
                     "field"     : "Q Name", "current": "",
-                    "reference" : "present",
+                    "reference" : (f"present (or optional variant: {alt_q_name})" if alt_q_name else "present"),
                     "severity"  : "high" if required else "medium",
                     "excel_row" : None,
                 })
@@ -3468,9 +3786,14 @@ def validate_critical_sets(
             if not expected:
                 continue
 
+            # If a wealth optional variant is accepted as substitute, treat it as pass
+            # and avoid forcing mandatory parity on the alternate form.
+            if matched_q_name != q_name:
+                continue
+
             row = (
                 questions_df
-                .filter(pl.col("Q Name") == q_name)
+                .filter(pl.col("Q Name") == matched_q_name)
                 .select(["Q Name", "Mandatory", "Mandatory_norm", "excel_row"])
                 .to_dicts()
             )
@@ -3514,11 +3837,15 @@ def validate_prefix_counts(
         prefix    = rule.get("prefix", "")
         min_count = rule.get("min_count", 1)
         desc      = rule.get("description", f"At least {min_count} '{prefix}*' questions required")
-        matched   = sorted(q for q in all_qnames if q.startswith(prefix))
+        prefix_alt = "o_hh_wealth_" if str(prefix) == "hh_wealth_" or str(set_name).upper() == "WEALTH" else ""
+        matched = sorted(
+            q for q in all_qnames
+            if (prefix and q.startswith(prefix)) or (prefix_alt and q.startswith(prefix_alt))
+        )
         if len(matched) < min_count:
             found_str = f"{len(matched)} found" + (f": {', '.join(matched)}" if matched else " (none)")
             issues.append({
-                "issue_type": "below_minimum_count", "set_name": set_name, "Q Name": "",
+                "issue_type": "missing_critical_question", "set_name": set_name, "Q Name": "",
                 "field": "count", "current": found_str, "reference": desc,
                 "severity": "high", "excel_row": None,
             })
@@ -3589,26 +3916,31 @@ mandatory_diff = compare_mandatory(
 )
 _tick("compare_mandatory")
 
-qtype_issues = compare_qtype_changes(current_questions, reference_questions)
+qtype_issues = compare_qtype_changes(
+    current_questions,
+    reference_questions,
+    current_options_en=current_options_en,
+    reference_options_en=reference_options_en,
+)
 randomize_issues = compare_legacy_text_field_changes(
     current_questions, reference_questions,
     column_name="Randomize", issue_type="randomize_changed",
-    default_severity="medium", high_when_mandatory=False,
+    default_severity="info", high_when_mandatory=False,
 )
 conditional_issues = compare_legacy_text_field_changes(
     current_questions, reference_questions,
     column_name="Conditional", issue_type="conditional_changed",
-    default_severity="medium", high_when_mandatory=True,
+    default_severity="info", high_when_mandatory=False,
 )
 programming_issues = compare_legacy_text_field_changes(
     current_questions, reference_questions,
     column_name="Programming Instructions", issue_type="programming_instructions_changed",
-    default_severity="medium", high_when_mandatory=False,
+    default_severity="info", high_when_mandatory=False,
 )
 core_only_issues = compare_legacy_text_field_changes(
     current_questions, reference_questions,
     column_name="Core questions only", issue_type="core_questions_only_changed",
-    default_severity="medium", high_when_mandatory=False,
+    default_severity="info", high_when_mandatory=False,
 )
 print(
     f"QType: {qtype_issues.height}  Randomize: {randomize_issues.height}  "
@@ -3743,62 +4075,8 @@ _tick("compare Codes column")
 critical_issues = validate_critical_sets(current_questions, rules["exact_sets"])
 count_issues = validate_prefix_counts(current_questions, rules["min_count_sets"])
 harvest_issues = validate_crop_harvest(current_questions, rules["crop_harvest"])
+
 _tick("critical/count/harvest checks")
-
-skip_option_issue_qnames = (
-    set(en_option_diff["Q Name"].to_list())
-    | set(en_added_opts["Q Name"].to_list())
-    | set(en_removed_opts["Q Name"].to_list())
-    | set(en_code_renumber["Q Name"].to_list())
-    | set(codes_token_diff["Q Name"].to_list())
-    | set(codes_added["Q Name"].to_list())
-    | set(codes_removed["Q Name"].to_list())
-    | set(codes_renumber["Q Name"].to_list())
-)
-
-skip_option_issue_reasons: dict[str, set[str]] = {}
-def _add_issue_reason(_df: pl.DataFrame, _reason: str) -> None:
-    if _df is None or _df.height == 0 or "Q Name" not in _df.columns:
-        return
-    for _q in _df["Q Name"].drop_nulls().to_list():
-        _q = str(_q).strip()
-        if not _q:
-            continue
-        skip_option_issue_reasons.setdefault(_q, set()).add(_reason)
-
-_add_issue_reason(en_option_diff, "option label mismatch")
-_add_issue_reason(en_added_opts, "option added")
-_add_issue_reason(en_removed_opts, "option removed")
-_add_issue_reason(en_code_renumber, "option position/code renumbered")
-_add_issue_reason(codes_token_diff, "Codes token changed")
-_add_issue_reason(codes_added, "Codes entry added")
-_add_issue_reason(codes_removed, "Codes entry removed")
-_add_issue_reason(codes_renumber, "Codes numbering changed")
-
-if target_lang != "EN":
-    skip_option_issue_qnames |= (
-        set(tgt_option_diff["Q Name"].to_list())
-        | set(tgt_added_opts["Q Name"].to_list())
-        | set(tgt_removed_opts["Q Name"].to_list())
-        | set(tgt_code_renumber["Q Name"].to_list())
-    )
-    _add_issue_reason(tgt_option_diff, f"option label mismatch ({target_lang})")
-    _add_issue_reason(tgt_added_opts, f"option added ({target_lang})")
-    _add_issue_reason(tgt_removed_opts, f"option removed ({target_lang})")
-    _add_issue_reason(tgt_code_renumber, f"option position/code renumbered ({target_lang})")
-
-# Keep option-drift risk focused on shared questions only.
-# Added/removed questions are already reported in structure checks.
-shared_qnames_for_drift = (
-    set(current_questions["Q Name"].to_list())
-    & set(reference_questions["Q Name"].to_list())
-)
-skip_option_issue_qnames &= shared_qnames_for_drift
-skip_option_issue_reasons = {
-    _q: _reasons
-    for _q, _reasons in skip_option_issue_reasons.items()
-    if _q in skip_option_issue_qnames
-}
 
 # Build mandatory map needed by validate_skip_patterns (layer 1 flexibility check)
 _q_mand_map: dict[str, str] = {}
@@ -3821,11 +4099,39 @@ skip_issues = validate_skip_patterns(
     reference_questions,
     current_options_en=current_options_en,
     reference_options_en=reference_options_en,
-    option_issue_qnames=skip_option_issue_qnames,
-    option_issue_reasons=skip_option_issue_reasons,
     q_mandatory_map=_q_mand_map,
 )
 _tick("validate_skip_patterns")
+
+# Reduce noisy duplication: when a high-severity broken skip issue exists for a Q,
+# suppress informational "change" rows for the same Q.
+if skip_issues.height > 0:
+    _high_skip_types = {
+        "skipPattern_invalid_qname",
+        "skipPattern_invalid_qnameCategory",
+        "skipPattern_range_invalid",
+        "skip_pattern_empty",
+    }
+    _info_skip_types = {
+        "skipPattern_changes",
+        "default_skip_modified",
+        "skipPattern_range_mismatch",
+    }
+    _high_q = set(
+        skip_issues
+        .filter((pl.col("severity") == "high") & pl.col("issue_type").is_in(list(_high_skip_types)))
+        .get_column("Q Name")
+        .drop_nulls()
+        .to_list()
+    )
+    if _high_q:
+        skip_issues = skip_issues.filter(
+            ~(
+                pl.col("Q Name").is_in(list(_high_q))
+                & pl.col("issue_type").is_in(list(_info_skip_types))
+                & (pl.col("severity") == "info")
+            )
+        )
 
 
 #  Convert to common schema
@@ -3887,17 +4193,6 @@ if _crop_placeholder_qnames:
     option_issues = option_issues.filter(~pl.col("Q Name").is_in(_crop_q))
     option_changes_view = option_changes_view.filter(~pl.col("Q Name").is_in(_crop_q))
 _tick("filter crop replacement option issues")
-
-# Align drift warnings with what is actually shown in Option Changes.
-_visible_option_qnames = set(option_issues["Q Name"].drop_nulls().to_list()) if option_issues.height > 0 else set()
-if _visible_option_qnames:
-    skip_issues = skip_issues.filter(
-        (pl.col("issue_type") != "potential_skip_pattern_option_drift")
-        | pl.col("Q Name").is_in(list(_visible_option_qnames))
-    )
-else:
-    skip_issues = skip_issues.filter(pl.col("issue_type") != "potential_skip_pattern_option_drift")
-_tick("align drift with option changes")
 
 #  Stack all issues
 all_issues = pl.concat(
@@ -4020,12 +4315,27 @@ _cur_qnames = current_questions["Q Name"].to_list()
 # Exact sets (for example HDDS)
 for _set_name, _set_rules in rules.get("exact_sets", {}).items():
     _expected = [str(r.get("q_name", "")).strip() for r in _set_rules]
-    _found_info[_set_name] = [q for q in _expected if q and q in _cur_qnames]
+    _matched = []
+    for q in _expected:
+        if not q:
+            continue
+        if q in _cur_qnames:
+            _matched.append(q)
+            continue
+        if q.startswith("hh_wealth_"):
+            _alt = "o_hh_wealth_" + q[len("hh_wealth_"):]
+            if _alt in _cur_qnames:
+                _matched.append(f"{q} (matched via {_alt})")
+    _found_info[_set_name] = _matched
 
 # Prefix-based sets (for example WEALTH / CS groups)
 for _set_name, _rule in rules.get("min_count_sets", {}).items():
     _prefix = str(_rule.get("prefix", "")).strip()
-    _matched = sorted(q for q in _cur_qnames if _prefix and q.startswith(_prefix))
+    _prefix_alt = "o_hh_wealth_" if _prefix == "hh_wealth_" or _set_name.upper() == "WEALTH" else ""
+    _matched = sorted(
+        q for q in _cur_qnames
+        if (_prefix and q.startswith(_prefix)) or (_prefix_alt and q.startswith(_prefix_alt))
+    )
     _found_info[_set_name] = _matched
 
 # Crop harvest set info
@@ -4101,18 +4411,37 @@ SEVERITY_FILL = {"high": FILL_HIGH, "medium": FILL_MEDIUM, "info": FILL_INFO}
 STATUS_FILL   = {"PASS": FILL_PASS, "FAIL": FILL_HIGH, "WARNING": FILL_MEDIUM, "WARN": FILL_MEDIUM}
 
 CRITICAL_SET_ISSUE_TYPES = {
-    "missing_critical_question", "advisory_question", "partial_critical_set",
-    "critical_mandatory_mismatch", "below_minimum_count", "crop_harvest_violation",
+    "missing_critical_question", "advisory_question",
+    "critical_mandatory_mismatch", "crop_harvest_violation",
 }
 
 SKIP_PATTERN_ISSUE_TYPES = {
-    "skip_consistency_error",
-    "skip_range_mismatch",
+    "skipPattern_changes",
+    "skipPattern_range_mismatch",
     "default_skip_modified",
-    "skip_pattern_invalid_option_code",
-    "potential_skip_pattern_option_drift",
+    "skipPattern_range_invalid",
+    "skipPattern_invalid_qname",
+    "skipPattern_invalid_qnameCategory",
+    "skip_pattern_empty",
 }
 QTYPE_ISSUE_TYPES = {"qtype_changed"}
+
+CORE_QUESTION_CHANGE_ISSUE_TYPES = {
+    "mandatory_source_missing",
+    "mandatory_column_mismatch",
+    "mandatory_to_optional",
+    "removed_question",
+    "added_question",
+    "qtype_changed",
+    "question_label_mismatch",
+}
+
+LESS_IMPORTANT_QUESTION_FIELD_ISSUE_TYPES = {
+    "conditional_changed",
+    "randomize_changed",
+    "programming_instructions_changed",
+    "core_questions_only_changed",
+}
 
 REPLACEMENT_ISSUE_TYPES = {
     "replacement_additional_info_missing",
@@ -4157,6 +4486,7 @@ ISSUE_ACTION_MAP = {
     "removed_question": "Restore missing question or document approved removal",
     "mandatory_to_optional": "Review mandatory status against reference",
     "mandatory_column_mismatch": "Review mandatory status against reference",
+    "mandatory_source_missing": "Mandatory values are unavailable in one file; verify source column completeness first",
     "qtype_changed": "Review Q Type change and questionnaire behavior impact",
     "question_label_mismatch": "Review question text mismatch",
     "randomize_changed": "Review randomization behavior change",
@@ -4171,16 +4501,16 @@ ISSUE_ACTION_MAP = {
     "codes_col_added": "Review added code token and routing",
     "codes_col_removed": "Review removed code token and routing",
     "codes_col_renumbered_same_token": "Verify code renumbering and skip references",
-    "skip_consistency_error": "Align Skip Pattern with effective rule",
-    "skip_range_mismatch": "Align Skip Pattern ranges with effective rule",
-    "default_skip_modified": "Review default skip wording/logic change",
-    "skip_pattern_invalid_option_code": "Fix invalid option codes referenced in Skip Pattern",
-    "potential_skip_pattern_option_drift": "Use Current value trigger(s), then review Option Changes for this Q Name and confirm skip ranges/targets",
-    "partial_critical_set": "Review set completeness and restore missing required members",
+    "skipPattern_changes": "Skip pattern changed versus reference (routing remains valid)",
+    "skipPattern_range_mismatch": "Skip pattern range differs from reference but remains valid",
+    "default_skip_modified": "Specify is blank and current Skip Pattern is inconsistent with current Default rule",
+    "skipPattern_range_invalid": "Fix invalid option codes/range referenced in Skip Pattern",
+    "skipPattern_invalid_qname": "Fix Skip Pattern target question name (target does not exist)",
+    "skipPattern_invalid_qnameCategory": "Fix Skip Pattern target category (must route to optional/non-mandatory target)",
+    "skip_pattern_empty": "Default skip rule exists but both Specify and Skip Pattern are empty",
     "missing_critical_question": "Add missing critical question",
     "advisory_question": "Review advisory question omission",
     "critical_mandatory_mismatch": "Align mandatory flag for critical question",
-    "below_minimum_count": "Add more questions for this monitored set",
     "crop_harvest_violation": "Fix crop_harvest sequence/order",
     "duplicate_qname": "Rename duplicate Q Name(s) to unique identifiers",
     "replacement_additional_info_missing": "Populate Additional information sheet with replacement keys/values",
@@ -4208,6 +4538,7 @@ def _issues_col_map():
         ("field",         "Field"),
         ("current",       "Current value"),
         ("reference",     "Reference / rule"),
+        ("lang_scope",    "Language scope"),
         ("current_lang",    f"Current value ({lang_label})"),
         ("reference_lang",  f"Reference / rule ({lang_label})"),
         ("current_en",    "Current value (EN)"),
@@ -4395,6 +4726,67 @@ def _cat_counts(df):
     return {cat: df.filter(pl.col("mandatory_cat") == cat).height for cat in cats}
 
 
+def _extract_round_token(name: str) -> str:
+    txt = str(name or "")
+    patterns = [
+        r"(?i)(?:^|[_\-\s])R(\d{1,3})(?=$|[_\-\s\.])",
+        r"(?i)(?:^|[_\-\s])ROUND[_\-\s]*(\d{1,3})(?=$|[_\-\s\.])",
+    ]
+    for pat in patterns:
+        m = re.search(pat, txt)
+        if m:
+            return f"R{m.group(1)}"
+    return ""
+
+
+def _extract_iso3_token(name: str) -> str:
+    txt = str(name or "").upper()
+    cfg_iso = str(getattr(globals().get("cfg", None), "iso3", "") or "").upper().strip()
+    if cfg_iso and re.search(rf"(?:^|[_\-\s]){re.escape(cfg_iso)}(?:$|[_\-\s])", txt):
+        return cfg_iso
+
+    # Handle common country-name tokens used in operational filenames.
+    if "DRC" in txt or "CONGO" in txt:
+        return "COD"
+    if "YEMEN" in txt:
+        return "YEM"
+    if "MYANMAR" in txt:
+        return "MMR"
+
+    # Fallback: pick the first 3-letter token that is not a known boilerplate tag.
+    banned = {
+        "FAO", "WFP", "CATI", "VHF", "VFG", "VFF", "VFA", "ISO", "HHQ",
+        "QNR", "EN", "AR", "FR", "ES", "PT",
+    }
+    tokens = re.findall(r"\b([A-Z]{3})\b", txt)
+    for tok in tokens:
+        if tok == "DRC":
+            return "COD"
+        if tok not in banned:
+            return tok
+    return ""
+
+
+def _reference_descriptor() -> str:
+    """
+    Human-readable reference descriptor for Summary header.
+    Example:
+      previous_round | COD R8 | GeoPoll_FAO_DRC_Round_8_CATI_V4_copy.xlsx
+      latest_template | EN template | household_questionnaire_geopoll_EN_template_20250708_ISO3.xlsx
+    """
+    _run = globals().get("run", {}) or {}
+    _cfg = globals().get("cfg", None)
+    mode = _reference_scope_label()
+    ref_name = Path(_run.get("reference_path", "")).name if _run.get("reference_path") else ""
+    lang = str(getattr(_cfg, "language", "") or "").upper()
+
+    if mode == "previous round":
+        iso = _extract_iso3_token(ref_name) or str(getattr(_cfg, "iso3", "") or "").upper()
+        rnd = _extract_round_token(ref_name) or "R?"
+        return f"{mode} | {iso} {rnd} | {ref_name}"
+    return f"{mode} | {lang} template | {ref_name}"
+
+
 #  Sheet 1: Summary 
 def write_summary_sheet(wb, all_issues, rules, replacement_status=None):
     ws = wb.create_sheet("Summary")
@@ -4412,8 +4804,26 @@ def write_summary_sheet(wb, all_issues, rules, replacement_status=None):
     ws["A2"] = f"Comparison basis: {_reference_scope_label()}"
     ws["A2"].font = Font(size=10, color="274E13", italic=True)
     ws["A2"].alignment = Alignment(horizontal="left", vertical="center")
+    ws.merge_cells("A3:G3")
+    _curr_name = Path((globals().get("run", {}) or {}).get("questionnaire_path", "")).name
+    _curr_iso = str(getattr(globals().get("cfg", None), "iso3", "") or "").upper()
+    _curr_round = _extract_round_token(_curr_name) or "R?"
+    ws["A3"] = f"Current questionnaire: {_curr_iso} {_curr_round} | {_curr_name}"
+    ws["A3"].font = Font(size=10, color="1F4E78", italic=True)
+    ws["A3"].alignment = Alignment(horizontal="left", vertical="center")
+    ws.merge_cells("A4:G4")
+    ws["A4"] = f"Checked against: {_reference_descriptor()}"
+    ws["A4"].font = Font(size=10, color="1F4E78", italic=True)
+    ws["A4"].alignment = Alignment(horizontal="left", vertical="center")
+    ws.merge_cells("A5:G5")
+    _cfg_lang = str(getattr(globals().get("cfg", None), "language", "") or "").upper()
+    _effective_lang = str(globals().get("target_lang", "") or "").upper()
+    _effective_src = str(globals().get("target_lang_source", "") or "").strip()
+    ws["A5"] = f"Language scope: EN baseline + {_effective_lang or _cfg_lang} (configured={_cfg_lang or 'N/A'}; source={_effective_src or 'config'})"
+    ws["A5"].font = Font(size=10, color="1F4E78", italic=True)
+    ws["A5"].alignment = Alignment(horizontal="left", vertical="center")
 
-    r = 3
+    r = 6
     #  Critical sets 
     _section_header(ws, r, "CRITICAL SETS STATUS", 7); r += 1
     _header_row(ws, r, ["Critical set", "Status", "Details", "", "", "", ""]); r += 1
@@ -4491,22 +4901,19 @@ def write_summary_sheet(wb, all_issues, rules, replacement_status=None):
             r += 1
 
     r += 1
-    #  Question changes (7 cols with mandatory breakdown)
-    _section_header(ws, r, "QUESTION CHANGES", 7); r += 1
+    #  Core question changes (high/medium focus)
+    _section_header(ws, r, "QUESTION CHANGES (CORE)", 7); r += 1
     _header_row(ws, r, ["Category", "Total", "Mandatory", "M-Panel", "Non-mand.", "Optional", "Severity"]); r += 1
     for label, itype, sev_filter, disp_sev in [
-        ("Mandatory flag changes",     "mandatory_column_mismatch", None,   "high"),
-        ("Mandatory to optional",      "mandatory_to_optional",     None,   "high"),
-        ("Questions removed (high)",   "removed_question",          "high", "high"),
-        ("Questions removed (info)",   "removed_question",          "info", "info"),
-        ("Questions added",            "added_question",            None,   "info"),
-        ("Q Type changed (high)",      "qtype_changed",             "high", "high"),
-        ("Q Type changed (medium)",    "qtype_changed",             "medium", "medium"),
-        ("Conditional changed",        "conditional_changed",       None,   "medium"),
-        ("Randomize changed",          "randomize_changed",         None,   "medium"),
-        ("Programming instructions changed", "programming_instructions_changed", None, "medium"),
-        ("Core questions-only changed", "core_questions_only_changed", None, "medium"),
-        ("Question labels changed",    "question_label_mismatch",   None,   "medium"),
+        ("Mandatory source unavailable", "mandatory_source_missing", None, "high"),
+        ("Mandatory flag changes",       "mandatory_column_mismatch", None, "high"),
+        ("Mandatory to optional",        "mandatory_to_optional", None, "high"),
+        ("Questions removed (high)",     "removed_question", "high", "high"),
+        ("Questions removed (info)",     "removed_question", "info", "info"),
+        ("Questions added",              "added_question", None, "info"),
+        ("Q Type changed (high)",        "qtype_changed", "high", "high"),
+        ("Q Type changed (medium)",      "qtype_changed", "medium", "medium"),
+        ("Question labels changed",      "question_label_mismatch", None, "medium"),
     ]:
         q = all_issues.filter(pl.col("issue_type") == itype)
         if sev_filter:
@@ -4524,6 +4931,32 @@ def write_summary_sheet(wb, all_issues, rules, replacement_status=None):
         else:
             ws.cell(row=r, column=7, value=disp_sev)
             _data_row(ws, r, 7, disp_sev)
+        r += 1
+
+    r += 1
+    #  Lower-priority control-field diffs
+    _section_header(ws, r, "QUESTION CHANGES (OPERATIONAL FIELDS)", 7); r += 1
+    _header_row(ws, r, ["Category", "Total", "Mandatory", "M-Panel", "Non-mand.", "Optional", "Severity"]); r += 1
+    for label, itype in [
+        ("Conditional changed", "conditional_changed"),
+        ("Randomize changed", "randomize_changed"),
+        ("Programming instructions changed", "programming_instructions_changed"),
+        ("Core questions-only changed", "core_questions_only_changed"),
+    ]:
+        q = all_issues.filter(pl.col("issue_type") == itype)
+        counts = _cat_counts(q)
+        ws.cell(row=r, column=1, value=label)
+        ws.cell(row=r, column=2, value=q.height)
+        ws.cell(row=r, column=3, value=counts["mandatory"])
+        ws.cell(row=r, column=4, value=counts["mandatory-panel"])
+        ws.cell(row=r, column=5, value=counts["non-mandatory"])
+        ws.cell(row=r, column=6, value=counts["optional"])
+        if q.height == 0:
+            ws.cell(row=r, column=7, value="none")
+            _data_row(ws, r, 7, fill=FILL_PASS)
+        else:
+            ws.cell(row=r, column=7, value="info")
+            _data_row(ws, r, 7, "info")
         r += 1
 
     r += 1
@@ -4649,31 +5082,55 @@ def write_critical_sets_sheet(wb, all_issues, found_info=None):
 #  Sheet 3: Question Changes 
 def write_question_changes_sheet(wb, question_changes_view):
     """
-    All question-level changes sorted highinfo. The 'Type' column shows
-    mandatory / mandatory-panel / non-mandatory / optional for each question.
-    The 'Field' column is omitted  it is implicit from the issue type.
+    Question-level changes split into:
+    1) core changes (presence/mandatory/type/label)
+    2) less-important informational control-field changes.
     """
     ws = wb.create_sheet("Question Changes")
     ws.sheet_view.showGridLines = False
 
-    df = question_changes_view
     df = (
-        df.with_columns(
-            pl.when(pl.col("severity") == "high"  ).then(pl.lit(0))
-            .when(  pl.col("severity") == "medium").then(pl.lit(1))
+        question_changes_view
+        .with_columns(
+            pl.when(pl.col("severity") == "high").then(pl.lit(0))
+            .when(pl.col("severity") == "medium").then(pl.lit(1))
             .otherwise(pl.lit(2))
             .alias("_s")
         )
         .sort(["_s", "issue_type", "Q Name"])
         .drop("_s")
     )
-    for col in ("set_name", "field"):
-        if col in df.columns:
-            df = df.drop(col)
+    if "set_name" in df.columns:
+        df = df.drop("set_name")
 
-    _section_header(ws, 1, "QUESTION CHANGES  Presence, mandatory, type and control-field changes", 10)
-    _issues_table(ws, 2, df)
-    _apply_inline_diff_for_issue(ws, 2, df, {"question_label_mismatch", "conditional_changed", "programming_instructions_changed", "core_questions_only_changed"})
+    core_df = df.filter(pl.col("issue_type").is_in(list(CORE_QUESTION_CHANGE_ISSUE_TYPES)))
+    less_df = df.filter(pl.col("issue_type").is_in(list(LESS_IMPORTANT_QUESTION_FIELD_ISSUE_TYPES)))
+    less_df = less_df.with_columns(pl.lit("info").alias("severity"))
+
+    _section_header(ws, 1, "QUESTION CHANGES (CORE)  Presence, mandatory, Q type, labels", 10)
+    next_row = _issues_table(ws, 2, core_df)
+    _apply_inline_diff_for_issue(
+        ws,
+        2,
+        core_df,
+        {"question_label_mismatch"},
+    )
+
+    _section_header(ws, next_row, "QUESTION CHANGES (OPERATIONAL FIELDS)", 10)
+    _issues_table(ws, next_row + 1, less_df)
+    _apply_inline_diff_for_issue(
+        ws,
+        next_row + 1,
+        less_df,
+        {"conditional_changed", "programming_instructions_changed", "core_questions_only_changed"},
+    )
+    # Keep navigation stable even with multiple tables in this sheet.
+    # Without resetting here, the second table can push freeze panes far down.
+    ws.freeze_panes = "A3"
+    _cols = [(s, d) for s, d in _issues_col_map() if s in df.columns]
+    if _cols:
+        _n = len(_cols)
+        ws.auto_filter.ref = f"A2:{get_column_letter(_n)}2"
     _autofit(ws)
 
 
@@ -4749,7 +5206,11 @@ def _sheet_header_map(ws, header_row: int = 3) -> dict[str, int]:
         value = ws.cell(row=header_row, column=col).value
         if value is None:
             continue
-        mapping[str(value).strip()] = col
+        header = str(value).strip()
+        mapping[header] = col
+        canonical = _canonical_column_from_header(header)
+        if canonical and canonical not in mapping:
+            mapping[canonical] = col
     return mapping
 
 

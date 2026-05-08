@@ -1,0 +1,23 @@
+timestamp: '2026-05-08T12:03:41'
+tool: geopoll
+active_config_file: C:\git\DIEM_Questionnaire_Validation\configuration\validation_config.yaml
+base_config_file: C:\git\DIEM_Questionnaire_Validation\configuration\validation_config.yaml
+config_profile: ''
+resolved_config:
+  templates_dir: C:\Users\edoar\WORK\FAO\repo\questionnaire_validation_revision\Questionnaires\Questionnaire
+    Templates
+  working_dir: C:\Users\edoar\OneDrive\Desktop\Test_for_validation\geopoll
+  questionnaire_file: validated_questionnaire_geopoll_ar_YEM_20250529101116_R29.xlsx
+  reference_mode: previous_round
+  language: AR
+  iso3: YEM
+  output_dir: C:\git\DIEM_Questionnaire_Validation\batch_output\geopoll_post_tuning_cases_20260508_120308
+  output_subfolder: geopoll_output
+  previous_round_file: validated_questionnaire_geopoll_ar_YEM_202503_for validation_R28.xlsx
+  critical_sets_file: C:\git\DIEM_Questionnaire_Validation\configuration\critical_sets.yaml
+resolved_run_paths:
+  questionnaire_path: C:\Users\edoar\OneDrive\Desktop\Test_for_validation\geopoll\validated_questionnaire_geopoll_ar_YEM_20250529101116_R29.xlsx
+  reference_path: C:\Users\edoar\OneDrive\Desktop\Test_for_validation\geopoll\validated_questionnaire_geopoll_ar_YEM_202503_for
+    validation_R28.xlsx
+  report_file: C:\git\DIEM_Questionnaire_Validation\batch_output\geopoll_post_tuning_cases_20260508_120308\geopoll_output\report_geopoll_ar_YEM_R203_20260508.xlsx
+  validated_questionnaire_file: C:\git\DIEM_Questionnaire_Validation\batch_output\geopoll_post_tuning_cases_20260508_120308\geopoll_output\validated_questionnaire_geopoll_ar_YEM_R203_20260508.xlsx

@@ -1656,37 +1656,37 @@ def validate_critical_sets(questions_df, exact_sets):
     )
 
     present_qnames = set(questions_df["Q Name"].to_list())
+
+    def _wealth_optional_variant(q_name: str) -> str:
+        q = str(q_name or "").strip()
+        if q.startswith("hh_wealth_"):
+            return "o_hh_wealth_" + q[len("hh_wealth_"):]
+        return ""
+
     issues = []
     for set_name, set_rules in exact_sets.items():
-        required_names   = [r["q_name"] for r in set_rules if r.get("required", True)]
-        present_in_set   = [r["q_name"] for r in set_rules if r["q_name"] in present_qnames]
-        present_required = [q for q in required_names if q in present_qnames]
-
-        if 0 < len(present_required) < len(required_names):
-            issues.append({
-                "issue_type": "partial_critical_set", "set_name": set_name, "Q Name": "",
-                "field": "Q Name",
-                "current"  : ", ".join(sorted(present_in_set)),
-                "reference": f"Expected all {len(required_names)} required questions",
-                "severity" : "high", "excel_row": None,
-            })
-
         for rule in set_rules:
             q_name   = rule["q_name"]
             expected = rule.get("expected_mandatory", "")
             required = rule.get("required", True)
-            if q_name not in present_qnames:
+            alt_q_name = _wealth_optional_variant(q_name)
+            matched_q_name = q_name if q_name in present_qnames else (alt_q_name if alt_q_name in present_qnames else "")
+            if not matched_q_name:
                 issues.append({
                     "issue_type": "missing_critical_question" if required else "advisory_question",
                     "set_name": set_name, "Q Name": q_name,
                     "field": "Q Name", "current": "",
-                    "reference": "present",
+                    "reference": (f"present (or optional variant: {alt_q_name})" if alt_q_name else "present"),
                     "severity": "high" if required else "medium", "excel_row": None,
                 })
                 continue
             if not expected:
                 continue
-            row = questions_df.filter(pl.col("Q Name") == q_name).select(
+            # If a wealth optional variant is accepted as substitute, treat it as pass
+            # and avoid forcing mandatory parity on the alternate form.
+            if matched_q_name != q_name:
+                continue
+            row = questions_df.filter(pl.col("Q Name") == matched_q_name).select(
                 ["Q Name", "Mandatory", "Mandatory_norm", "excel_row"]
             ).to_dicts()
             if not row:
@@ -1719,11 +1719,15 @@ def validate_prefix_counts(questions_df, min_count_sets):
         prefix    = rule.get("prefix", "")
         min_count = rule.get("min_count", 1)
         desc      = rule.get("description", f"At least {min_count} '{prefix}*' questions required")
-        matched   = sorted(q for q in all_qnames if q.startswith(prefix))
+        prefix_alt = "o_hh_wealth_" if str(prefix) == "hh_wealth_" or str(set_name).upper() == "WEALTH" else ""
+        matched = sorted(
+            q for q in all_qnames
+            if (prefix and q.startswith(prefix)) or (prefix_alt and q.startswith(prefix_alt))
+        )
         if len(matched) < min_count:
             found_str = f"{len(matched)} found" + (f": {', '.join(matched)}" if matched else " (none)")
             issues.append({
-                "issue_type": "below_minimum_count", "set_name": set_name, "Q Name": "",
+                "issue_type": "missing_critical_question", "set_name": set_name, "Q Name": "",
                 "field": "count", "current": found_str, "reference": desc,
                 "severity": "high", "excel_row": None,
             })
@@ -1943,6 +1947,52 @@ def make_option_presence_issues(added_opts, removed_opts):
     return pl.concat([added_i, removed_i], how="vertical")
 
 
+def collapse_cluster_ea_option_changes(
+    option_label_issues: pl.DataFrame,
+    option_presence_issues: pl.DataFrame,
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """
+    Suppress noisy per-option diffs for KoBo cluster/ea lists and replace them
+    with a single informational summary row.
+    """
+    issue_schema = {
+        "issue_type": pl.Utf8, "set_name": pl.Utf8, "Q Name": pl.Utf8,
+        "list_name": pl.Utf8, "option_name": pl.Utf8, "field": pl.Utf8,
+        "current": pl.Utf8, "reference": pl.Utf8, "severity": pl.Utf8,
+        "excel_row": pl.Int64,
+    }
+
+    q_expr = pl.col("Q Name").cast(pl.Utf8).fill_null("").str.strip_chars().str.to_lowercase()
+    list_expr = pl.col("list_name").cast(pl.Utf8).fill_null("").str.strip_chars().str.to_lowercase()
+    ea_cluster_mask = (q_expr == "cluster") & (list_expr == "ea")
+
+    modified_n = option_label_issues.filter(ea_cluster_mask).height if option_label_issues.height else 0
+    added_n = option_presence_issues.filter(ea_cluster_mask & (pl.col("issue_type") == "added_option")).height if option_presence_issues.height else 0
+    removed_n = option_presence_issues.filter(ea_cluster_mask & (pl.col("issue_type") == "removed_option")).height if option_presence_issues.height else 0
+
+    option_label_clean = option_label_issues.filter(~ea_cluster_mask) if option_label_issues.height else option_label_issues
+    option_presence_clean = option_presence_issues.filter(~ea_cluster_mask) if option_presence_issues.height else option_presence_issues
+
+    total = modified_n + added_n + removed_n
+    if total == 0:
+        return option_label_clean, option_presence_clean, pl.DataFrame(schema=issue_schema)
+
+    summary_row = pl.DataFrame([{
+        "issue_type": "cluster_ea_choice_changes_summary",
+        "set_name": "",
+        "Q Name": "cluster",
+        "list_name": "ea",
+        "option_name": "",
+        "field": "choices",
+        "current": f"added={added_n}; removed={removed_n}; modified={modified_n}",
+        "reference": "Detailed cluster/ea per-option differences suppressed (expected round-to-round rotation)",
+        "severity": "info",
+        "excel_row": None,
+    }], schema=issue_schema)
+
+    return option_label_clean, option_presence_clean, summary_row
+
+
 
 # ======================================================================
 # SECTION: ## Step 10 -- Run pipeline
@@ -2023,6 +2073,7 @@ print(f"Questionnaire structure issues: {structure_issues.height}")
 critical_issues = validate_critical_sets(current_cmp_q, rules.get("exact_sets", {}))
 count_issues    = validate_prefix_counts(current_cmp_q, rules.get("min_count_sets", {}))
 harvest_issues  = validate_crop_harvest(current_cmp_q, rules.get("crop_harvest", {}))
+
 print(f"Critical set issues: {critical_issues.height}  Count issues: {count_issues.height}")
 
 # -- Assemble all issues -------------------------------------------------------
@@ -2048,6 +2099,16 @@ if _cfg_excluded:
     option_label_issues = option_label_issues.filter(~_q_norm.is_in(list(_cfg_excluded)))
     option_pres_issues  = option_pres_issues.filter(~_q_norm.is_in(list(_cfg_excluded)))
 
+# Suppress noisy country-rotation diffs for cluster/ea and keep one info summary row.
+option_label_issues, option_pres_issues, cluster_ea_summary_issues = (
+    collapse_cluster_ea_option_changes(option_label_issues, option_pres_issues)
+)
+if cluster_ea_summary_issues.height > 0:
+    print(
+        "Cluster/ea option diffs collapsed: "
+        + str(cluster_ea_summary_issues.select("current").item())
+    )
+
 def _with_choice_cols(df: pl.DataFrame) -> pl.DataFrame:
     out = df
     if "list_name" not in out.columns:
@@ -2070,6 +2131,7 @@ all_issues = pl.concat(
      _with_choice_cols(hint_issues),
      _with_choice_cols(option_label_issues),
      _with_choice_cols(option_pres_issues),
+     _with_choice_cols(cluster_ea_summary_issues),
      _with_choice_cols(critical_issues),
      _with_choice_cols(count_issues),
      _with_choice_cols(harvest_issues),
@@ -2166,13 +2228,28 @@ _cur_qnames = current_cmp_q["Q Name"].to_list()
 
 # Exact sets: track which expected questions are present (used for summary fallback).
 for _set_name, _set_rules in rules.get("exact_sets", {}).items():
-    _expected = [r.get("q_name", "") for r in _set_rules]
-    _found_info[_set_name] = [q for q in _expected if q in _cur_qnames]
+    _expected = [str(r.get("q_name", "")).strip() for r in _set_rules]
+    _matched = []
+    for q in _expected:
+        if not q:
+            continue
+        if q in _cur_qnames:
+            _matched.append(q)
+            continue
+        if q.startswith("hh_wealth_"):
+            _alt = "o_hh_wealth_" + q[len("hh_wealth_"):]
+            if _alt in _cur_qnames:
+                _matched.append(f"{q} (matched via {_alt})")
+    _found_info[_set_name] = _matched
 
 # Prefix-count sets: keep matched names for display + count details.
 for _set_name, _rule in rules.get("min_count_sets", {}).items():
-    _prefix  = _rule.get("prefix", "")
-    _matched = sorted(q for q in _cur_qnames if q.startswith(_prefix))
+    _prefix  = str(_rule.get("prefix", "")).strip()
+    _prefix_alt = "o_hh_wealth_" if _prefix == "hh_wealth_" or _set_name.upper() == "WEALTH" else ""
+    _matched = sorted(
+        q for q in _cur_qnames
+        if (_prefix and q.startswith(_prefix)) or (_prefix_alt and q.startswith(_prefix_alt))
+    )
     _found_info[_set_name] = _matched
 
 print(f"\nTotal issues: {all_issues.height}  ({time.perf_counter()-_t0:.2f}s)")
@@ -2246,6 +2323,7 @@ _ISSUE_LABELS = {
     "removed_option"           : "Choice removed",
     "added_option"             : "Choice added",
     "option_label_mismatch"    : "Choice label changed",
+    "cluster_ea_choice_changes_summary": "Cluster/EA choice changes summary",
     "placeholder_not_found"    : "Placeholder not in template/additional info",
     "placeholder_should_use_kobo_ref": "Placeholder looks like variable (use ${var})",
     "kobo_ref_loose_syntax"    : "Loose $var syntax (use ${var})",
@@ -2298,6 +2376,7 @@ ISSUE_ACTION_MAP = {
     "removed_option": "Review removed choice and downstream logic",
     "added_option": "Review added choice and downstream logic",
     "option_label_mismatch": "Review choice label mismatch",
+    "cluster_ea_choice_changes_summary": "Informational only: review aggregate cluster/ea choice turnover counts",
     "broken_relevant_reference": "Fix relevant expression to valid referenced variables",
     "relevant_inexact_reference": "Review relevant expression equivalence with reference",
     "relevant_modified": "Review relevant expression change",
@@ -2309,9 +2388,7 @@ ISSUE_ACTION_MAP = {
     "kobo_ref_missing_variable": "Fix ${var} reference to an existing survey variable",
     "missing_critical_question": "Add missing critical question",
     "advisory_question": "Review advisory question omission",
-    "partial_critical_set": "Review critical set completeness",
     "critical_mandatory_mismatch": "Align mandatory flag for critical question",
-    "below_minimum_count": "Add more questions for this monitored set",
     "crop_harvest_violation": "Fix crop_harvest sequence/order",
 }
 
@@ -2456,8 +2533,8 @@ def _apply_inline_diff_for_issue(ws, start_row, df, cols, issue_types):
 
 
 CRITICAL_ISSUE_TYPES = {
-    "missing_critical_question", "advisory_question", "partial_critical_set",
-    "critical_mandatory_mismatch", "below_minimum_count", "crop_harvest_violation",
+    "missing_critical_question", "advisory_question",
+    "critical_mandatory_mismatch", "crop_harvest_violation",
 }
 RELEVANT_ISSUE_TYPES  = {"broken_relevant_reference", "relevant_inexact_reference", "relevant_modified"}
 STRUCTURE_ISSUE_TYPES = {
@@ -2588,8 +2665,7 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
         ws.cell(row=r, column=2).font = Font(bold=True, size=10,
                                               color="274E13" if passed else "CC0000")
 
-    _EXACT_FAIL_TYPES = ["missing_critical_question", "partial_critical_set",
-                          "critical_mandatory_mismatch"]
+    _EXACT_FAIL_TYPES = ["missing_critical_question", "critical_mandatory_mismatch"]
     for set_name, set_rules in _rules.get("exact_sets", {}).items():
         required_qs = [r.get("q_name", "") for r in set_rules if r.get("required", True)]
         advisory_qs = [r.get("q_name", "") for r in set_rules if not r.get("required", True)]
@@ -2714,7 +2790,7 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
     _sect(ws, r, "CHOICE CHANGES  (questions present in both files)", 4); r += 1
     r = _grouped_table(ws, r,
                        all_issues.filter(pl.col("issue_type").is_in(
-                           ["removed_option", "added_option", "option_label_mismatch"])))
+                           ["removed_option", "added_option", "option_label_mismatch", "cluster_ea_choice_changes_summary"])))
 
 
 def write_critical_sets_sheet(wb, all_issues, found_info=None):
@@ -2810,7 +2886,7 @@ def write_option_changes_sheet(wb, all_issues):
     ws = wb.create_sheet("Choice Changes")
     ws.sheet_view.showGridLines = False
     df = all_issues.filter(pl.col("issue_type").is_in([
-        "removed_option", "added_option", "option_label_mismatch",
+        "removed_option", "added_option", "option_label_mismatch", "cluster_ea_choice_changes_summary",
     ]))
     col_map = [c for c in COL_MAP if c[0] != "set_name"]
     _sect(ws, 1, "CHOICE CHANGES  Answer choices for questions in both files", 8)

@@ -1,4 +1,4 @@
-﻿:root > * {
+:root > * {
   --md-primary-fg-color: #009edb;
   --md-primary-fg-color--light: #33b1e2;
   --md-primary-fg-color--dark: #007eaf;
@@ -33,6 +33,8 @@
   border: 1px solid #b9ddf5;
 }
 
+/* ── Severity badge chips ───────────────────────────────────────────────── */
+
 .sev {
   display: inline-block;
   margin-left: 0.35rem;
@@ -42,27 +44,15 @@
   font-weight: 700;
   letter-spacing: 0.02em;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
-.sev-high {
-  background: #ff8a80;
-  color: #111111;
-}
+.sev-high   { background: #ff8a80; color: #111111; }
+.sev-medium { background: #ffb74d; color: #111111; }
+.sev-info   { background: #90caf9; color: #111111; }
+.sev-pass   { background: #81c784; color: #111111; }
 
-.sev-medium {
-  background: #ffb74d;
-  color: #111111;
-}
-
-.sev-info {
-  background: #90caf9;
-  color: #111111;
-}
-
-.sev-pass {
-  background: #81c784;
-  color: #111111;
-}
+/* ── Legacy inline issue tags (kept for backward compat) ─────────────────── */
 
 .issue-tag {
   display: inline-block;
@@ -80,29 +70,121 @@
   font-size: inherit !important;
 }
 
-.issue-high {
-  background: #fde2e2;
-  border-color: #f2b6b6;
-  color: #8b1111;
+.issue-high   { background: #fde2e2; border-color: #f2b6b6; color: #8b1111; }
+.issue-medium { background: #fff0de; border-color: #ffd3a3; color: #8c4b00; }
+.issue-info   { background: #e4f1ff; border-color: #b9ddf5; color: #0f4f84; }
+.issue-pass   { background: #e6f6e9; border-color: #b9dfc0; color: #1d5e27; }
+
+/* ── Issue cards (new Word-doc-style blocks) ─────────────────────────────── */
+
+.issue-block {
+  margin: 0.55rem 0 1rem;
 }
 
-.issue-medium {
-  background: #fff0de;
-  border-color: #ffd3a3;
-  color: #8c4b00;
-}
-
-.issue-info {
-  background: #e4f1ff;
-  border-color: #b9ddf5;
+/* Header for dynamic-severity groups */
+.issue-block-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 1rem;
+  font-weight: 700;
   color: #0f4f84;
+  margin-bottom: 0.3rem;
+  margin-top: 0.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-bottom: 1px solid #d0e8f7;
+  padding-bottom: 0.2rem;
 }
 
-.issue-pass {
-  background: #e6f6e9;
-  border-color: #b9dfc0;
-  color: #1d5e27;
+.issue-dynamic-note {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.77rem;
+  font-weight: 400;
+  color: #557;
+  font-style: italic;
 }
+
+/* Individual card row */
+.issue-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.35rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.issue-card code {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  font-weight: 700;
+}
+
+.issue-card-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-weight: 700;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.issue-card-body {
+  color: inherit;
+  flex: 1;
+}
+
+/* Severity-tinted card variants */
+.issue-card-high {
+  background: #fde2e2;
+  border-left: 4px solid #e05555;
+  color: #5a0e0e;
+}
+
+.issue-card-medium {
+  background: #fff0de;
+  border-left: 4px solid #e08c00;
+  color: #5a3200;
+}
+
+.issue-card-info {
+  background: #e4f1ff;
+  border-left: 4px solid #3a8ec9;
+  color: #0a3557;
+}
+
+.issue-card-pass {
+  background: #e6f6e9;
+  border-left: 4px solid #2e7d3c;
+  color: #133d1c;
+}
+
+/* ── Sheet section headers ───────────────────────────────────────────────── */
+
+.sheet-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 1.6rem 0 0.4rem;
+}
+
+.sheet-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  background: #009edb;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+/* ── Image note / screenshot placeholder ─────────────────────────────────── */
 
 .img-note {
   border-left: 4px solid #009edb;
@@ -119,4 +201,21 @@
   border-radius: 0.35rem;
   background: #f7fbfe;
   padding: 0.4rem;
+  max-width: 100%;
+}
+
+/* ── Decision-logic callouts ─────────────────────────────────────────────── */
+
+.logic-box {
+  background: #f5f9fe;
+  border: 1px solid #cce0f5;
+  border-radius: 0.4rem;
+  padding: 0.6rem 0.9rem;
+  margin: 0.4rem 0 0.8rem;
+  font-size: 0.85rem;
+  color: #1f3558;
+}
+
+.logic-box strong {
+  color: #0f4f84;
 }

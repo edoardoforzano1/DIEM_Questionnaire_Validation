@@ -1,0 +1,61 @@
+Traceback (most recent call last):
+  File "C:\git\DIEM_Questionnaire_Validation\validate.py", line 70, in <module>
+    main()
+  File "C:\git\DIEM_Questionnaire_Validation\validate.py", line 30, in main
+    raw = yaml.safe_load(CFG.read_text(encoding="utf-8")) or {}
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\__init__.py", line 125, in safe_load
+    return load(stream, SafeLoader)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\__init__.py", line 81, in load
+    return loader.get_single_data()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\constructor.py", line 49, in get_single_data
+    node = self.get_single_node()
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\composer.py", line 36, in get_single_node
+    document = self.compose_document()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\composer.py", line 55, in compose_document
+    node = self.compose_node(None, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\composer.py", line 84, in compose_node
+    node = self.compose_mapping_node(anchor)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\composer.py", line 133, in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\composer.py", line 64, in compose_node
+    if self.check_event(AliasEvent):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\parser.py", line 98, in check_event
+    self.current_event = self.state()
+                         ^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\parser.py", line 449, in parse_block_mapping_value
+    if not self.check_token(KeyToken, ValueToken, BlockEndToken):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\scanner.py", line 116, in check_token
+    self.fetch_more_tokens()
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\scanner.py", line 251, in fetch_more_tokens
+    return self.fetch_double()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\scanner.py", line 655, in fetch_double
+    self.fetch_flow_scalar(style='"')
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\scanner.py", line 666, in fetch_flow_scalar
+    self.tokens.append(self.scan_flow_scalar(style))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\scanner.py", line 1149, in scan_flow_scalar
+    chunks.extend(self.scan_flow_scalar_non_spaces(double, start_mark))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edoar\anaconda3\envs\qval_newqtestv4\Lib\site-packages\yaml\scanner.py", line 1223, in scan_flow_scalar_non_spaces
+    raise ScannerError("while scanning a double-quoted scalar", start_mark,
+yaml.scanner.ScannerError: while scanning a double-quoted scalar
+  in "<unicode string>", line 11, column 13:
+    output_dir: "C:\git\DIEM_Questionnaire_Valid ... 
+                ^
+found unknown escape character 'g'
+  in "<unicode string>", line 11, column 17:
+    output_dir: "C:\git\DIEM_Questionnaire_Validatio ... 
+                    ^
+
+ERROR conda.cli.main_run:execute(127): `conda run python validate.py` failed. (See above for error)

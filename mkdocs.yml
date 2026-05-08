@@ -26,13 +26,21 @@ markdown_extensions:
   - admonition
   - attr_list
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
   - toc:
       permalink: true
+
 extra_css:
   - stylesheets/extra.css
+
+extra_javascript:
+  - https://unpkg.com/mermaid@11/dist/mermaid.min.js
 
 nav:
   - Home: index.md
@@ -40,9 +48,9 @@ nav:
   - Validation Workflow:
       - Process Overview: workflow/process-overview.md
       - Reference Modes: workflow/reference-modes.md
+      - Severity Reference: workflow/checks-and-severity.md
       - GeoPoll Logic: workflow/geopoll-logic.md
       - KoBo Logic: workflow/kobo-logic.md
-      - Checks and Severity: workflow/checks-and-severity.md
   - Data Sources:
       - Overview: data-sources/index.md
       - KoBo Inputs: data-sources/kobo.md
@@ -57,5 +65,3 @@ nav:
       - Overview: report-output/index.md
       - GeoPoll Report: report-output/geopoll-report.md
       - KoBo Report: report-output/kobo-report.md
-      - Images and Placeholders: report-output/images-and-placeholders.md
-  - FAQ: faq.md

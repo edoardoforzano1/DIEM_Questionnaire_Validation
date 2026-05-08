@@ -1,0 +1,44 @@
+﻿[
+    {
+        "case":  "AFG_R11_vs_R10",
+        "validation_number":  401,
+        "exit_code":  0,
+        "report":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\kobo_post_check_20260508_121221\\kobo_output\\report_kobo_en_AFG_R401_20260508.xlsx",
+        "log":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\kobo_post_check_20260508_121221\\run_AFG_R11_vs_R10.log"
+    },
+    {
+        "case":  "AFG_R11_vs_R9",
+        "validation_number":  402,
+        "exit_code":  0,
+        "report":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\kobo_post_check_20260508_121221\\kobo_output\\report_kobo_en_AFG_R402_20260508.xlsx",
+        "log":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\kobo_post_check_20260508_121221\\run_AFG_R11_vs_R9.log"
+    },
+    {
+        "case":  "AFG_R11_vs_template",
+        "validation_number":  403,
+        "exit_code":  0,
+        "report":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\kobo_post_check_20260508_121221\\kobo_output\\report_kobo_en_AFG_R403_20260508.xlsx",
+        "log":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\kobo_post_check_20260508_121221\\run_AFG_R11_vs_template.log"
+    },
+    {
+        "case":  "MLI_R9_vs_R8",
+        "validation_number":  404,
+        "exit_code":  0,
+        "report":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\kobo_post_check_20260508_121221\\kobo_output\\report_kobo_fr_MLI_R404_20260508.xlsx",
+        "log":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\kobo_post_check_20260508_121221\\run_MLI_R9_vs_R8.log"
+    },
+    {
+        "case":  "TCD_R9_vs_R8",
+        "validation_number":  405,
+        "exit_code":  0,
+        "report":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\kobo_post_check_20260508_121221\\kobo_output\\report_kobo_fr_TCD_R405_20260508.xlsx",
+        "log":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\kobo_post_check_20260508_121221\\run_TCD_R9_vs_R8.log"
+    },
+    {
+        "case":  "TCD_R9_vs_template",
+        "validation_number":  406,
+        "exit_code":  0,
+        "report":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\kobo_post_check_20260508_121221\\kobo_output\\report_kobo_fr_TCD_R406_20260508.xlsx",
+        "log":  "C:\\git\\DIEM_Questionnaire_Validation\\batch_output\\kobo_post_check_20260508_121221\\run_TCD_R9_vs_template.log"
+    }
+]
