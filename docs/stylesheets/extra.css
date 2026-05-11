@@ -219,3 +219,26 @@
 .logic-box strong {
   color: #0f4f84;
 }
+
+/* ── Issue action boxes ──────────────────────────────────────────────────── */
+
+.issue-action {
+  background: #f0f4f8;
+  border-left: 4px solid #8aaccc;
+  border-radius: 0 0.3rem 0.3rem 0;
+  padding: 7px 12px;
+  margin-top: 4px;
+  font-size: 0.84rem;
+  color: #1f3558;
+  line-height: 1.5;
+}
+
+.issue-action-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #5a7a9a;
+  display: block;
+  margin-bottom: 3px;
+}

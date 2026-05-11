@@ -3118,8 +3118,7 @@ _q_path = _P(run["questionnaire_path"])
 _out_dir = _P(run.get("output_dir") or _q_path.parent)
 _out_dir.mkdir(parents=True, exist_ok=True)
 _round_kobo = _extract_round_token_kobo(_q_path.name)
-_rn_kobo = cfg.get("validation_number") if 'cfg' in dir() else None
-_rtag_kobo = (f"_{_round_kobo}" if _round_kobo else (f"_R{_rn_kobo}" if _rn_kobo else ""))
+_rtag_kobo = (f"_{_round_kobo}" if _round_kobo else "")
 _dtag_kobo = _time.strftime("%Y%m%d")
 _lang_kobo = str(cfg.get("language", "")).lower() if 'cfg' in dir() else "xx"
 _iso3_kobo = str(cfg.get("iso3", "")).upper() if 'cfg' in dir() else "XXX"
@@ -3369,8 +3368,7 @@ def produce_validated_questionnaire(
     lang = cfg["language"]
     out  = Path(cfg.get("output_dir") or str(Path(src).parent))
     _round_kobo = _extract_round_token_kobo(Path(src).name)
-    _vn_kobo = cfg.get("validation_number") if 'cfg' in globals() else None
-    _rt_kobo = (f"_{_round_kobo}" if _round_kobo else (f"_R{_vn_kobo}" if _vn_kobo else ""))
+    _rt_kobo = (f"_{_round_kobo}" if _round_kobo else "")
     dest = str(out / f"validated_questionnaire_kobo_{lang}_{iso3.upper()}{_rt_kobo}_{_date.today():%Y%m%d}.xlsx")
 
     replacement_status = {"rows": []}

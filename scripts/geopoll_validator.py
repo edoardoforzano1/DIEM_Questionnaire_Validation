@@ -462,8 +462,7 @@ def prepare_run(cfg: ValidationConfig) -> dict:
         if _m:
             _round_tag = f"_R{_m.group(1)}"
             break
-    _vn = _y.get("validation_number")
-    _rtag = _round_tag or (f"_R{_vn}" if _vn else "")
+    _rtag = _round_tag
     _dtag = _time.strftime("%Y%m%d")
     report_file = output_dir / f"report_geopoll_{cfg.language.lower()}_{cfg.iso3.upper()}{_rtag}_{_dtag}.xlsx"
     validated_questionnaire_file = output_dir / f"validated_questionnaire_geopoll_{cfg.language.lower()}_{cfg.iso3.upper()}{_rtag}_{_dtag}.xlsx"
@@ -4537,6 +4536,52 @@ def _action_for_issue_type(issue_type: str) -> str:
     return ISSUE_ACTION_MAP.get(key, "Review issue details")
 
 
+def _optional_counterparts_for_missing_skip_targets(source_q: str, current_text: str) -> list[str]:
+    """
+    For skipPattern_invalid_qname rows, detect whether missing target(s) have
+    optional counterparts (o_<target>) in the current questionnaire.
+    """
+    try:
+        _curr_df = globals().get("current_questions", None)
+        _ref_df = globals().get("reference_questions", None)
+        curr_qnames = set(_curr_df.get_column("Q Name").drop_nulls().to_list()) if _curr_df is not None else set()
+        ref_qnames = set(_ref_df.get_column("Q Name").drop_nulls().to_list()) if _ref_df is not None else set()
+        if not curr_qnames:
+            return []
+
+        invalid_targets = sorted(
+            t for t in _extract_referenced_qnames(
+                str(current_text or ""),
+                source_q=str(source_q or ""),
+                ref_qnames=ref_qnames,
+                curr_qnames=curr_qnames,
+            )
+            if t not in curr_qnames
+        )
+        hits = []
+        for t in invalid_targets:
+            if str(t).startswith("o_"):
+                continue
+            cand = f"o_{t}"
+            if cand in curr_qnames:
+                hits.append(cand)
+        return sorted(set(hits))
+    except Exception:
+        return []
+
+
+def _action_for_issue_row(issue_type: str, q_name: str = "", current_text: str = "") -> str:
+    key = str(issue_type or "").strip()
+    if key == "skipPattern_invalid_qname":
+        opt_hits = _optional_counterparts_for_missing_skip_targets(q_name, current_text)
+        if opt_hits:
+            return (
+                "Fix Skip Pattern target question name (target does not exist). "
+                f"Optional counterpart found ({', '.join(opt_hits)}): verify compatibility before replacing."
+            )
+    return _action_for_issue_type(key)
+
+
 def _issues_col_map():
     lang_code = str(globals().get("target_lang", "")).upper().strip()
     lang_label = lang_code if (lang_code and lang_code != "EN") else "Language"
@@ -4561,12 +4606,28 @@ def _issues_col_map():
 
 def _issues_table(ws, start_row, df):
     """Renders a header + data table. Only columns present in df are shown."""
-    if "issue_type" in df.columns and "action" not in df.columns:
-        df = df.with_columns(
-            pl.col("issue_type")
-            .map_elements(_action_for_issue_type, return_dtype=pl.Utf8)
-            .alias("action")
+    if "issue_type" in df.columns:
+        _q_expr = pl.col("Q Name") if "Q Name" in df.columns else pl.lit("")
+        _cur_expr = pl.col("current") if "current" in df.columns else pl.lit("")
+        _action_expr = (
+            pl.struct([
+                pl.col("issue_type").alias("_issue"),
+                _q_expr.alias("_q"),
+                _cur_expr.alias("_cur"),
+            ])
+            .map_elements(
+                lambda r: _action_for_issue_row(r.get("_issue"), r.get("_q"), r.get("_cur")),
+                return_dtype=pl.Utf8,
+            )
+            .alias("_action_default")
         )
+        if "action" not in df.columns:
+            df = df.with_columns(_action_expr).rename({"_action_default": "action"})
+        else:
+            df = df.with_columns([
+                _action_expr,
+                pl.coalesce([pl.col("action"), pl.col("_action_default")]).alias("action"),
+            ]).drop("_action_default")
     cols = [(s, d) for s, d in _issues_col_map() if s in df.columns]
     _header_row(ws, start_row, [d for _, d in cols])
     r = start_row + 1
