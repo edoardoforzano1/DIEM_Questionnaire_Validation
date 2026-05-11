@@ -20,16 +20,14 @@ Aggregates all issue rows by severity and by check group. Read this first.
 - Any `HIGH` issue means the questionnaire should not be launched until resolved.
 - Use Summary to prioritize investigation, not for root-cause detail.
 - Move to detail sheets for exact question/field evidence.
-
-![KoBo Summary](../assets/images/reports/kobo-summary.png){: .sheet-placeholder }
+- Header context lines identify the exact run:
+  `Comparison basis`, `Current questionnaire`, `Checked against`, `Language scope`, and `Template used for placeholder mapping`.
 
 ---
 
 ## 2  -  Critical Sets Sheet
 
 Checks whether all required questions defined in `critical_sets.yaml` are present and have the correct mandatory behavior. If this layer fails, downstream analysis can be inconsistent across rounds.
-
-![KoBo Critical Sets](../assets/images/reports/kobo-critical-sets.png){: .sheet-placeholder }
 
 ### Issue types
 
@@ -71,9 +69,16 @@ Checks whether all required questions defined in `critical_sets.yaml` are presen
 
 Validates `relevant` expression references, routing drift, duplicate names, and `${variable}` syntax. A single broken reference can hide entire question groups in the field  -  silent errors.
 
-![KoBo Questionnaire Structure](../assets/images/reports/kobo-structure.png){: .sheet-placeholder }
+### How this sheet is split (not duplicate checks)
 
-### Issue types
+1. **Skip logic references (relevant)**  
+   Checks only the `relevant` column to catch broken routing references and drift vs baseline.
+2. **Q type integrity, duplicates and KoBo references**  
+   Checks question type integrity, duplicate names, and `${var}` / `$var` syntax across survey text/formula fields (`label`, `hint`, `constraint`, `calculation`), outside the `relevant` drift check.
+
+`#placeholder#` mapping problems are reported in **Replacement Issues**, not in the two structure summary rows above.
+
+### Check A: Skip logic references (relevant)
 
 <div class="issue-block">
   <div class="issue-card issue-card-high">
@@ -87,7 +92,7 @@ Validates `relevant` expression references, routing drift, duplicate names, and 
   <div class="issue-card issue-card-high">
     <span class="issue-card-name"><code>relevant_inexact_reference</code></span>
     <span class="sev sev-high">HIGH</span>
-    <span class="issue-card-body">Reference tokenization in a <code>relevant</code> expression is ambiguous and may resolve to the wrong variable at runtime.</span>
+    <span class="issue-card-body">The referenced variable name is not present exactly, but a close optional counterpart (for example <code>o_var</code>) exists. This is usually a mis-targeted routing reference.</span>
   </div>
 </div>
 
@@ -96,6 +101,20 @@ Validates `relevant` expression references, routing drift, duplicate names, and 
     <span class="issue-card-name"><code>relevant_modified</code></span>
     <span class="sev sev-medium">MEDIUM</span>
     <span class="issue-card-body">A <code>relevant</code> expression changed from baseline. Routing paths may differ from the previous round.</span>
+  </div>
+</div>
+
+### Check B: Q type integrity, duplicates and KoBo references
+
+<div class="issue-block">
+  <div class="issue-block-label"><code>type_changed</code> <span class="issue-dynamic-note"> -  severity is dynamic</span></div>
+  <div class="issue-card issue-card-high">
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">Incompatible or structurally invalid type transition (for example single-select to multi-select, or option-bearing to non-option with invalid option shape).</span>
+  </div>
+  <div class="issue-card issue-card-medium">
+    <span class="sev sev-medium">MEDIUM</span>
+    <span class="issue-card-body">Type changed within compatible variants after normalization. Review for expected behavior consistency.</span>
   </div>
 </div>
 
@@ -108,18 +127,22 @@ Validates `relevant` expression references, routing drift, duplicate names, and 
 </div>
 
 <div class="issue-block">
-  <div class="issue-card issue-card-medium">
+  <div class="issue-card issue-card-high">
     <span class="issue-card-name"><code>duplicate_choice_name</code></span>
-    <span class="sev sev-medium">MEDIUM</span>
+    <span class="sev sev-high">HIGH</span>
     <span class="issue-card-body">Duplicate choice names within one list can cause option collisions when the list is referenced by multiple questions.</span>
   </div>
 </div>
 
 <div class="issue-block">
+  <div class="issue-block-label"><code>kobo_ref_loose_syntax</code> <span class="issue-dynamic-note"> -  severity is dynamic</span></div>
+  <div class="issue-card issue-card-high">
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">Reference uses loose syntax like <code>$var</code> where <code>var</code> is an existing question name. Use <code>${var}</code>.</span>
+  </div>
   <div class="issue-card issue-card-medium">
-    <span class="issue-card-name"><code>kobo_ref_loose_syntax</code></span>
     <span class="sev sev-medium">MEDIUM</span>
-    <span class="issue-card-body">A variable reference uses loose or non-standard syntax. Normalize to <code>${variable}</code> format to ensure reliable runtime resolution.</span>
+    <span class="issue-card-body">Loose syntax is present but does not match an existing question name. Still normalize to <code>${var}</code>.</span>
   </div>
 </div>
 
@@ -137,7 +160,8 @@ Validates `relevant` expression references, routing drift, duplicate names, and 
 
 Checks placeholder consistency between the template, the current questionnaire, and the Additional Information sheet. Unresolved tokens appear as raw `#placeholder#` text to enumerators.
 
-![KoBo Replacement Issues](../assets/images/reports/kobo-replacement-issues.png){: .sheet-placeholder }
+!!! info "Previous-round remap note"
+    In `previous_round` mode, replacement-driven deltas are remapped to `additional_information_replacement_change (...)` with INFO severity and reported in this sheet.
 
 ### Issue types
 
@@ -150,10 +174,18 @@ Checks placeholder consistency between the template, the current questionnaire, 
 </div>
 
 <div class="issue-block">
-  <div class="issue-card issue-card-medium">
+  <div class="issue-card issue-card-high">
     <span class="issue-card-name"><code>placeholder_should_use_kobo_ref</code></span>
-    <span class="sev sev-medium">MEDIUM</span>
+    <span class="sev sev-high">HIGH</span>
     <span class="issue-card-body">Text appears to be a variable reference but is written as plain text instead of proper <code>${variable}</code> KoBo syntax.</span>
+  </div>
+</div>
+
+<div class="issue-block">
+  <div class="issue-card issue-card-info">
+    <span class="issue-card-name"><code>additional_information_replacement_change (...)</code></span>
+    <span class="sev sev-info">INFO</span>
+    <span class="issue-card-body">Difference is replacement-driven (Additional Information / crop / AGOL context) and tracked here to avoid confusion in Question and Choice Changes.</span>
   </div>
 </div>
 
@@ -161,12 +193,8 @@ Checks placeholder consistency between the template, the current questionnaire, 
 
 ## 5  -  Question Changes Sheet
 
-Compares the current form against the reference question by question  -  presence, mandatory status, labels, type, and all field-level metadata.
-
-![KoBo Question Changes](../assets/images/reports/kobo-question-changes.png){: .sheet-placeholder }
-
-!!! info "Previous-round remap note"
-    In `previous_round` mode, deltas tied to round-parameter replacement are remapped to `round_parameter_change` with INFO severity rather than flagged as unexpected changes.
+Compares the current form against the reference question by question  -  presence, mandatory status, labels, and field-level metadata.  
+Q type integrity is intentionally tracked in **Questionnaire Structure**.
 
 ### Issue types
 
@@ -211,14 +239,6 @@ Compares the current form against the reference question by question  -  presenc
     <span class="issue-card-name"><code>label_mismatch</code></span>
     <span class="sev sev-medium">MEDIUM</span>
     <span class="issue-card-body">Question label text changed after normalization. Verify interpretive equivalence across rounds.</span>
-  </div>
-</div>
-
-<div class="issue-block">
-  <div class="issue-card issue-card-medium">
-    <span class="issue-card-name"><code>type_changed</code></span>
-    <span class="sev sev-medium">MEDIUM</span>
-    <span class="issue-card-body">Question type changed relative to baseline. Verify that the data format and response structure remain compatible.</span>
   </div>
 </div>
 
@@ -284,8 +304,6 @@ Compares the current form against the reference question by question  -  presenc
 
 Compares option additions, removals, and label drift for shared questions. Choice drift alters respondent interpretation even if the question stem looks unchanged.
 
-![KoBo Choice Changes](../assets/images/reports/kobo-choice-changes.png){: .sheet-placeholder }
-
 !!! warning "Read Question Changes and Choice Changes together"
     If a question is removed, its choices will typically not appear as standalone choice removals. Always interpret both sheets in combination.
 
@@ -293,7 +311,7 @@ Compares option additions, removals, and label drift for shared questions. Choic
 
 <div class="issue-block">
   <div class="issue-card issue-card-medium">
-    <span class="issue-card-name"><code>removed_option</code></span>
+    <span class="issue-card-name"><code>removed_choice</code></span>
     <span class="sev sev-medium">MEDIUM</span>
     <span class="issue-card-body">A baseline option was removed from the current choice list. Respondents can no longer select a previously available answer.</span>
   </div>
@@ -301,7 +319,7 @@ Compares option additions, removals, and label drift for shared questions. Choic
 
 <div class="issue-block">
   <div class="issue-card issue-card-medium">
-    <span class="issue-card-name"><code>added_option</code></span>
+    <span class="issue-card-name"><code>added_choice</code></span>
     <span class="sev sev-medium">MEDIUM</span>
     <span class="issue-card-body">A new option exists only in the current choice list. Review for compatibility with historical data coding.</span>
   </div>
@@ -309,7 +327,7 @@ Compares option additions, removals, and label drift for shared questions. Choic
 
 <div class="issue-block">
   <div class="issue-card issue-card-medium">
-    <span class="issue-card-name"><code>option_label_mismatch</code></span>
+    <span class="issue-card-name"><code>choice_label_mismatch</code></span>
     <span class="sev sev-medium">MEDIUM</span>
     <span class="issue-card-body">Option label text changed while the option identity still matches. Verify interpretive equivalence.</span>
   </div>
@@ -328,8 +346,6 @@ Produced only when `reference_mode: previous_round` is configured. This is the f
 - All placeholder tokens replaced in text fields.
 - Final scan for remaining unresolved tokens before saving.
 
-![KoBo Validated Output](../assets/images/reports/kobo-validated-output.png){: .sheet-placeholder }
-
 ---
 
 ## Recommended Review Sequence
@@ -341,4 +357,3 @@ Produced only when `reference_mode: previous_round` is configured. This is the f
 5. **Question Changes**  -  assess comparability risk
 6. **Choice Changes**  -  verify answer-set stability
 7. **Validated Questionnaire Output**  -  confirm deployment file quality (previous-round workflow only)
-

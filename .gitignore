@@ -3,3 +3,5 @@ site/
 __pycache__/
 *.pyc
 testcmd.cmd
+batch_output/
+tmp_*.py

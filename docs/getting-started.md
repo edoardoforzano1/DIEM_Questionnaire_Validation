@@ -1,50 +1,63 @@
-﻿# Getting Started
+# Getting Started
 
 ## 1. Create and Activate Conda Environment
 
+An `environment.yml` is included in the repository root. Run once:
+
 ```powershell
-conda create -n diem-validation python=3.11 -y
+conda env create -f environment.yml
 conda activate diem-validation
 ```
 
-## 2. Install Dependencies
+This installs Python 3.12, all validator dependencies (`polars`, `openpyxl`, `pyyaml`, `xlsxwriter`), and the documentation packages (`mkdocs`, `mkdocs-material`).
 
-```powershell
-conda install -c conda-forge polars openpyxl pyyaml mkdocs mkdocs-material -y
-```
+> **Already have the environment?** Update it instead:
+> ```powershell
+> conda env update -f environment.yml --prune
+> ```
 
-## 3. Launch Interactive Documentation (Recommended)
+## 2. Launch Interactive Documentation (Recommended)
 
-From repository root:
+From the repository root, with the environment activated:
 
 ```powershell
 .\documentation
 ```
 
-Open `http://127.0.0.1:8000/`.
+Opens the local docs site at `http://127.0.0.1:8000/`.
 
-### Optional: install global `documentation` command in this conda env
+### Optional: install a global `documentation` command
+
+Run once to register the command inside the conda env:
 
 ```powershell
 .\install-documentation-command.cmd
 ```
 
-After that, with this env activated, you can run:
+After that, with `diem-validation` active, you can run `documentation` from any folder.
 
-```powershell
-documentation
-```
+## 3. Configure and Run Validation
 
-## 4. Run Validation
-
-Edit `configuration/validation_config.yaml`, then run:
+Edit `configuration/validation_config.yaml` to set the tool, language, reference mode, and file paths, then run:
 
 ```powershell
 python validate.py
 ```
 
-or
+or:
 
 ```powershell
 .\validate.bat
 ```
+
+Output reports land in `batch_output/<run_name>/`.
+
+## Environment Contents
+
+| Package | Purpose |
+|---|---|
+| `polars` | DataFrame engine used throughout the validation pipeline |
+| `openpyxl` | Read/write Excel questionnaire and report files |
+| `pyyaml` | Parse `validation_config.yaml` and `critical_sets.yaml` |
+| `xlsxwriter` | Write formatted Excel report workbooks |
+| `mkdocs` + `mkdocs-material` | Local documentation site |

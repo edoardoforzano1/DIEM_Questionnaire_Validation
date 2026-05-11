@@ -46,7 +46,7 @@ Some issue types do not have a fixed severity  -  the actual severity depends on
 
 ---
 
-### `qtype_changed`
+### `qtype_changed` / `type_changed`
 
 <div class="logic-box">
 <strong>HIGH</strong> when the type transition is incompatible or structurally invalid  -  regardless of whether the question is mandatory.<br>
@@ -83,13 +83,13 @@ A quick lookup: which sheet each issue family appears in and which tool produces
 |---|---|---|
 | **Critical Sets** | `missing_critical_question` · `critical_mandatory_mismatch` · `advisory_question` · `crop_harvest_violation` | Both |
 | **Questionnaire Structure** | `skip_pattern_empty`  -  `default_skip_modified`  -  `skipPattern_invalid_qname`  -  `skipPattern_invalid_qnameCategory`  -  `skipPattern_changes`  -  `skipPattern_range_mismatch`  -  `skipPattern_range_invalid`  -  `duplicate_qname`  -  `qtype_changed` | GeoPoll |
-| **Questionnaire Structure** | `broken_relevant_reference`  -  `relevant_inexact_reference`  -  `relevant_modified`  -  `duplicate_qname`  -  `duplicate_choice_name`  -  `kobo_ref_loose_syntax`  -  `kobo_ref_missing_variable` | KoBo |
+| **Questionnaire Structure** | `broken_relevant_reference`  -  `relevant_inexact_reference`  -  `relevant_modified`  -  `type_changed`  -  `duplicate_qname`  -  `duplicate_choice_name`  -  `kobo_ref_loose_syntax`  -  `kobo_ref_missing_variable` | KoBo |
 | **Replacement Issues** | `replacement_additional_info_missing`  -  `replacement_crop_selection_mismatch`  -  `replacement_crop_round_delta`  -  `replacement_missing_key`  -  `replacement_unresolved_placeholder`  -  `replacement_malformed_placeholder` | GeoPoll |
-| **Replacement Issues** | `placeholder_not_found`  -  `placeholder_should_use_kobo_ref` | KoBo |
-| **Question Changes** | `mandatory_source_missing`  -  `removed_question`  -  `added_question`  -  `mandatory_to_optional`  -  `mandatory_column_mismatch`  -  `question_label_mismatch`  -  `qtype_changed`  -  `randomize_changed`  -  `conditional_changed`  -  `programming_instructions_changed`  -  `core_questions_only_changed` | GeoPoll |
-| **Question Changes** | `removed_question`  -  `added_question`  -  `mandatory_to_optional`  -  `mandatory_column_mismatch`  -  `label_mismatch`  -  `type_changed`  -  `required_modified`  -  `choice_filter_modified`  -  `appearance_modified`  -  `calculation_modified`  -  `constraint_modified`  -  `hint_changed`  -  `choices_list_changed` | KoBo |
+| **Replacement Issues** | `placeholder_not_found`  -  `placeholder_should_use_kobo_ref`  -  `additional_information_replacement_change (...)` | KoBo |
+| **Question Changes** | `mandatory_source_missing`  -  `removed_question`  -  `added_question`  -  `mandatory_to_optional`  -  `mandatory_column_mismatch`  -  `question_label_mismatch`  -  `randomize_changed`  -  `conditional_changed`  -  `programming_instructions_changed`  -  `core_questions_only_changed` | GeoPoll |
+| **Question Changes** | `removed_question`  -  `added_question`  -  `mandatory_to_optional`  -  `mandatory_column_mismatch`  -  `label_mismatch`  -  `required_modified`  -  `choice_filter_modified`  -  `appearance_modified`  -  `calculation_modified`  -  `constraint_modified`  -  `hint_changed`  -  `choices_list_changed` | KoBo |
 | **Option / Choice Changes** | `removed_option`  -  `added_option`  -  `option_label_mismatch`  -  `option_position_renumbered_same_label`  -  `codes_col_removed`  -  `codes_col_added`  -  `codes_col_token_mismatch`  -  `codes_col_renumbered_same_token` | GeoPoll |
-| **Choice Changes** | `removed_option`  -  `added_option`  -  `option_label_mismatch` | KoBo |
+| **Choice Changes** | `removed_choice`  -  `added_choice`  -  `choice_label_mismatch` | KoBo |
 
 ---
 

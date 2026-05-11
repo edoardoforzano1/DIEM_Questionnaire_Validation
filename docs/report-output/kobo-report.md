@@ -28,6 +28,13 @@ This page is a compact visual checklist. For deep interpretation, use [KoBo Logi
 
 Suggested real file: `docs/assets/images/reports/kobo-summary.png`
 
+Run context shown at the top of Summary:
+- `Comparison basis` (latest template or previous round)
+- `Current questionnaire` (file being validated)
+- `Checked against` (resolved reference file descriptor)
+- `Language scope` (configured KoBo label column)
+- `Template used for placeholder mapping`
+
 ### Critical Sets
 
 ![KoBo Critical Sets Placeholder](../assets/images/reports/placeholders/kobo-critical-sets-placeholder.svg){: .sheet-placeholder }
@@ -45,6 +52,9 @@ Suggested real file: `docs/assets/images/reports/kobo-structure.png`
 ![KoBo Replacement Placeholder](../assets/images/reports/placeholders/kobo-replacement-placeholder.svg){: .sheet-placeholder }
 
 Suggested real file: `docs/assets/images/reports/kobo-replacement-issues.png`
+
+Issue note: in `previous_round` mode, replacement-driven deltas appear as
+`additional_information_replacement_change (...)` in this sheet.
 
 ### Question Changes
 

@@ -263,6 +263,37 @@ def _reference_scope_label() -> str:
     return "latest template"
 
 
+def _extract_round_token_kobo(name: str) -> str:
+    txt = str(name or "")
+    patterns = [
+        r"(?i)(?:^|[_\-\s])R(\d{1,3})(?=$|[_\-\s\.])",
+        r"(?i)(?:^|[_\-\s])ROUND[_\-\s]*(\d{1,3})(?=$|[_\-\s\.])",
+    ]
+    for pat in patterns:
+        m = re.search(pat, txt)
+        if m:
+            return f"R{m.group(1)}"
+    return ""
+
+
+def _reference_descriptor_kobo() -> str:
+    """Human-readable reference descriptor for KoBo Summary header."""
+    mode = _reference_scope_label()
+    ref_name = Path(run.get("reference_path", "")).name if run.get("reference_path") else ""
+    iso = str(run.get("iso3", "") or "").upper()
+    rnd = _extract_round_token_kobo(ref_name) or "R?"
+    lang = str(run.get("language", "") or "").upper()
+    if mode == "previous round":
+        return f"{mode} | {iso} {rnd} | {ref_name}"
+    return f"{mode} | {lang} template | {ref_name}"
+
+
+def _language_scope_descriptor_kobo() -> str:
+    lang = str(run.get("language", "") or "").lower()
+    label_col = LANG_LABEL_COL.get(lang, f"label::{lang}")
+    return f"{lang.upper()} labels ({label_col})"
+
+
 def _not_in_reference_text() -> str:
     return f"(not in {_reference_scope_label()})"
 
@@ -1196,24 +1227,139 @@ def compare_calculation_changes(current, reference):
 
 
 
-def compare_type_changes(current, reference):
-    """Flag questions whose Q Type changed (e.g. select_one -> text)."""
+def _normalize_qtype_value_kobo(value: str) -> str:
+    """Canonicalize KoBo Q Type text so cosmetic formatting does not trigger false positives."""
+    s = str(value or "").strip().lower()
+    if not s:
+        return ""
+    s = re.sub(r"[\\/_-]+", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    if s in {"select one", "single choice"}:
+        return "single choice"
+    if s in {"select multiple", "select all that apply"}:
+        return "select all that apply"
+    return s
+
+
+def _qtype_mode_kobo(value: str) -> str:
+    """Classify Q Type into compatibility families."""
+    t = _normalize_qtype_value_kobo(value)
+    if not t:
+        return ""
+    if t == "select all that apply":
+        return "multi_select"
+    if t == "single choice":
+        return "single_select"
+    if "select one" in t:
+        return "single_select"
+    if "select multiple" in t:
+        return "multi_select"
+    return "non_option"
+
+
+def _qtype_change_severity_kobo(
+    curr_mode: str,
+    ref_mode: str,
+    curr_option_count: int,
+    ref_option_count: int,
+) -> str:
+    """
+    Severity policy (independent of mandatory status):
+    - HIGH for incompatible/invalid transitions
+    - MEDIUM for compatible type changes
+    """
+    cm = str(curr_mode or "")
+    rm = str(ref_mode or "")
+    modes = {cm, rm}
+
+    # Incompatible family change: single <-> multi.
+    if "single_select" in modes and "multi_select" in modes:
+        return "high"
+
+    # Incompatible option-bearing <-> non-option mode.
+    if "non_option" in modes and (("single_select" in modes) or ("multi_select" in modes)):
+        return "high"
+
+    # Invalid option-count correctness checks:
+    # option-bearing questions should normally have at least 2 options.
+    curr_option_like = cm in {"single_select", "multi_select"}
+    ref_option_like = rm in {"single_select", "multi_select"}
+    if curr_option_like and int(curr_option_count or 0) <= 1:
+        return "high"
+    if ref_option_like and int(ref_option_count or 0) <= 1:
+        return "high"
+    if (cm == "non_option") and int(curr_option_count or 0) > 0:
+        return "high"
+    if (rm == "non_option") and int(ref_option_count or 0) > 0:
+        return "high"
+
+    return "medium"
+
+
+def compare_type_changes(
+    current,
+    reference,
+    current_options: pl.DataFrame | None = None,
+    reference_options: pl.DataFrame | None = None,
+):
+    """Risk-based Q Type comparison with normalization and integrity checks."""
     EMPTY = {
         "issue_type": pl.Utf8, "set_name": pl.Utf8, "Q Name": pl.Utf8,
         "field": pl.Utf8, "current": pl.Utf8, "reference": pl.Utf8,
         "severity": pl.Utf8, "excel_row": pl.Int64,
     }
+    if "Q Type" not in current.columns or "Q Type" not in reference.columns:
+        return pl.DataFrame(schema=EMPTY)
+
+    if current_options is not None and current_options.height > 0 and "Q Name" in current_options.columns:
+        _cur_opt_counts = current_options.group_by("Q Name").agg(pl.len().alias("_curr_opt_n"))
+    else:
+        _cur_opt_counts = pl.DataFrame(schema={"Q Name": pl.Utf8, "_curr_opt_n": pl.Int64})
+
+    if reference_options is not None and reference_options.height > 0 and "Q Name" in reference_options.columns:
+        _ref_opt_counts = reference_options.group_by("Q Name").agg(pl.len().alias("_ref_opt_n"))
+    else:
+        _ref_opt_counts = pl.DataFrame(schema={"Q Name": pl.Utf8, "_ref_opt_n": pl.Int64})
+
     result = (
         current.select(["Q Name", "Q Type", "excel_row"])
         .join(reference.select(["Q Name", "Q Type"]), on="Q Name", how="inner", suffix="_ref")
-        .filter(pl.col("Q Type") != pl.col("Q Type_ref"))
+        .with_columns([
+            pl.col("Q Type").cast(pl.Utf8).fill_null("").str.strip_chars().alias("Q Type"),
+            pl.col("Q Type_ref").cast(pl.Utf8).fill_null("").str.strip_chars().alias("Q Type_ref"),
+        ])
+        .with_columns([
+            pl.col("Q Type").map_elements(_normalize_qtype_value_kobo, return_dtype=pl.Utf8).alias("_type_norm"),
+            pl.col("Q Type_ref").map_elements(_normalize_qtype_value_kobo, return_dtype=pl.Utf8).alias("_type_norm_ref"),
+            pl.col("Q Type").map_elements(_qtype_mode_kobo, return_dtype=pl.Utf8).alias("_type_mode"),
+            pl.col("Q Type_ref").map_elements(_qtype_mode_kobo, return_dtype=pl.Utf8).alias("_type_mode_ref"),
+        ])
+        .join(_cur_opt_counts, on="Q Name", how="left")
+        .join(_ref_opt_counts, on="Q Name", how="left")
+        .with_columns([
+            pl.col("_curr_opt_n").fill_null(0).cast(pl.Int64),
+            pl.col("_ref_opt_n").fill_null(0).cast(pl.Int64),
+        ])
+        .filter(pl.col("_type_norm") != pl.col("_type_norm_ref"))
+        .with_columns(
+            pl.struct(["_type_mode", "_type_mode_ref", "_curr_opt_n", "_ref_opt_n"])
+            .map_elements(
+                lambda r: _qtype_change_severity_kobo(
+                    r.get("_type_mode"),
+                    r.get("_type_mode_ref"),
+                    r.get("_curr_opt_n"),
+                    r.get("_ref_opt_n"),
+                ),
+                return_dtype=pl.Utf8,
+            )
+            .alias("severity")
+        )
         .with_columns([
             pl.lit("type_changed").alias("issue_type"),
             pl.lit("").alias("set_name"),
             pl.lit("type").alias("field"),
             pl.col("Q Type").alias("current"),
             pl.col("Q Type_ref").alias("reference"),
-            pl.lit("high").alias("severity"),
         ])
         .select(["issue_type", "set_name", "Q Name", "field", "current", "reference", "severity", "excel_row"])
     )
@@ -1255,7 +1401,7 @@ def compare_option_labels_single(current_opts, reference_opts, lang_scope="EN"):
         .filter(pl.col("_norm") != pl.col("_norm_ref"))
         .drop(["_norm", "_norm_ref", "_qk", "_ok"])
         .with_columns([
-            pl.lit("option_label_mismatch").alias("issue_type"),
+            pl.lit("choice_label_mismatch").alias("issue_type"),
             pl.concat_str([pl.lit("option_"), pl.col("option_name")]).alias("field"),
             pl.lit("medium").alias("severity"),
             pl.lit(lang_scope).alias("lang_scope"),
@@ -1288,7 +1434,7 @@ def compare_option_presence_single(current_opts, reference_opts, lang_scope="EN"
         .join(cur.select(key_cols), on=key_cols, how="anti")
         .drop(["_qk", "_ok"])
         .with_columns([
-            pl.lit("removed_option").alias("issue_type"),
+            pl.lit("removed_choice").alias("issue_type"),
             pl.concat_str([pl.lit("option_"), pl.col("option_name")]).alias("field"),
             pl.lit("high").alias("severity"),
             pl.lit(lang_scope).alias("lang_scope"),
@@ -1300,7 +1446,7 @@ def compare_option_presence_single(current_opts, reference_opts, lang_scope="EN"
         .join(ref.select(key_cols), on=key_cols, how="anti")
         .drop(["_qk", "_ok"])
         .with_columns([
-            pl.lit("added_option").alias("issue_type"),
+            pl.lit("added_choice").alias("issue_type"),
             pl.concat_str([pl.lit("option_"), pl.col("option_name")]).alias("field"),
             pl.lit("medium").alias("severity"),
             pl.lit(lang_scope).alias("lang_scope"),
@@ -1967,8 +2113,8 @@ def collapse_cluster_ea_option_changes(
     ea_cluster_mask = (q_expr == "cluster") & (list_expr == "ea")
 
     modified_n = option_label_issues.filter(ea_cluster_mask).height if option_label_issues.height else 0
-    added_n = option_presence_issues.filter(ea_cluster_mask & (pl.col("issue_type") == "added_option")).height if option_presence_issues.height else 0
-    removed_n = option_presence_issues.filter(ea_cluster_mask & (pl.col("issue_type") == "removed_option")).height if option_presence_issues.height else 0
+    added_n = option_presence_issues.filter(ea_cluster_mask & (pl.col("issue_type") == "added_choice")).height if option_presence_issues.height else 0
+    removed_n = option_presence_issues.filter(ea_cluster_mask & (pl.col("issue_type") == "removed_choice")).height if option_presence_issues.height else 0
 
     option_label_clean = option_label_issues.filter(~ea_cluster_mask) if option_label_issues.height else option_label_issues
     option_presence_clean = option_presence_issues.filter(~ea_cluster_mask) if option_presence_issues.height else option_presence_issues
@@ -2028,7 +2174,12 @@ print(f"Choices-list changes: {list_name_issues.height}")
 # Field-level comparisons -- vanilla versions for label/constraint
 label_issues       = compare_question_labels(current_van_q, reference_cmp_q, current_cmp_q)
 constraint_issues  = compare_constraint_changes(current_van_q, reference_cmp_q, current_cmp_q)
-type_issues        = compare_type_changes(current_cmp_q, reference_cmp_q)
+type_issues        = compare_type_changes(
+    current_cmp_q,
+    reference_cmp_q,
+    current_options=current_options_vanilla_cmp,
+    reference_options=reference_options,
+)
 required_issues    = compare_required_changes(current_cmp_q, reference_cmp_q)
 choice_filter_issues = compare_choice_filter_changes(current_cmp_q, reference_cmp_q)
 appearance_issues  = compare_appearance_changes(current_cmp_q, reference_cmp_q)
@@ -2142,12 +2293,12 @@ all_issues = pl.concat(
 
 # -- previous_round special remap ---------------------------------------------
 # Differences affecting replacement-driven cells/lists are tracked as
-# round_parameter_change (info) instead of hard errors.
+# additional_information_replacement_change (info) instead of hard errors.
 if run.get("reference_mode") == "previous_round":
     _rp_types_q = [
         "label_mismatch", "constraint_modified", "hint_changed", "choices_list_changed",
     ]
-    _rp_types_opt = ["option_label_mismatch", "added_option", "removed_option"]
+    _rp_types_opt = ["choice_label_mismatch", "added_choice", "removed_choice"]
     _rp_qnames = sorted(set(_round_param_qnames) | set(_round_param_option_qnames))
     if _rp_qnames:
         _rp_mask_q = (
@@ -2161,10 +2312,10 @@ if run.get("reference_mode") == "previous_round":
         all_issues = all_issues.with_columns(
             pl.col("issue_type").alias("_issue_type_raw")
         ).with_columns([
-            pl.when(_rp_mask_q)
+            pl.when(_rp_mask_q | _rp_mask_opt)
             .then(
                 pl.concat_str([
-                    pl.lit("round_parameter_change ("),
+                    pl.lit("additional_information_replacement_change ("),
                     pl.col("_issue_type_raw"),
                     pl.lit(")"),
                 ])
@@ -2319,10 +2470,10 @@ _ISSUE_LABELS = {
     "hint_changed"             : "Hint text changed",
     "crop_harvest_violation"   : "Crop harvest rule violation",
     "choices_list_changed"     : "Choices list changed",
-    "round_parameter_change"  : "Round parameter change (Additional info / crop / AGOL)",
-    "removed_option"           : "Choice removed",
-    "added_option"             : "Choice added",
-    "option_label_mismatch"    : "Choice label changed",
+    "additional_information_replacement_change": "Additional information replacement change",
+    "removed_choice"           : "Choice removed",
+    "added_choice"             : "Choice added",
+    "choice_label_mismatch"    : "Choice label changed",
     "cluster_ea_choice_changes_summary": "Cluster/EA choice changes summary",
     "placeholder_not_found"    : "Placeholder not in template/additional info",
     "placeholder_should_use_kobo_ref": "Placeholder looks like variable (use ${var})",
@@ -2373,9 +2524,9 @@ ISSUE_ACTION_MAP = {
     "calculation_changed": "Review calculation change",
     "type_changed": "Review question type change",
     "hint_changed": "Review hint text change",
-    "removed_option": "Review removed choice and downstream logic",
-    "added_option": "Review added choice and downstream logic",
-    "option_label_mismatch": "Review choice label mismatch",
+    "removed_choice": "Review removed choice and downstream logic",
+    "added_choice": "Review added choice and downstream logic",
+    "choice_label_mismatch": "Review choice label mismatch",
     "cluster_ea_choice_changes_summary": "Informational only: review aggregate cluster/ea choice turnover counts",
     "broken_relevant_reference": "Fix relevant expression to valid referenced variables",
     "relevant_inexact_reference": "Review relevant expression equivalence with reference",
@@ -2395,7 +2546,7 @@ ISSUE_ACTION_MAP = {
 
 def _action_for_issue_type(issue_type: str) -> str:
     key = str(issue_type or "").strip()
-    if key.startswith("round_parameter_change"):
+    if key.startswith("additional_information_replacement_change"):
         return "Review replacement-driven text change (Additional info / crop / AGOL)"
     return ISSUE_ACTION_MAP.get(key, "Review issue details")
 
@@ -2539,7 +2690,7 @@ CRITICAL_ISSUE_TYPES = {
 RELEVANT_ISSUE_TYPES  = {"broken_relevant_reference", "relevant_inexact_reference", "relevant_modified"}
 STRUCTURE_ISSUE_TYPES = {
     "kobo_ref_loose_syntax", "kobo_ref_missing_variable",
-    "duplicate_qname", "duplicate_choice_name",
+    "duplicate_qname", "duplicate_choice_name", "type_changed",
 }
 REPLACEMENT_ISSUE_TYPES = {
     "placeholder_not_found", "placeholder_should_use_kobo_ref",
@@ -2547,17 +2698,13 @@ REPLACEMENT_ISSUE_TYPES = {
 QUESTION_CHANGE_TYPES = {
     "mandatory_column_mismatch", "added_question", "removed_question", "mandatory_to_optional",
     "choices_list_changed", "label_mismatch", "constraint_modified",
-    "type_changed", "required_changed", "choice_filter_modified", "appearance_changed", "calculation_changed",
+    "required_changed", "choice_filter_modified", "appearance_changed", "calculation_changed",
     "hint_changed",
-    "round_parameter_change",
 }
 
 
 def _question_change_expr():
-    return (
-        pl.col("issue_type").is_in(list(QUESTION_CHANGE_TYPES))
-        | pl.col("issue_type").cast(pl.Utf8).str.starts_with("round_parameter_change (")
-    )
+    return pl.col("issue_type").is_in(list(QUESTION_CHANGE_TYPES))
 
 
 def _normalise_qtype_for_summary(df):
@@ -2644,8 +2791,28 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
     ws["A2"] = f"Comparison basis: {_reference_scope_label()}"
     ws["A2"].font = Font(size=10, color="274E13", italic=True)
     ws["A2"].alignment = Alignment(horizontal="left", vertical="center")
+    ws.merge_cells("A3:D3")
+    _curr_name = Path(run.get("questionnaire_path", "")).name
+    _curr_iso = str(run.get("iso3", "") or "").upper()
+    _curr_round = _extract_round_token_kobo(_curr_name) or "R?"
+    ws["A3"] = f"Current questionnaire: {_curr_iso} {_curr_round} | {_curr_name}"
+    ws["A3"].font = Font(size=10, color="1F4E78", italic=True)
+    ws["A3"].alignment = Alignment(horizontal="left", vertical="center")
+    ws.merge_cells("A4:D4")
+    ws["A4"] = f"Checked against: {_reference_descriptor_kobo()}"
+    ws["A4"].font = Font(size=10, color="1F4E78", italic=True)
+    ws["A4"].alignment = Alignment(horizontal="left", vertical="center")
+    ws.merge_cells("A5:D5")
+    ws["A5"] = f"Language scope: {_language_scope_descriptor_kobo()}"
+    ws["A5"].font = Font(size=10, color="1F4E78", italic=True)
+    ws["A5"].alignment = Alignment(horizontal="left", vertical="center")
+    ws.merge_cells("A6:D6")
+    _tpl_name = Path(run.get("template_path", "")).name if run.get("template_path") else "N/A"
+    ws["A6"] = f"Template used for placeholder mapping: {_tpl_name}"
+    ws["A6"].font = Font(size=10, color="1F4E78", italic=True)
+    ws["A6"].alignment = Alignment(horizontal="left", vertical="center")
 
-    r = 3
+    r = 7
     _rules = rules or {}
     _crit  = (critical_issues if critical_issues is not None
               else pl.DataFrame(schema={"set_name": pl.Utf8, "issue_type": pl.Utf8, "Q Name": pl.Utf8}))
@@ -2742,14 +2909,15 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
     _struct_all  = _struct_df.height
     _dup_q       = _struct_df.filter(pl.col("issue_type") == "duplicate_qname").height
     _dup_choice  = _struct_df.filter(pl.col("issue_type") == "duplicate_choice_name").height
-    _other_struct = _struct_all - _dup_q - _dup_choice
+    _qtype       = _struct_df.filter(pl.col("issue_type") == "type_changed").height
+    _other_struct = _struct_all - _dup_q - _dup_choice - _qtype
     _struct_ok   = _struct_all == 0
     _struct_det  = (
-        f"{_struct_all} issue(s): duplicate Q Name={_dup_q}; duplicate choice name={_dup_choice}; KoBo refs={_other_struct}"
+        f"{_struct_all} issue(s): Q type integrity={_qtype}; duplicate Q Name={_dup_q}; duplicate choice name={_dup_choice}; KoBo refs={_other_struct}"
         if not _struct_ok else
-        "No issues in duplicates/KoBo references"
+        "No issues in Q type integrity, duplicates, or KoBo references"
     )
-    _check_row(ws, r, "Duplicates and KoBo references", _struct_ok, _struct_det); r += 1
+    _check_row(ws, r, "Q type integrity, duplicates and KoBo references", _struct_ok, _struct_det); r += 1
 
     r += 1
 
@@ -2790,7 +2958,7 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
     _sect(ws, r, "CHOICE CHANGES  (questions present in both files)", 4); r += 1
     r = _grouped_table(ws, r,
                        all_issues.filter(pl.col("issue_type").is_in(
-                           ["removed_option", "added_option", "option_label_mismatch", "cluster_ea_choice_changes_summary"])))
+                           ["removed_choice", "added_choice", "choice_label_mismatch", "cluster_ea_choice_changes_summary"])))
 
 
 def write_critical_sets_sheet(wb, all_issues, found_info=None):
@@ -2839,12 +3007,12 @@ def write_questionnaire_structure_sheet(wb, all_issues):
         {"relevant_modified"},
     )
 
-    # Box 2: duplicate/token syntax checks
+    # Box 2: Q Type integrity + duplicate/token syntax checks
     row += 1
     struct_df = all_issues.filter(
         pl.col("issue_type").is_in(list(STRUCTURE_ISSUE_TYPES))
     ).sort(["severity", "Q Name", "field"])
-    _sect(ws, row, "QUESTIONNAIRE STRUCTURE CHECKS  Duplicates and KoBO references", 8)
+    _sect(ws, row, "QUESTIONNAIRE STRUCTURE CHECKS  Q type integrity, duplicates and KoBO references", 8)
     _table(ws, row + 1, struct_df, apply_view=False)
 
     # Avoid frozen panes in multi-box sheets (this was causing navigation/display issues).
@@ -2857,8 +3025,26 @@ def write_replacement_issues_sheet(wb, all_issues):
     ws.sheet_view.showGridLines = False
     df = all_issues.filter(pl.col("issue_type").is_in(list(REPLACEMENT_ISSUE_TYPES))).sort(["severity", "Q Name", "field"])
     _sect(ws, 1, "REPLACEMENT ISSUES  Placeholder and Additional information checks", 8)
-    _table(ws, 2, df, apply_view=False)
-    ws.freeze_panes = "A3"
+    next_row = _table(ws, 2, df, apply_view=False)
+
+    rp_df = (
+        all_issues
+        .filter(pl.col("issue_type").cast(pl.Utf8).str.starts_with("additional_information_replacement_change ("))
+        .sort(["severity", "issue_type", "Q Name"])
+    )
+    next_row += 1
+    _sect(ws, next_row, "ADDITIONAL INFORMATION REPLACEMENT CHANGES  (previous_round informational)", 8)
+    rp_start = next_row + 1
+    _table(ws, rp_start, rp_df, apply_view=False)
+    _apply_inline_diff_for_issue(
+        ws,
+        rp_start,
+        rp_df,
+        [(s, d) for s, d in COL_MAP if s in rp_df.columns],
+        {"additional_information_replacement_change*"},
+    )
+
+    ws.freeze_panes = "A1"
     _autofit(ws)
 
 
@@ -2876,9 +3062,9 @@ def write_question_changes_sheet(wb, all_issues):
     ws.sheet_view.showGridLines = False
     df = all_issues.filter(_question_change_expr())
     col_map = [c for c in COL_MAP if c[0] not in {"set_name", "list_name", "option_name"}]
-    _sect(ws, 1, "QUESTION CHANGES  Presence, mandatory, label, type, hint, required, choice_filter, appearance, calculation, constraint, choices list", 8)
+    _sect(ws, 1, "QUESTION CHANGES  Presence, mandatory, label, hint, required, choice_filter, appearance, calculation, constraint, choices list", 8)
     _table(ws, 2, df, col_map=col_map)
-    _apply_inline_diff_for_issue(ws, 2, df, [(s, d) for s, d in col_map if s in df.columns], {"label_mismatch", "constraint_modified", "hint_changed", "choice_filter_modified", "round_parameter_change*"})
+    _apply_inline_diff_for_issue(ws, 2, df, [(s, d) for s, d in col_map if s in df.columns], {"label_mismatch", "constraint_modified", "hint_changed", "choice_filter_modified"})
     _autofit(ws)
 
 
@@ -2886,12 +3072,12 @@ def write_option_changes_sheet(wb, all_issues):
     ws = wb.create_sheet("Choice Changes")
     ws.sheet_view.showGridLines = False
     df = all_issues.filter(pl.col("issue_type").is_in([
-        "removed_option", "added_option", "option_label_mismatch", "cluster_ea_choice_changes_summary",
+        "removed_choice", "added_choice", "choice_label_mismatch", "cluster_ea_choice_changes_summary",
     ]))
     col_map = [c for c in COL_MAP if c[0] != "set_name"]
     _sect(ws, 1, "CHOICE CHANGES  Answer choices for questions in both files", 8)
     _table(ws, 2, df, col_map=col_map)
-    _apply_inline_diff_for_issue(ws, 2, df, [(s, d) for s, d in col_map if s in df.columns], {"option_label_mismatch"})
+    _apply_inline_diff_for_issue(ws, 2, df, [(s, d) for s, d in col_map if s in df.columns], {"choice_label_mismatch"})
     _autofit(ws)
 
 

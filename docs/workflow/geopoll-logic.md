@@ -20,15 +20,11 @@ Aggregates all issue rows by severity and by check group. Read this first  -  it
 - Use Summary as a triage map, not for root-cause investigation.
 - Open the specific detail sheet for every check group that is not PASS.
 
-![GeoPoll Summary](../assets/images/reports/geopoll-summary.png){: .sheet-placeholder }
-
 ---
 
 ## 2  -  Critical Sets Sheet
 
 Checks whether all required questions defined in `critical_sets.yaml` are present and have the correct mandatory behavior. A structurally incomplete questionnaire can pass all other checks and still produce broken indicators.
-
-![GeoPoll Critical Sets](../assets/images/reports/geopoll-critical-sets.png){: .sheet-placeholder }
 
 ### Issue types
 
@@ -81,8 +77,6 @@ The validator resolves an **effective skip rule** per question using this column
 3. <code>Default skip patterns &amp; conditional</code>  -  fallback rule used when the above two are empty<br><br>
 Both the current questionnaire and the reference use the same priority to determine their respective effective rules before comparing them.
 </div>
-
-![GeoPoll Questionnaire Structure](../assets/images/reports/geopoll-structure.png){: .sheet-placeholder }
 
 ### Skip Pattern Issues
 
@@ -172,8 +166,6 @@ Both the current questionnaire and the reference use the same priority to determ
 
 Validates placeholder token coverage. Unresolved placeholders appear as literal `$...$` tokens to the enumerator and invalidate downstream label interpretation.
 
-![GeoPoll Replacement Issues](../assets/images/reports/geopoll-replacement-issues.png){: .sheet-placeholder }
-
 ### Issue types
 
 <div class="issue-block">
@@ -234,11 +226,11 @@ Validates placeholder token coverage. Unresolved placeholders appear as literal 
 
 Compares the current questionnaire against the reference question by question. This is the primary comparability risk layer  -  even small wording changes can alter indicator interpretation.
 
-![GeoPoll Question Changes](../assets/images/reports/geopoll-question-changes.png){: .sheet-placeholder }
-
 ### Question Changes (Core)
 
-*Report block: "QUESTION CHANGES (CORE)  -  Presence, mandatory, Q type, labels"*
+*Report block: "QUESTION CHANGES (CORE)  -  Presence, mandatory, labels"*
+
+Q type integrity is reported in **Questionnaire Structure** under **Q Type Integrity Issues**.
 
 <div class="issue-block">
   <div class="issue-card issue-card-high">
@@ -292,21 +284,9 @@ Compares the current questionnaire against the reference question by question. T
   </div>
 </div>
 
-<div class="issue-block">
-  <div class="issue-block-label"><code>qtype_changed</code> <span class="issue-dynamic-note"> -  severity is dynamic</span></div>
-  <div class="issue-card issue-card-high">
-    <span class="sev sev-high">HIGH</span>
-    <span class="issue-card-body">Incompatible or invalid type transition (e.g. single-select to multi-select, numeric to open-text). Applies regardless of mandatory status.</span>
-  </div>
-  <div class="issue-card issue-card-medium">
-    <span class="sev sev-medium">MEDIUM</span>
-    <span class="issue-card-body">Type changed within compatible variants (e.g. label-only type reclassification).</span>
-  </div>
-</div>
+### Question Changes (Additional Fields)
 
-### Question Changes (Operational Fields)
-
-*Report block: "QUESTION CHANGES (OPERATIONAL FIELDS)"*
+*Report block: "QUESTION CHANGES (ADDITIONAL FIELDS)"*
 
 <div class="issue-block">
   <div class="issue-card issue-card-info">
@@ -348,8 +328,6 @@ Compares answer sets at the option level. Answer-set drift changes respondent me
 
 !!! warning "Read Question Changes and Option Changes together"
     If a question is removed, its options typically won't appear as standalone option removals.
-
-![GeoPoll Option Changes](../assets/images/reports/geopoll-option-changes.png){: .sheet-placeholder }
 
 ### Issue types
 

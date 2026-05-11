@@ -1,0 +1,17 @@
+name: diem-validation
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Core runtime — required to run the validator
+  - python=3.12
+  - polars>=1.30
+  - openpyxl>=3.1
+  - pyyaml>=6.0
+  - xlsxwriter>=3.0
+  # Documentation — required to view the local docs site
+  - pip
+  - pip:
+    - mkdocs>=1.6
+    - mkdocs-material>=9.0
+    - pymdown-extensions>=10.0

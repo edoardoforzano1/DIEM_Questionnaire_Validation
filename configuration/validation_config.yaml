@@ -12,7 +12,7 @@ config_profile: ""
 # If empty, defaults to <output_dir>/config_profiles/
 config_profiles_dir: ""
 
-tool: "geopoll"
+tool: "kobo"
 
 # =============================================================================
 #  CORE SETTINGS  (used identically by both tools — change these each run)
@@ -22,13 +22,13 @@ tool: "geopoll"
 working_dir: "C:/Temp"
 
 # Current questionnaire filename (resolved under working_dir).
-questionnaire_file: "DRC_R11 HH questionnaire_Geopoll_TEST.xlsx"
+questionnaire_file: "Final_questionnaire_kobo_en_AFG_20250826013333_R11_copy.xlsx"
 
 # Language code: en | fr | ar | es
-language: "fr"
+language: "en"
 
 # ISO3 country code
-iso3: "COD"
+iso3: "AFG"
 
 # Reference mode:
 #   latest_template -> auto-detect newest matching file in templates_dir
@@ -36,7 +36,7 @@ iso3: "COD"
 reference_mode: "previous_round"
 
 # Only used when reference_mode = previous_round
-previous_round_file: "validated_questionnaire_geopoll_fr_COD_20250423171555_copyr10.xlsx"
+previous_round_file: "AFG validated_questionnaire_kobo_en_AFG_20250120195700_R10_copy.xlsx"
 
 # Folder containing all template Excel files
 templates_dir: "c:/Users/edoar/WORK/FAO/repo/questionnaire_validation_revision/Questionnaires/Questionnaire Templates"

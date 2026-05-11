@@ -1,4 +1,4 @@
-﻿# DIEM Questionnaire Validation v2
+# DIEM Questionnaire Validation v2
 
 Automated validation of DIEM household questionnaires for GeoPoll and KoBo.
 
@@ -10,11 +10,19 @@ Automated validation of DIEM household questionnaires for GeoPoll and KoBo.
 
 ## One-Time Environment Setup (Conda)
 
+An `environment.yml` is included. Create and activate the environment with:
+
 ```powershell
-conda create -n diem-validation python=3.11 -y
+conda env create -f environment.yml
 conda activate diem-validation
-conda install -c conda-forge polars openpyxl pyyaml mkdocs mkdocs-material -y
 ```
+
+This installs everything needed to run the validator and view the documentation locally.
+
+> **Note:** if you already have an older `diem-validation` environment, update it with:
+> ```powershell
+> conda env update -f environment.yml --prune
+> ```
 
 ## Launch Interactive Documentation (Recommended)
 
@@ -60,10 +68,9 @@ or
 1. Select tool: `kobo` or `geopoll`.
 2. Select reference mode: `latest_template` or `previous_round`.
 3. Run validation.
-4. Review output reports in `output_dir/<tool>_output`.
+4. Review output reports in `batch_output/<run_name>/`.
 
 ## Documentation Sources
 
 - Local docs source: `docs/`
 - MkDocs config: `mkdocs.yml`
-- GitHub Pages site (after publish): `https://<your-username>.github.io/DIEM_Questionnaire_Validation/`

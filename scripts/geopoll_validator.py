@@ -4432,11 +4432,10 @@ CORE_QUESTION_CHANGE_ISSUE_TYPES = {
     "mandatory_to_optional",
     "removed_question",
     "added_question",
-    "qtype_changed",
     "question_label_mismatch",
 }
 
-LESS_IMPORTANT_QUESTION_FIELD_ISSUE_TYPES = {
+ADDITIONAL_QUESTION_FIELD_ISSUE_TYPES = {
     "conditional_changed",
     "randomize_changed",
     "programming_instructions_changed",
@@ -4911,8 +4910,6 @@ def write_summary_sheet(wb, all_issues, rules, replacement_status=None):
         ("Questions removed (high)",     "removed_question", "high", "high"),
         ("Questions removed (info)",     "removed_question", "info", "info"),
         ("Questions added",              "added_question", None, "info"),
-        ("Q Type changed (high)",        "qtype_changed", "high", "high"),
-        ("Q Type changed (medium)",      "qtype_changed", "medium", "medium"),
         ("Question labels changed",      "question_label_mismatch", None, "medium"),
     ]:
         q = all_issues.filter(pl.col("issue_type") == itype)
@@ -4934,8 +4931,8 @@ def write_summary_sheet(wb, all_issues, rules, replacement_status=None):
         r += 1
 
     r += 1
-    #  Lower-priority control-field diffs
-    _section_header(ws, r, "QUESTION CHANGES (OPERATIONAL FIELDS)", 7); r += 1
+    #  Additional control-field diffs
+    _section_header(ws, r, "QUESTION CHANGES (ADDITIONAL FIELDS)", 7); r += 1
     _header_row(ws, r, ["Category", "Total", "Mandatory", "M-Panel", "Non-mand.", "Optional", "Severity"]); r += 1
     for label, itype in [
         ("Conditional changed", "conditional_changed"),
@@ -5083,8 +5080,8 @@ def write_critical_sets_sheet(wb, all_issues, found_info=None):
 def write_question_changes_sheet(wb, question_changes_view):
     """
     Question-level changes split into:
-    1) core changes (presence/mandatory/type/label)
-    2) less-important informational control-field changes.
+    1) core changes (presence/mandatory/label)
+    2) additional informational control-field changes.
     """
     ws = wb.create_sheet("Question Changes")
     ws.sheet_view.showGridLines = False
@@ -5104,10 +5101,10 @@ def write_question_changes_sheet(wb, question_changes_view):
         df = df.drop("set_name")
 
     core_df = df.filter(pl.col("issue_type").is_in(list(CORE_QUESTION_CHANGE_ISSUE_TYPES)))
-    less_df = df.filter(pl.col("issue_type").is_in(list(LESS_IMPORTANT_QUESTION_FIELD_ISSUE_TYPES)))
-    less_df = less_df.with_columns(pl.lit("info").alias("severity"))
+    additional_df = df.filter(pl.col("issue_type").is_in(list(ADDITIONAL_QUESTION_FIELD_ISSUE_TYPES)))
+    additional_df = additional_df.with_columns(pl.lit("info").alias("severity"))
 
-    _section_header(ws, 1, "QUESTION CHANGES (CORE)  Presence, mandatory, Q type, labels", 10)
+    _section_header(ws, 1, "QUESTION CHANGES (CORE)  Presence, mandatory, labels", 10)
     next_row = _issues_table(ws, 2, core_df)
     _apply_inline_diff_for_issue(
         ws,
@@ -5116,12 +5113,12 @@ def write_question_changes_sheet(wb, question_changes_view):
         {"question_label_mismatch"},
     )
 
-    _section_header(ws, next_row, "QUESTION CHANGES (OPERATIONAL FIELDS)", 10)
-    _issues_table(ws, next_row + 1, less_df)
+    _section_header(ws, next_row, "QUESTION CHANGES (ADDITIONAL FIELDS)", 10)
+    _issues_table(ws, next_row + 1, additional_df)
     _apply_inline_diff_for_issue(
         ws,
         next_row + 1,
-        less_df,
+        additional_df,
         {"conditional_changed", "programming_instructions_changed", "core_questions_only_changed"},
     )
     # Keep navigation stable even with multiple tables in this sheet.
