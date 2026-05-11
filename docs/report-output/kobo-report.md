@@ -48,6 +48,8 @@ The Summary sheet is the entry point. It contains status tables, each covering a
 - A `HIGH` in any table means the questionnaire should not be launched until that issue is resolved.
 - Use the table to decide which detail sheets to open. If everything is `PASS`, you are done.
 
+![KoBo Summary](../assets/images/reports/kobo-summary.png)
+
 ### CRITICAL SETS STATUS
 
 <div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-sum-critical-sets.png</code></div>
@@ -109,7 +111,9 @@ Checks whether all structurally required questions are present and correctly fla
 
 ## 3 - Questionnaire Structure Sheet
 
-Two sub-blocks: skip logic references (`relevant`) and Q type integrity, duplicates, and KoBo reference syntax.
+Three sub-blocks: skip logic references (`relevant`), Q type integrity, and duplicates and KoBo reference syntax.
+
+![KoBo Questionnaire Structure](../assets/images/reports/kobo-structure.png)
 
 ### Skip logic references (relevant)
 
@@ -123,15 +127,20 @@ Validates the `relevant` column for broken references, inexact matches, and drif
 - `relevant_inexact_reference` HIGH: the exact variable is missing but a close optional counterpart (e.g. `o_var`) exists. Check which variable the expression should target.
 - `relevant_modified` MEDIUM: the expression changed from baseline. Review whether the routing still matches the intended logic.
 
-### Q type integrity, duplicates and KoBo references
+### Q TYPE INTEGRITY ISSUES
 
 <div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-structure-qtype.png</code></div>
 
-![KoBo Structure - Q type and references](../assets/images/reports/kobo-structure-qtype.png){: .sheet-placeholder }
-
-Covers question type transitions, duplicate names, and `${var}` / `$var` syntax across survey text and formula fields.
+![KoBo Structure - Q type](../assets/images/reports/kobo-structure-qtype.png){: .sheet-placeholder }
 
 - `type_changed` HIGH: incompatible type transition — restore or confirm with the survey team before launch. MEDIUM: type changed within compatible variants.
+
+### QUESTIONNAIRE STRUCTURE CHECKS - Duplicates and KoBo references
+
+<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-structure-duplicates.png</code></div>
+
+![KoBo Structure - Duplicates and KoBo references](../assets/images/reports/kobo-structure-duplicates.png){: .sheet-placeholder }
+
 - `duplicate_qname` HIGH: two questions share the same name — rename one before launch.
 - `duplicate_choice_name` HIGH: two choices in the same list share the same name — rename one.
 - `kobo_ref_loose_syntax` HIGH/MEDIUM: `$var` syntax found — replace with `${var}`.
@@ -147,10 +156,21 @@ Checks placeholder consistency between the template, the current questionnaire, 
 
 ![KoBo Replacement Issues](../assets/images/reports/kobo-replacement-issues.png)
 
-**How to read it:**
+### REPLACEMENT ISSUES - Placeholder and Additional information checks
+
+<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-replacement-placeholder-checks.png</code></div>
+
+![KoBo Replacement - Placeholder checks](../assets/images/reports/kobo-replacement-placeholder-checks.png){: .sheet-placeholder }
 
 - `placeholder_not_found` HIGH: a token in survey text has no mapping in the Additional Information sheet. Add the missing entry or correct the token spelling.
 - `placeholder_should_use_kobo_ref` HIGH: a token matches a survey variable and should be written as `${variable}` instead. Replace the plain text reference.
+
+### ADDITIONAL INFORMATION REPLACEMENT CHANGES (previous_round informational)
+
+<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-replacement-ai-changes.png</code></div>
+
+![KoBo Replacement - AI changes](../assets/images/reports/kobo-replacement-ai-changes.png){: .sheet-placeholder }
+
 - `additional_information_replacement_change (...)` INFO: difference is replacement-driven — tracked here to avoid confusion in Question and Choice Changes. Review that the replacement content is correct for this round; no action needed otherwise.
 
 **Key columns:** Issue type, Q Name, Field (token name), Current value, Severity.
