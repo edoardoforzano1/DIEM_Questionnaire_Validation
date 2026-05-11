@@ -451,8 +451,19 @@ def prepare_run(cfg: ValidationConfig) -> dict:
     if not reference_path.exists():
         raise FileNotFoundError(f"Reference file not found:\n  {reference_path}")
 
+    _qname = questionnaire_path.name
+    _round_tag = ""
+    for _pat in [
+        r"(?i)(?:^|[_\-\s])R(\d{1,3})(?=$|[_\-\s\.])",
+        r"(?i)(?:^|[_\-\s])ROUND[_\-\s]*(\d{1,3})(?=$|[_\-\s\.])",
+        r"(?i)R(?:OUND)?[_\-\s]*([0-9]{1,3})(?=(?:\.[A-Za-z0-9]+)?$)",
+    ]:
+        _m = re.search(_pat, _qname)
+        if _m:
+            _round_tag = f"_R{_m.group(1)}"
+            break
     _vn = _y.get("validation_number")
-    _rtag = f"_R{_vn}" if _vn else ""
+    _rtag = _round_tag or (f"_R{_vn}" if _vn else "")
     _dtag = _time.strftime("%Y%m%d")
     report_file = output_dir / f"report_geopoll_{cfg.language.lower()}_{cfg.iso3.upper()}{_rtag}_{_dtag}.xlsx"
     validated_questionnaire_file = output_dir / f"validated_questionnaire_geopoll_{cfg.language.lower()}_{cfg.iso3.upper()}{_rtag}_{_dtag}.xlsx"

@@ -3009,12 +3009,23 @@ def write_questionnaire_structure_sheet(wb, all_issues):
         {"relevant_modified"},
     )
 
-    # Box 2: Q Type integrity + duplicate/token syntax checks
+    # Box 2: Q Type integrity
+    row += 1
+    qtype_df = all_issues.filter(
+        pl.col("issue_type") == "type_changed"
+    ).sort(["severity", "Q Name", "field"])
+    _sect(ws, row, "Q TYPE INTEGRITY ISSUES", 8)
+    row = _table(ws, row + 1, qtype_df, apply_view=False)
+
+    # Box 3: duplicate/token syntax checks
     row += 1
     struct_df = all_issues.filter(
-        pl.col("issue_type").is_in(list(STRUCTURE_ISSUE_TYPES))
+        pl.col("issue_type").is_in([
+            "duplicate_qname", "duplicate_choice_name",
+            "kobo_ref_loose_syntax", "kobo_ref_missing_variable",
+        ])
     ).sort(["severity", "Q Name", "field"])
-    _sect(ws, row, "QUESTIONNAIRE STRUCTURE CHECKS  Q type integrity, duplicates and KoBO references", 8)
+    _sect(ws, row, "QUESTIONNAIRE STRUCTURE CHECKS  Duplicates and KoBO references", 8)
     _table(ws, row + 1, struct_df, apply_view=False)
 
     # Avoid frozen panes in multi-box sheets (this was causing navigation/display issues).
@@ -3106,8 +3117,9 @@ from pathlib import Path as _P
 _q_path = _P(run["questionnaire_path"])
 _out_dir = _P(run.get("output_dir") or _q_path.parent)
 _out_dir.mkdir(parents=True, exist_ok=True)
+_round_kobo = _extract_round_token_kobo(_q_path.name)
 _rn_kobo = cfg.get("validation_number") if 'cfg' in dir() else None
-_rtag_kobo = f"_R{_rn_kobo}" if _rn_kobo else ""
+_rtag_kobo = (f"_{_round_kobo}" if _round_kobo else (f"_R{_rn_kobo}" if _rn_kobo else ""))
 _dtag_kobo = _time.strftime("%Y%m%d")
 _lang_kobo = str(cfg.get("language", "")).lower() if 'cfg' in dir() else "xx"
 _iso3_kobo = str(cfg.get("iso3", "")).upper() if 'cfg' in dir() else "XXX"
@@ -3356,8 +3368,9 @@ def produce_validated_questionnaire(
     iso3 = cfg["iso3"]
     lang = cfg["language"]
     out  = Path(cfg.get("output_dir") or str(Path(src).parent))
+    _round_kobo = _extract_round_token_kobo(Path(src).name)
     _vn_kobo = cfg.get("validation_number") if 'cfg' in globals() else None
-    _rt_kobo = f"_R{_vn_kobo}" if _vn_kobo else ""
+    _rt_kobo = (f"_{_round_kobo}" if _round_kobo else (f"_R{_vn_kobo}" if _vn_kobo else ""))
     dest = str(out / f"validated_questionnaire_kobo_{lang}_{iso3.upper()}{_rt_kobo}_{_date.today():%Y%m%d}.xlsx")
 
     replacement_status = {"rows": []}
