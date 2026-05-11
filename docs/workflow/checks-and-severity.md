@@ -49,7 +49,7 @@ Some issue types do not have a fixed severity  -  the actual severity depends on
 ### `qtype_changed` / `type_changed`
 
 <div class="logic-box">
-<strong>HIGH</strong> when the type transition is incompatible or structurally invalid  -  regardless of whether the question is mandatory.<br>
+<strong>HIGH</strong> when the type transition is incompatible or structurally invalid  -  regardless of whether the question is mandatory. This also includes missing current type while reference has a type, or unknown/unlisted type tokens.<br>
 <strong>MEDIUM</strong> when the type change is within compatible variants (e.g. label-only type reclassification).
 </div>
 

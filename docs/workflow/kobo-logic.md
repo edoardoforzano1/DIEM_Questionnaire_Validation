@@ -23,6 +23,10 @@ Aggregates all issue rows by severity and by check group. Read this first.
 - Header context lines identify the exact run:
   `Comparison basis`, `Current questionnaire`, `Checked against`, `Language scope`, and `Template used for placeholder mapping`.
 
+<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-sum-config-header.png</code> — the run context rows at the top of the Summary sheet</div>
+
+![KoBo Summary - Run Context](../assets/images/reports/kobo-sum-config-header.png){: .sheet-placeholder }
+
 ---
 
 ## 2  -  Critical Sets Sheet
@@ -138,7 +142,7 @@ Validates `relevant` expression references, routing drift, duplicate names, and 
   <div class="issue-block-label"><code>type_changed</code> <span class="issue-dynamic-note"> -  severity is dynamic</span></div>
   <div class="issue-card issue-card-high">
     <span class="sev sev-high">HIGH</span>
-    <span class="issue-card-body">Incompatible or structurally invalid type transition (for example single-select to multi-select, or option-bearing to non-option with invalid option shape).</span>
+    <span class="issue-card-body">Incompatible or structurally invalid type transition (for example single-select to multi-select, or option-bearing to non-option with invalid option shape). Also includes missing current type when reference has a type, or unknown/unlisted type tokens.</span>
   </div>
   <div class="issue-card issue-card-medium">
     <span class="sev sev-medium">MEDIUM</span>

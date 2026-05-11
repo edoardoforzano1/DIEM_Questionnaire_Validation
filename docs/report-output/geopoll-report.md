@@ -44,7 +44,7 @@ All detail sheets (Critical Sets, Questionnaire Structure, Replacement Issues, Q
 
 ## 1 - Summary Sheet
 
-The Summary sheet is the entry point. It contains four status tables, each covering a check group.
+The Summary sheet is the entry point. It contains six status tables, each covering a check group.
 
 ![GeoPoll Summary](../assets/images/reports/geopoll-summary.png)
 
@@ -55,16 +55,41 @@ The Summary sheet is the entry point. It contains four status tables, each cover
 - A `HIGH` in any table means the questionnaire should not be launched until that issue is resolved.
 - Use the table to decide which detail sheets to open. If everything is `PASS`, you are done.
 
-**Status tables:**
+### CRITICAL SETS STATUS
 
-| Table | Covers | Detail sheet |
-|---|---|---|
-| CRITICAL SETS STATUS | Critical question presence | Critical Sets |
-| QUESTIONNAIRE STRUCTURE CHECKS | Skip routing, Q type, duplicates | Questionnaire Structure |
-| REPLACEMENT STATUS | Placeholder resolution | Replacement Issues |
-| QUESTION CHANGES (CORE) | Presence, mandatory, label drift | Question Changes |
-| QUESTION CHANGES (OPERATIONAL FIELDS) | Operational metadata drift | Question Changes |
-| OPTION CHANGES | Answer-set drift | Option Changes |
+![GeoPoll Summary - Critical Sets](../assets/images/reports/geopoll-sum-critical-sets.png){: .sheet-placeholder }
+
+Shows whether all required critical questions are present and correctly flagged as mandatory. Any non-PASS opens the Critical Sets sheet.
+
+### QUESTIONNAIRE STRUCTURE CHECKS
+
+![GeoPoll Summary - Questionnaire Structure](../assets/images/reports/geopoll-sum-structure.png){: .sheet-placeholder }
+
+Rows cover skip pattern issues, Q type integrity, and duplicate Q Names. Any HIGH here must be resolved before launch.
+
+### REPLACEMENT STATUS
+
+![GeoPoll Summary - Replacement Status](../assets/images/reports/geopoll-sum-replacement.png){: .sheet-placeholder }
+
+Summarizes placeholder resolution. In the previous-round workflow, an `INFO` row here tracks crop round deltas — not a blocker.
+
+### QUESTION CHANGES (CORE)
+
+![GeoPoll Summary - Question Changes Core](../assets/images/reports/geopoll-sum-question-core.png){: .sheet-placeholder }
+
+Covers presence changes (added/removed questions), mandatory status, and label drift. HIGH here means a mandatory question is missing or has changed.
+
+### QUESTION CHANGES (OPERATIONAL FIELDS)
+
+![GeoPoll Summary - Question Changes Operational](../assets/images/reports/geopoll-sum-question-ops.png){: .sheet-placeholder }
+
+Covers Randomize, Conditional, Programming Instructions, and Core questions only. All rows are INFO — no action required unless the change was unintentional.
+
+### OPTION CHANGES
+
+![GeoPoll Summary - Option Changes](../assets/images/reports/geopoll-sum-option-changes.png){: .sheet-placeholder }
+
+Shows answer-set drift counts. A HIGH here means a mandatory question lost an option.
 
 ---
 
@@ -89,15 +114,31 @@ Checks whether all structurally required questions are present and correctly fla
 
 Three sub-blocks: skip pattern issues, Q type integrity, and duplicate Q Name checks.
 
-![GeoPoll Questionnaire Structure](../assets/images/reports/geopoll-structure.png)
+### Skip pattern issues
 
-**How to read it:**
+![GeoPoll Structure - Skip patterns](../assets/images/reports/geopoll-structure-skip.png)
 
-- **Skip pattern issues**: use `Q Name` + `Field` to locate the question and column. `Current value` shows the skip text that triggered the issue; `Reference / rule` shows what was expected.
-- **Q type issues** (`qtype_changed`): `Field = Q Type`, `Current value` is the new type, `Reference / rule` is the original type. Check severity — HIGH means incompatible structural change.
-- **Duplicate Q Name**: `Q Name` shows the duplicated identifier. `Excel row` gives the row to edit.
+Use `Q Name` + `Field` to locate the question and column. `Current value` shows the skip text that triggered the issue; `Reference / rule` shows what was expected.
 
-**Key columns:** Issue type, Q Name, Field, Current value, Reference / rule, Severity, Excel row.
+- `skip_pattern_empty` HIGH: the Default column has a routing rule but Specify and Skip Pattern are both blank. Fill in the Skip Pattern column.
+- `skipPattern_changes` INFO: the skip expression changed from baseline. Review for intent.
+
+### Q type issues
+
+![GeoPoll Structure - Q type](../assets/images/reports/geopoll-structure-qtype.png)
+
+`qtype_changed` rows: `Field = Q Type`, `Current value` is the new type, `Reference / rule` is the original type.
+
+- HIGH: incompatible or structurally invalid type transition — restore or confirm with the survey team before launch.
+- MEDIUM: type changed within compatible variants — review for expected behavior.
+
+### Duplicate Q Name checks
+
+![GeoPoll Structure - Duplicates](../assets/images/reports/geopoll-structure-duplicates.png)
+
+`Q Name` shows the duplicated identifier. `Excel row` gives the row to edit. Duplicate names break skip logic and data joins — fix before launch.
+
+**Key columns (all sub-blocks):** Issue type, Q Name, Field, Current value, Reference / rule, Severity, Excel row.
 
 ---
 
@@ -120,13 +161,13 @@ Covers placeholder token status — whether `$token$` values were resolved from 
 
 ## 5 - Question Changes Sheet
 
-Two sub-blocks within this sheet:
+Two sub-blocks within this sheet.
 
 ### QUESTION CHANGES (CORE)
 
 Presence, mandatory status, labels, and Q type (for context — Q type integrity is in Questionnaire Structure).
 
-![GeoPoll Question Changes](../assets/images/reports/geopoll-question-changes.png)
+![GeoPoll Question Changes - Core](../assets/images/reports/geopoll-question-core.png)
 
 **How to read it:**
 
@@ -139,6 +180,8 @@ Presence, mandatory status, labels, and Q type (for context — Q type integrity
 ### QUESTION CHANGES (OPERATIONAL FIELDS)
 
 Randomize, Conditional, Programming Instructions, Core questions only. All at INFO severity.
+
+![GeoPoll Question Changes - Operational](../assets/images/reports/geopoll-question-ops.png)
 
 **How to read it:**
 

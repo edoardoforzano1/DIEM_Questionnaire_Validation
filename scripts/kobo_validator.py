@@ -1259,11 +1259,46 @@ def _qtype_mode_kobo(value: str) -> str:
     return "non_option"
 
 
+_KOBO_EXTRA_KNOWN_QTYPES = {
+    "note", "rank", "email", "acknowledge", "hidden",
+    "begin group", "end group", "begin repeat", "end repeat",
+    "begin kobo matrix", "end kobo matrix",
+}
+
+
+_KOBO_KNOWN_QTYPES_NORMALIZED = {
+    _normalize_qtype_value_kobo(v)
+    for v in (
+        set(_SELECT_TYPES)
+        | set(_DATA_TYPES)
+        | set(_METADATA_TYPES)
+        | _KOBO_EXTRA_KNOWN_QTYPES
+        | {"single choice", "select all that apply", "select one", "select multiple"}
+    )
+}
+_KOBO_KNOWN_QTYPES_NORMALIZED.discard("")
+
+
+def _is_known_qtype_value_kobo(value: str) -> bool:
+    t = _normalize_qtype_value_kobo(value)
+    if not t:
+        return False
+    if t in _KOBO_KNOWN_QTYPES_NORMALIZED:
+        return True
+    if t.startswith("select one") or t.startswith("select multiple"):
+        return True
+    return False
+
+
 def _qtype_change_severity_kobo(
     curr_mode: str,
     ref_mode: str,
     curr_option_count: int,
     ref_option_count: int,
+    curr_type_norm: str,
+    ref_type_norm: str,
+    curr_type_known: bool,
+    ref_type_known: bool,
 ) -> str:
     """
     Severity policy (independent of mandatory status):
@@ -1273,6 +1308,18 @@ def _qtype_change_severity_kobo(
     cm = str(curr_mode or "")
     rm = str(ref_mode or "")
     modes = {cm, rm}
+    curr_t = str(curr_type_norm or "").strip()
+    ref_t = str(ref_type_norm or "").strip()
+
+    # Invalid: current is blank while reference has a defined type.
+    if (not curr_t) and ref_t:
+        return "high"
+
+    # Invalid: unknown/unlisted Q Type token on either side.
+    if curr_t and (not bool(curr_type_known)):
+        return "high"
+    if ref_t and (not bool(ref_type_known)):
+        return "high"
 
     # Incompatible family change: single <-> multi.
     if "single_select" in modes and "multi_select" in modes:
@@ -1335,6 +1382,8 @@ def compare_type_changes(
             pl.col("Q Type_ref").map_elements(_normalize_qtype_value_kobo, return_dtype=pl.Utf8).alias("_type_norm_ref"),
             pl.col("Q Type").map_elements(_qtype_mode_kobo, return_dtype=pl.Utf8).alias("_type_mode"),
             pl.col("Q Type_ref").map_elements(_qtype_mode_kobo, return_dtype=pl.Utf8).alias("_type_mode_ref"),
+            pl.col("Q Type").map_elements(_is_known_qtype_value_kobo, return_dtype=pl.Boolean).alias("_type_known"),
+            pl.col("Q Type_ref").map_elements(_is_known_qtype_value_kobo, return_dtype=pl.Boolean).alias("_type_known_ref"),
         ])
         .join(_cur_opt_counts, on="Q Name", how="left")
         .join(_ref_opt_counts, on="Q Name", how="left")
@@ -1344,13 +1393,20 @@ def compare_type_changes(
         ])
         .filter(pl.col("_type_norm") != pl.col("_type_norm_ref"))
         .with_columns(
-            pl.struct(["_type_mode", "_type_mode_ref", "_curr_opt_n", "_ref_opt_n"])
+            pl.struct([
+                "_type_mode", "_type_mode_ref", "_curr_opt_n", "_ref_opt_n",
+                "_type_norm", "_type_norm_ref", "_type_known", "_type_known_ref",
+            ])
             .map_elements(
                 lambda r: _qtype_change_severity_kobo(
                     r.get("_type_mode"),
                     r.get("_type_mode_ref"),
                     r.get("_curr_opt_n"),
                     r.get("_ref_opt_n"),
+                    r.get("_type_norm"),
+                    r.get("_type_norm_ref"),
+                    bool(r.get("_type_known")),
+                    bool(r.get("_type_known_ref")),
                 ),
                 return_dtype=pl.Utf8,
             )

@@ -20,6 +20,12 @@ Aggregates all issue rows by severity and by check group. Read this first - it t
 - Use Summary as a triage map, not for root-cause investigation.
 - Open the specific detail sheet for every check group that is not PASS.
 
+The run context block at the top of the sheet records which questionnaire and reference were used, so the report is self-contained for review and audit.
+
+<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/geopoll-sum-config-header.png</code> — the run context rows at the top of the Summary sheet</div>
+
+![GeoPoll Summary - Run Context](../assets/images/reports/geopoll-sum-config-header.png){: .sheet-placeholder }
+
 ---
 
 ## 2 - Critical Sets Sheet
@@ -186,7 +192,7 @@ Both the current questionnaire and the reference use the same priority to determ
   <div class="issue-block-label"><code>qtype_changed</code> <span class="issue-dynamic-note">- severity is dynamic</span></div>
   <div class="issue-card issue-card-high">
     <span class="sev sev-high">HIGH</span>
-    <span class="issue-card-body">Incompatible or structurally invalid type transition (e.g. single-select to multi-select, numeric to open-text). Applies regardless of mandatory status.</span>
+    <span class="issue-card-body">Incompatible or structurally invalid type transition (e.g. single-select to multi-select, numeric to open-text). Also includes missing current type when reference has a type, or unknown/unlisted type tokens. Applies regardless of mandatory status.</span>
   </div>
   <div class="issue-card issue-card-medium">
     <span class="sev sev-medium">MEDIUM</span>

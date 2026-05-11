@@ -1,0 +1,3683 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="4732" uniqueCount="2375"><si><t>GeoPoll Submission Form</t></si><si><t>FAO - Household Questionnaire</t></si><si><t>Additional notes</t></si><si><t>Q #</t></si><si><t>Q Name</t></si><si><t>Suggested Qname</t></si><si><t>English</t></si><si><t>Length</t></si><si><t>Arabic</t></si><si><t>Q Type</t></si><si><t>Randomize</t></si><si><t>Conditional</t></si><si><t>Programming Instructions</t></si><si><t>Skip Pattern</t></si><si><t>Codes</t></si><si><t xml:space="preserve">Default skip patterns &amp; conditional </t></si><si><t>Specify skip pattern variable (from blue text)</t></si><si><t>Estimated percentage of repondents</t></si><si><t>Mandatory</t></si><si><t>Duration (sec)</t></si><si><t>Weighted duration</t></si><si><t>Core questions only</t></si><si><t>A. PRESENTATION OF THE SURVEY AND ELIGIBILITY CRITERIA SELECTION</t></si><si><t>no</t></si><si><t>NA</t></si><si><t>Optin</t></si><si><t>Open Ended</t></si><si><t>Form Type - TextBox</t></si><si><t>Any Response = phone_number</t></si><si><t>phone_number</t></si><si><t xml:space="preserve">Input the phone number that you are contacting: </t></si><si><t>أدخل رقم الهاتف الذي تتصل به:</t></si><si><t>Any Response = calldispo</t></si><si><t>yes</t></si><si><t>calldispo</t></si><si><t>Phone number: #CATI_MOBILENUMBER#
+1)Someone answers
+2)No answer
+3)Refusal
+4)Call back
+5)Non-Working Number</t></si><si><t xml:space="preserve">رقم الهاتف: #CATI_MOBILENUMBER#
+1) يجيب شخص ما
+2) لا جواب
+3) رفض
+4) معاودة الاتصال
+5) الرقم لا يعمل </t></si><si><t>Single Choice</t></si><si><t>Form Type - Buttons</t></si><si><t>1 = resp_language
+2 = NoAnswer
+3 = Refusal
+4 = WhenCallBack
+5 = NonWorkingNumber</t></si><si><t>NoAnswer</t></si><si><t>calldispo_noanswer</t></si><si><t>Phone rang and no one answered.</t></si><si><t>رن الهاتف ولم يرد أحد</t></si><si><t>End Poll NoAnswer</t></si><si><t>NonWorkingNumber</t></si><si><t>calldispo_NonWorkingNumber</t></si><si><t>Phone number is not in service, not working, or not valid.</t></si><si><t>رقم الهاتف ليس في الخدمة أو لا يعمل أو غير صالح</t></si><si><t>End Poll NonWorkingNumber</t></si><si><t>resp_language</t></si><si><t>Which language do you wish to proceed with?
+
+[OPERATOR: READ ANSWER CHOICES. SINGLE RESPONSE.]
+
+1)Arabic</t></si><si><t>ما هي اللغة التي ترغب في المتابعة بها؟
+
+[المُشغل: اقرأ خيارات الإجابة. استجابة واحدة.]
+
+1) عربي</t></si><si><t>1 = introduction [English]
+2 = introduction [languages &amp; add more if needed]</t></si><si><t>For any response, go to introduction</t></si><si><t>introduction</t></si><si><t>Hello sir/ma'am, my name is #OPERATOR#, and I am calling from GeoPoll Polling Agency on behalf of the Food and Agriculture Organization of the United Nations [FAO]. We are conducting a survey on household livelihoods and the ability to access food in your area. I would like to ask you some questions about your household.
+
+The survey usually takes 20-30 minutes to complete. Any information that you provide will be kept strictly confidential, only used for the purpose of the survey and will not be shown to other people. Your voluntary participation in the outcome of this interview is NOT IN ANY WAY linked to your personal chance of receiving any assistance. This is voluntary and you can choose not to answer any or all of the questions if you want. However, we hope that you will participate since your views are important.  
+
+Please note that this call may be recorded for quality purposes.
+
+Do you have any questions?
+
+[OPERATOR: ADDRESS QUESTIONS FROM RESPONDENT, IF ANY.]
+
+1)CONTINUE</t></si><si><t>مرحبًا سيدي / سيدتي ، اسمي #OPERATOR#. أتصل من وكالة GeoPoll الاستقصائية نيابة عن  منظمة الأغذية والزراعة للأمم المتحدة (الفاو). نجري دراسة استقصائية حول سبل عيش الأسر والقدرة على الوصول إلى الغذاء في منطقتك. أود أن أطرح عليك بعض الأسئلة حول أسرتك.
+
+يستغرق الاستبيان عادةً 20-30 دقيقة. سيتم الاحتفاظ بسرية تامة بأي معلومات تقدمها ، ولن يتم استخدامها إلا لغرض الدراسة ولن يتم عرضها لأشخاص آخرين. إن مشاركتك الطوعية في نتيجة هذه الدراسة ليست مرتبطة بأي شكل من الأشكال بفرصتك الشخصية في تلقي أي مساعدة. هذا تطوعي ويمكنك اختيار عدم الإجابة على أي من الأسئلة أو جميعها إذا كنت تريد ذلك. ومع ذلك ، نأمل أن تشارك لأن آرائك مهمة.
+
+
+يرجى الملاحظة أنه قد يتم تسجيل هذه المكالمة لغاية مراقبة الجودة.
+
+هل لديك اسئلة؟
+
+[المُشغل: أجب على أسئلة المُجيب ، إن وجدت.]
+
+1) تابع</t></si><si><t>1 = Agree</t></si><si><t>For any response, go to Agree</t></si><si><t>Agree</t></si><si><t>resp_agree</t></si><si><t xml:space="preserve">Are you interested in participating in this survey?
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)Yes 
+2)Not now but another time in the week 
+3)No </t></si><si><t>هل لديك رغبة في بالمشاركة في هذه الدراسة؟
+
+[المشغل: استجابة واحدة]
+
+1) نعم
+2) ليس الآن ولكن في وقت آخر في الأسبوع
+3) لا</t></si><si><t>StartRecording</t></si><si><t>1 = [id_panel OR resp_firstname]
+2 = WhenCallBack
+3 = resp_refusalwhy</t></si><si><t>if Agree = 1, go to id_panel OR resp_firstname
+if Agree = 2, go to WhenCallBack
+if Agree = 3, go to resp_refusalwhy</t></si><si><t>id_panel</t></si><si><t>Have you or any member of your household received a call on behalf of FAO regarding this topic in the past two years?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON'T KNOW</t></si><si><t>هل تلقيت انت أو أي أحد من أفراد أسرتك أي مكالمه بالنيابة عن منظمة الأغذيه و الزراعه [ الفاو ] بخصوص هذا الموضوع خلال العامين السابقين ؟
+ 
+[ المشغل : أجابه واحده ]
+ 
+1)نعم
+2)لا
+3)لا أعرف</t></si><si><t>1-3 = resp_firstname</t></si><si><t>For any response, go to resp_firstname</t></si><si><t xml:space="preserve">It is highly recommended to include the question id_panel if a panelist approach is used. </t></si><si><t>resp_refusalwhy</t></si><si><t>Please let us know why you have REFUSED to take the survey.
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)Not interested
+2)Do not want to be recorded
+3)Other [specify]</t></si><si><t>يرجى إخبارنا سبب رفضك للمشاركة في هذه الدراسة.
+
+[المشغل: استجابة واحدة]
+
+1) غير مهتم
+2) لا أريد أن يتم تسجيلي
+3) آخر [حدد]</t></si><si><t>Open Ended - Single Choice</t></si><si><t>Form Type - RadioList</t></si><si><t>Any Response = Refusal</t></si><si><t>For any response, go to Refusal</t></si><si><t>WhenCallBack</t></si><si><t>resp_whencallback</t></si><si><t>When would it be a good time to call you back?
+
+[RECORD HH/MM/DD/MM OF CALLBACK]</t></si><si><t>ما هو التاريخ / الوقت المناسب لمعاودة الاتصال بك؟
+
+[RECORD HH / MM / DD / MM of CALLBACK]</t></si><si><t>Form Type - TextBox
+IsCallBackDemographic</t></si><si><t>Any Response = CallbackMessageEN</t></si><si><t>For any response, go to CallbackMessageEN</t></si><si><t>CallbackMessageEN</t></si><si><t>callbackmessage_en</t></si><si><t>Thank you, we will call you back at {WhenCallBack} you requested. Thank you again and have a great day!
+
+[OPERATOR: ENTER CALL NOTES BELOW, WHO YOU SPOKE TO AND WHAT THEY SAID]</t></si><si><t>شكرًا لك ، سوف نعاود الاتصال بك في #WhenCallBack# الذي طلبته. شكرا لك مرة أخرى و نتمنى لك يوم جميل!
+
+[المُشغل: أدخل ملاحظات الاتصال أدناه ، مع من تحدثت وماذا قالوا]</t></si><si><t>Any Response = End poll callback</t></si><si><t>Ineligible</t></si><si><t>You are ineligible for this survey. Thank you for your time and please look out for future surveys!</t></si><si><t xml:space="preserve">أنت غير مؤهل للمشاركة في هذه الدراسة، شكرًا لك على وقتك. ترقب دراسات GeoPoll المستقبلية! </t></si><si><t>End Poll Ineligible</t></si><si><t>Refusal</t></si><si><t>NA </t></si><si><t>Thank you for your time, you will be removed from today's survey.</t></si><si><t>شكراً جزيلاً على وقتك، سنقوم بحذف إسمك من دراسة اليوم.</t></si><si><t>End poll declined</t></si><si><t>B. GENERAL INFORMATION &amp; ELIGIBILITY CRITERIA</t></si><si><t>resp_firstname</t></si><si><t>What is your first name?
+
+[OPERATOR: RECORD THE RESPONDENT'S FIRST NAME. ENTER 999 FOR REFUSED.]</t></si><si><t>ما اسمك؟
+
+[المُشغل: سجل اسم المجيب. أدخل 999 في حالة الرفض.]</t></si><si><t>Any Response = resp_lastname</t></si><si><t>For any response, go to resp_lastname</t></si><si><t>resp_lastname</t></si><si><t>What is your last name? 
+
+[OPERATOR: RECORD THE RESPONDENT'S LAST NAME. ENTER 999 FOR REFUSED.]</t></si><si><t>ما هو اسم عائلتك؟
+
+[المُشغل: سجل اسم عائلة المجيب. أدخل 999 في حالة الرفض.]</t></si><si><t>Any Response = resp_age</t></si><si><t>For any response, go to resp_age</t></si><si><t>resp_age</t></si><si><t>How old are you? 
+
+[OPERATOR: RECORD AGE IN NUMBER OF YEARS. ROUND UP TO NEAREST WHOLE NUMBER. IF THE RESPONDENT GIVES BIRTH YEAR, REPEAT THE QUESTION. ENTER 00 FOR DON'T KNOW.]</t></si><si><t>كم عمرك؟
+
+[المُشغل: سجل العمر في عدد السنوات. قم بالتقريب لأقرب رقم كامل. إذا أعطى المجيب سنة الميلاد ، فكرر السؤال. أدخل 00 للا أعرف.]</t></si><si><t>Range</t></si><si><t>0-17 = Ineligible
+18-100 = resp_gender
+00 = Ineligible</t></si><si><t>Only respondents from 18-100 will be eligible for the survey.</t></si><si><t>resp_gender</t></si><si><t>What is the gender of the respondent?
+
+[OPERATOR: DO NOT ASK THIS QUESTION OUT LOUD. LISTEN TO THE VOICE AND SELECT THE GENDER.]
+
+1)Male
+2)Female
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>ما هو جنس المجيب؟
+
+[المُشغل: لا تطرح هذا السؤال. استمع إلى الصوت وحدد المربع الصحيح.]
+
+1) ذكر
+2) أنثى
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1-4 = phone_number_conf</t></si><si><t>For any response, go to phone_number_conf</t></si><si><t>phone_number_conf</t></si><si><t>Is the phone number I am calling you on yours or a household members?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>هل رقم الهاتف الذي أتصل به هو رقمك أو رقم أحد أفراد أسرتك؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1 = contact_2
+2 = phone_number_personal
+3-4 = contact_2</t></si><si><t>if phone_number_conf = 1, go to contact_2
+if phone_number_conf = 2, go to phone_number_personal
+if phone_number_conf = 3-4, go to contact_2</t></si><si><t>yes - panel</t></si><si><t>phone_number_personal</t></si><si><t>phone_number_pers</t></si><si><t>What is your phone number?
+
+[OPERATOR: RECORD THE NUMBER GIVEN]</t></si><si><t>ما هو رقم هاتفك؟
+( المشغل: قم بتسجيل الرقم المعطى لك )</t></si><si><t>Any Response = contact_2</t></si><si><t>For any response, go to contact_2</t></si><si><t>contact_2</t></si><si><t>Can you give me an additional phone number belonging to you, another household member or a close relation living outside of the household at which you can be reached?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES - mine 
+2)YES - other household member
+3)YES - friend or relative [non-household member]
+4)NO
+5)DON'T KNOW
+6)REFUSED</t></si><si><t>هل يمكن أن تعطيني رقم هاتف إضافي يخصك، أو أحد أفراد الأسرة، أو قريب يعيش خارج المنزل ويمكن التواصل معك عبره؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم - لي
+2) نعم - فرد اخر من أفراد الأسرة
+3) نعم - صديق أو أحد الأقارب [ ليس فردا من أفراد الأسرة ]
+4) لا
+5) لا أعرف
+6) رفض الإجابة</t></si><si><t>1-3 = phone_number_2
+4-6 = hh_admin1</t></si><si><t>if contact_2 = 1-3, go to phone_number_2
+if contact_2 = 4-6, go to contact_3</t></si><si><t>phone_number_2</t></si><si><t>What is the additional phone number?
+
+[OPERATOR: RECORD THE NUMBER GIVEN]</t></si><si><t>ما هو رقم الهاتف الإضافي؟
+( المشغل: قم بتسجيل الرقم المعطى لك )</t></si><si><t>Any Response = contact_2_name</t></si><si><t>For any response, go to contact_2_name</t></si><si><t>contact_2_name</t></si><si><t>What is the name of the contact?
+
+[OPERATOR: RECORD THE NAME OF THE CONTACT FOR THE PHONE NUMBER.]</t></si><si><t>ما هو اسم صاحب رقم الهاتف الإضافي الذي قمت بمشاركته؟
+( المشغل: قم بتسجيل اسم صاحب رقم الهاتف )</t></si><si><t>Send if "contact_2" "Equals" "YES - other household member" Or "contact_2" "Equals" "YES - friend or relative [non-household member]" if not satisfied go to "contact_3"</t></si><si><t>Any Response = contact_3</t></si><si><t>Asked if response to contact_2 was "YES - other household member" or "YES - friend or relative [non-household member]". Otherwise, it skips to "contact_3".
+
+For any response, go to contact_3</t></si><si><t>contact_3</t></si><si><t>1-3= phone_number_3
+4-6 = hh_admin1</t></si><si><t>if contact_3 = 1-3, go to phone_number_3
+if contact_3 = 4-6, go to hh_admin1</t></si><si><t>phone_number_3</t></si><si><t>Any Response = contact_3_name</t></si><si><t>For any response, go to contact_3_name</t></si><si><t>contact_3_name</t></si><si><t>phone_number_3_name</t></si><si><t>ما هو اسم صاحب رقم الهاتف الإضافي الذي قمت بمشاركته؟
+(المشغل: قم بتسجيل اسم صاحب رقم الهاتف)</t></si><si><t>Send if "contact_3" "Equals" "YES - other household member" Or "contact_3" "Equals" "YES - friend or relative [non-household member]" if not satisfied go to "hh_admin1"</t></si><si><t>Any Response = hh_admin1</t></si><si><t>Asked if response to contact_3 was "YES - other household member" or "YES - friend or relative [non-household member]". Otherwise, it skips to "hh_admin1".
+
+For any response, go to hh_admin1</t></si><si><t>hh_admin1</t></si><si><t xml:space="preserve">Currently, in which Governorate does your household reside?
+
+[OPERATOR: SINGLE SELECTION.]
+[HINT: HOUSEHOLD CONSISTS OF ALL MEMBERS LIVING TOGETHER, SHARING RESOURCES &amp; EATING FROM THE SAME POT.]
+
+1)ADMIN1
+2)DON'T KNOW
+3)REFUSED </t></si><si><t>حاليًا ، في أي محافظة  تقيم أسرتك؟
+
+[المشغل: استجابة واحدة.]
+[ملحوظة: تتكون الأسرة من جميع الأعضاء الذين يعيشون معًا ، ويتشاركون الموارد ويأكلون من نفس القدر.]
+
+1) ADMIN 1
+2) لا أعرف
+3) رفض الإجابة</t></si><si><t>Form Type - Buttons
+IsDemographic - ADM1</t></si><si><t>1 = hh_admin2_1
+2-3 = Ineligible</t></si><si><t xml:space="preserve">The administrative information will be updated by GeoPoll based on the sample design document and the administrative boundaries provided by the dashboard team after the questionnaire validation. </t></si><si><t>hh_admin2_1</t></si><si><t xml:space="preserve">Currently, in which District does your household reside?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)ADMIN2
+2)DON'T KNOW
+3)REFUSED </t></si><si><t>حاليًا ، في أي مديرية تقيم أسرتك؟
+
+[المشغل: استجابة واحدة.]
+
+
+1) ADMIN 2
+2) لا أعرف
+3) رفض الإجابة</t></si><si><t>Form Type - Buttons
+IsDemographic - ADM2</t></si><si><t>1 =  hh_agricactivity
+2-3 = Ineligible</t></si><si><t>quotareached</t></si><si><t>[OPERATOR: DO NOT READ. ANSWER QUESTION BELOW.]
+
+THIS RESPONDENT REPORTED THEY LIVE IN:
+
+{ADM1}
+{ADM2}
+
+1)THE GOAL FOR THIS LOCATION HAS BEEN ACHIEVED - END SURVEY
+2)THE GOAL FOR THIS LOCATION IS OPEN - CONTINUE SURVEY</t></si><si><t>[المُشغل: لا تقرأ. أجب على السؤال أدناه.]
+
+أبلغ هذا المجيب أنه يعيش في:
+{ADM1}
+{ADM2}
+
+1) تم تحقيق الهدف لهذا الموقع - إنه الاستبيان
+2) لا يزال يتعين تحقيق الهدف لهذا الموقع - تابع الاستبيان</t></si><si><t>1 = End Poll Quota Reached
+2 = hh_agricactivity</t></si><si><t>hh_agricactivity</t></si><si><t xml:space="preserve">Has anybody in your household produced crops or livestock for household consumption or for sale in the past 12 months, including household members currently away for transhumance?
+
+[OPERATOR: SINGLE RESPONSE. THIS IS THE MAIN SCREENING QUESTION.]
+[HINT FOR PROBING: Do you cultivate any plants to sale or consume? Do you raise any animals with the intent of selling or consuming them or their products like meat, milk, wool or leather? Is one of your household member currently away with cattle or other animals for transhumance?]
+
+1)Yes - crop production 
+2)Yes - livestock production
+3)Yes - both crop and livestock production 
+4)No
+5)DON'T KNOW
+6)REFUSED </t></si><si><t>هل قام أي شخص في أسرتك بإنتاج المحاصيل أو الماشية للاستهلاك المنزلي أو للبيع خلال الاثني عشر شهرًا الماضية ، بما في ذلك أفراد الأسرة الغير موجودين بغرض التنقل الرعوي؟
+[المشغل: استجابة واحدة. هذا هو سؤال الفرز الرئيسي.]
+[ملحوظة للتحقيق: هل قمت بزراعة أي نباتات للبيع أو الاستهلاك ؟ هل قمت بتربية أي حيوانات بنية البيع أو الاستهلاك أو انتاج منتجات مثل اللحوم و الالبان و الصوف و الجلد ؟ هل أي فرد من أفراد أسرتك حاليا بعيدًا عن الأسرة مع الماشية أو حيوانات أخري بغرض التنقل الرعوي ؟]
+
+1) نعم - إنتاج المحاصيل
+2) نعم - إنتاج الماشية
+3) نعم - كل من إنتاج المحاصيل والماشية
+4) لا
+5) لا أعرف
+6) رفض الإجابة</t></si><si><t>1-4 = hh_fish
+5-6 = Ineligible</t></si><si><t xml:space="preserve">if hh_agricactivity = 1-4, go to  hh_fish. Otherwise, the respondent is ineligible. </t></si><si><t>hh_fish</t></si><si><t>Has anybody in your household been engaged in aquatic production [fish catch or aquaculture farming] for household consumption or for sales in the past 12 months? 
+
+[OPERATOR: SINGLE RESPONSE.]
+[HINT FOR PROBING: It should not include sports fishing. It should be about production of aquatic products [fish catch or aquaculture farming] for household consumption or sales.]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>هل شارك أي شخص في منزلك في الإنتاج البحري [صيد الأسماك أو زراعة الأحياء المائية] لاستهلاك المنزل أو للبيع خلال الـ 12 شهرًا الماضية؟
+
+[المشغل: استجابة واحدة.]
+تلميح للتوضيح: يجب ألا يشمل ذلك صيد الأسماك للترفيه، ينبغي أن يكون السؤال عن إنتاج المنتجات المائية
+[صيد الأسماك أو زراعة الأحياء المائية] لاستهلاك المنزل أو للبيعا
+
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1-4 = resp_id</t></si><si><t>For any response, go to resp_id</t></si><si><t>resp_id</t></si><si><t xml:space="preserve">Use this question if the survey seeks to gather important information on fisheries and/or aquaculture in the country. </t></si><si><t>B. GENERAL HOUSEHOLD INFORMATION</t></si><si><t xml:space="preserve">Are you the head of household? 
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)Yes
+2)No
+3)DON'T KNOW
+4)REFUSED
+</t></si><si><t>هل أنت رب الأسرة ؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1 = hh_education 
+2-4 = hh_gender</t></si><si><t>if resp_id = 1, go to hh_education. 
+Otherwise, go to hh_gender.</t></si><si><t>hh_gender</t></si><si><t>Is the head of your household male or female?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)Male 
+2)Female
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>هل رب أسرتك ذكر أم أنثى؟
+
+[المشغل: استجابة واحدة.]
+
+1) ذكر
+2) أنثى
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1-4 = hh_education</t></si><si><t>if hh_gender = 1-4, go to hh_education.</t></si><si><t>hh_education</t></si><si><t>What is the educational level attained by the head of household?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)None or did not complete primary school
+2)Completed primary school
+3)Completed secondary school
+4)Completed higher education [University / College] degree
+5)Religious or informal education only
+6)DON'T KNOW
+7)REFUSED</t></si><si><t>ما هو المستوى التعليمي الذي وصل إليه رب الأسرة؟
+
+[المشغل: استجابة واحدة.]
+
+1) لا شيء أو لم يكمل المرحلة الابتدائية
+2) أكمل المرحلة الابتدائية
+3) أكمل المرحلة الثانوية
+4) أكمل درجة تعليم عالي [جامعة / كلية]
+5) تربية دينية أو غير رسمية فقط
+6) لا أعرف
+7) رفض الإجابة</t></si><si><t>1-7 = hh_wealth</t></si><si><t>if hh_education = 1-7, go to o_hh_wealth_water.</t></si><si><t>o_hh_wealth_water</t></si><si><t>hh_wealth_water</t></si><si><t>Where does the water that you drink at home come from?
+
+[OPERATOR: SINGLE CHOICE.]
+
+1) Piped water to premise (public or private) 
+2) Public tap
+3) Well
+4) Covered well
+5) Covered spring
+6) Rainwater
+7) Bottled water (mineral/Kawthar)
+8) Valley/stream/canal
+9) Unprotected well
+10) Unprotected spring
+11) Water trucks/drum on carts/donkeys
+12) Water cistern/reservoir/dam
+13)DON'T KNOW
+14)REFUSED</t></si><si><t>من أين تأتي المياه التي تشربونها في المنزل؟
+
+[المُشغل: استجابة واحدة.]
+1) مشروع مياه موصل إلى المنازل (حكومي أو خاص) 
+2) حنفية عامة
+3) بئر ارتوازية
+4) بئر مغطاة
+5) عين مغطاة
+6) مياه الأمطار
+7) مياه معالجة (معدنية أو كوثر) 
+8 ) وادي أو جدول أو غيل 
+9 ) بئر مكشوفة
+10) ماء عين مكشوفة
+11) شاحنات / عربات/ دواب لنقل المياه
+12) صهاريج/ حواجز مائية/ سدود
+13) لا أعرف
+14) رفض الإجابة</t></si><si><t xml:space="preserve">
+1-14 = [income_main O+L49R other optional question]</t></si><si><t>For any response, go to [income_main OR other optional question]</t></si><si><t>1-14 = o_rural_urban</t></si><si><t>Select wealth indicators based on baseline information available; you can delete those that you do not want to use. 
+
+If none of these indicators work in the context of your country, other wealth proxies are proposed in the optional questions below. 
+
+Remember that baseline data will be necessary, and the variable should be defined properly in the "weight_input_table".</t></si><si><t>o_rural_urban</t></si><si><t>Which of these best describes the area where you live?
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)Rural
+2)Urban
+3)Sub-urban</t></si><si><t>أي من هؤلاء يصف المنطقة التي تعيش فيها ؟
+
+[المشغل: استجابة واحدة]
+
+1)الريف
+2)الحضر
+3)ضواحي الحضر</t></si><si><t xml:space="preserve">1-3 = resp_residencetype </t></si><si><t xml:space="preserve">resp_residencetype </t></si><si><t>How would you describe your residence status? Are you a... 
+
+[OPERATOR: READ OUT THE OPTIONS. SINGLE RESPONSE.]
+[HINT: IF RESPONDENT IS ONLY AWAY FROM THE HOUSEHOLD FOR SHORT SEASONAL WORK (&lt;6 MONTHS) OR TRANSHUMANCE, MAKE SURE TO REFER TO THEIR HOUSEHOLD WHERE THEY TYPICALLY ARE LOCATED.]
+
+1)Permanent resident
+2)Returnee
+3)Internally displaced person [IDP]
+4)Refugee
+5)DON'T KNOW
+6)REFUSED</t></si><si><t>كيف تصف حالة إقامتك؟ هل أنت...
+
+[المُشغل: اقرأ الخيارات. استجابة واحدة.]
+[ملحوظة: إذا كان المجيب بعيدًا فقط عن الأسرة للعمل الموسمي القصير (أقل من 6 أشهر) أو بغرض التنقل الرعوي ، فتأكد من الرجوع إلى أسرته في المكان الذي يوجد فيه عادةً.]
+
+1) مقيم دائم
+2) عائد
+3) نازح داخليًا
+4) لاجئ
+5) لا أعرف
+6) رفض الإجابة</t></si><si><t>1 = hh_residencecomp
+2-4 = hh_arrivaltime
+5-6 = hh_residencecomp</t></si><si><t>Important to define different categories in training material</t></si><si><t>hh_arrivaltime</t></si><si><t>hh_arivaltime</t></si><si><t>How long ago did you arrive in this place?
+
+[OPERATOR: INDICATE THE NUMBER OF MONTHS. YOU MAY NEED TO CALCULATE THIS. ENTER 888 FOR DON'T KNOW &amp; 999 FOR REFUSED.]</t></si><si><t>منذ متى وصلت إلى هذا المكان؟
+
+[المشغل: حدد عدد الأشهر. قد تحتاج إلى حساب ذلك. أدخل 888 لـ "لا أعرف" و999 لـ "رفض".]</t></si><si><t>Send if "resp_residencetype " "Equals" "Internally displaced person [IDP]" Or "resp_residencetype " "Equals" "Returnee" Or "resp_residencetype " "Equals" "Refugee" if not satisfied go to "hh_displacementfreq"</t></si><si><t>0-200 = hh_displacementfreq
+888-888 = hh_displacementfreq
+999-999 = hh_displacementfreq</t></si><si><t>Asked to respondents that answered "Returnee", "IDP" or "Refugee" to resp_residencetype . All other respondents will skip to hh_residencecomp. 
+
+For any response, go to hh_displacementfreq.</t></si><si><t>hh_displacementfreq</t></si><si><t>How many times have you [respondent] been forced to move due to conflict, insecurity or disaster since you were first displaced?
+
+[OPERATOR: ENTER 888 FOR DON'T KNOW &amp; 999 FOR REFUSED.]</t></si><si><t>كم مرة اضطررت [المستجيب] إلى الانتقال بسبب الصراع أو انعدام الأمن أو الكوارث منذ نزوحك لأول مرة؟
+
+[المشغل: أدخل 888 في حالة عدم المعرفة و999 في حالة الرفض.]</t></si><si><t>0-100 = hh_residencecomp
+888-888 = hh_residencecomp
+999-999 = hh_residencecomp</t></si><si><t xml:space="preserve">Asked to respondents that answered "Returnee", "IDP" or "Refugee" to resp_residencetype . All other respondents will skip to hh_residencecomp. 
+
+For any response, go to hh_residencecomp. </t></si><si><t xml:space="preserve">Necessary for categorization of household residence type. Will depend on country context but these questions allow for flexibility of the definition. </t></si><si><t/></si><si><t>hh_residencecomp</t></si><si><t>hh_residencecomp
+
+1)hh_residencecomp_none
+2)hh_residencecomp_permresident
+3)hh_residencecomp_returnee
+4)hh_residencecomp_idp
+5)hh_residencecomp_refugee
+6)hh_residencecomp_dk
+7)hh_residencecomp_ref</t></si><si><t>Does your household include any members with a different status type than the one you reported? And if so, which one(s)?
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE. SELECT ALL THAT APPLY.]
+
+1)No other status
+2)Permanent resident
+3)Returnee
+4)Internally displaced person [IDP]
+5)Refugee
+6)DON'T KNOW
+7)REFUSED</t></si><si><t>هل تضم أسرتك أي أفراد لديهم نمط (حالة) إقامة مختلفة عن النمط الذي ذكرته؟ وإذا كان الأمر كذلك، فما هو النمط (الانماط)؟
+
+[المشغل: إجابات متعددة ممكنة. حدد كل ما ينطبق.]
+
+1) لا يوجد وضع آخر
+2) مقيم دائم
+3) عائد
+4) نازح داخليًا
+5) لاجئ
+6) لا أعرف
+7) رفض الإجابة</t></si><si><t>Select All That Apply</t></si><si><t>Send if "resp_residencetype " "Equals" "Internally displaced person [IDP]" Or "resp_residencetype " "Equals" "Returnee" Or "resp_residencetype " "Equals" "Refugee" Or "resp_residencetype " "Equals" "Permanent resident" if not satisfied go to "hh_site"</t></si><si><t>Form Type - Checklist
+
+Included unselected "resp_residencetype "
+
+1,2,3= IsNone</t></si><si><t>1-7 = hh_site</t></si><si><t>1)hh_residencecomp_none
+2)hh_residencecomp_permresident
+3)hh_residencecomp_returnee
+4)hh_residencecomp_idp
+5)hh_residencecomp_refugee
+6)hh_residencecomp_dk
+7)hh_residencecomp_ref</t></si><si><t>Asked only to respondents who stated a status in resp_residencetype . Otherwise, go to hh_size .
+
+For any response, go to hh_site</t></si><si><t>In enumerator training, include explanation of status type</t></si><si><t>hh_site</t></si><si><t>Which of the following best describes where you live? 
+
+[OPERATOR: READ ANSWERS OUT LOUD. SINGLE RESPONSE.]
+
+1)Formal camp or settlement
+2)Informal camp or settlement
+3)Outside of a camp or settlement, with a host family
+4)Outside of a camp or settlement, on my own
+5)DON'T KNOW
+6)REFUSED</t></si><si><t>أي مما يلي يصف المكان الذي تعيش فيه على أفضل نحو؟
+
+[المشغل: اقرأ الإجابات بصوت واضح. إجابة واحدة.]
+
+1) مخيم نازحين رسمي
+2) مخيم نازحين غير رسمي
+3) خارج مخيمات النازحين، مع عائلة مضيفة
+4) خارج مخيمات النازحين، بمفردي
+5) لا أعرف
+6) رفض الإجابة</t></si><si><t>Send if "resp_residencetype " "Equals" "Internally displaced person [IDP]" Or "resp_residencetype " "Equals" "Returnee" Or "resp_residencetype " "Equals" "Refugee" if not satisfied go to "hh_shelter"</t></si><si><t>1-6 = hh_shelter</t></si><si><t>Asked to respondents that answered "Returnee", "IDP" or "Refugee" to resp_residencetype . All other respondents will skip to hh_shelter. 
+
+For any response, go to hh_shelter</t></si><si><t xml:space="preserve">Note to explain to COs the importance of site/shelter for vulnerability assessments </t></si><si><t>hh_shelter</t></si><si><t>What kind of shelter is your household living in?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)Apartment/house, good condition
+2)Apartment/house, damaged/destroyed, bad condition
+3)Hotel/motel/short term rental
+4)Unfinished or abandoned building
+5)Tent/makeshift shelter
+6)Mud or block structure
+7)Container/caravan
+8)Public building or collective shelter
+9)Other shelter (eg garage, farm building etc)
+10)DON'T KNOW
+11)REFUSED</t></si><si><t>ما نوع المأوى الذي تعيش فيه أسرتك؟
+
+[المشغل: إجابة واحدة.]
+
+1) شقة/منزل، بحالة جيدة
+2) شقة/منزل، متضرر/مدمر، بحالة سيئة
+3) فندق/لوكندا /إيجار قصير الأجل
+4) مبنى غير مكتمل أو مهجور
+5) خيمة/مأوى مؤقت
+6) مبنى طيني أو من الطوب
+7) حاوية/مقطورة
+8) مبنى عام أو مأوى جماعي (مدارس أو ما شابه)
+9) مأوى آخر (مثل المرآب أو مبنى المزرعة وما إلى ذلك)
+10) لا أعرف
+11) رفض الإجابة</t></si><si><t>1-11 = hh_predisp_agricactivity</t></si><si><t>For any response, go to hh_predisp_agricactivity.</t></si><si><t>Consider whether shelter should be mandatory vulnerability proxy</t></si><si><t>hh_predisp_agricactivity</t></si><si><t>Did you or others in your household engage in agricultural activities prior to your displacement?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>هل شاركت أنت أو أي شخص آخر في أسرتك في أنشطة زراعية قبل نزوحك؟
+
+[المشغل: إجابة واحدة.]
+
+1)نعم
+2)لا
+3)لا أعرف
+4) رفض الإجابة</t></si><si><t>Send if "resp_residencetype " "Equals" "Returnee" OR "resp_residencetype " "Equals" "Internally displaced person [IDP]" OR "resp_residencetype " "Equals" "Refugee" OR "hh_residencecomp" "Contains" "Returnee" OR "hh_residencecomp" "Contains" "Internally displaced person [IDP]" OR "hh_residencecomp" "Contains" "Refugee" if not satisfied go to "hh_size"</t></si><si><t>1 = hh_disp_agricactivity_type
+2-4 = hh_size</t></si><si><t>If hh_disp_agricactivity = 1, go to hh_disp_agricactivity_type; otherwise, go to hh_size.</t></si><si><t>hh_predisp_agricactivity_type</t></si><si><t>hh_predisp_agricactivity_type
+
+1)hh_predisp_crpprod
+2)hh_predisp_lsprod
+3)hh_predisp_fishprod
+4)hh_predisp_dk
+5)hh_predisp_ref</t></si><si><t>What type of agricultural activities were they? 
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE.]
+
+1)Crop production
+2) Livestock production
+3)Fisheries or aquaculture production
+4)DON'T KNOW
+5)REFUSED</t></si><si><t>ما نوع الأنشطة الزراعية التي مارستها/مارسوها؟
+
+[المشغل: إجابات متعددة ممكنة.]
+
+1) إنتاج المحاصيل
+2) إنتاج الثروة الحيوانية
+3) إنتاج  الأسماك أو تربية الأحياء المائية
+4) لا أعرف
+5) رفض الإجابة</t></si><si><t>Form Type - Checklist
+4,5= IsNone</t></si><si><t>1-5 = hh_size</t></si><si><t>1)hh_predisp_crpprod
+2)hh_predisp_lsprod
+3)hh_predisp_fishprod
+4)hh_predisp_dk
+5)hh_predisp_ref</t></si><si><t>For any response, go to hh_size.</t></si><si><t>crp_returnee_plotaccess</t></si><si><t>If you used to cultivate land in this area, fled and have since returned, are you able to access the same land as before?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)I never had land here
+4)DON'T KNOW
+5)REFUSED</t></si><si><t>إذا كنت تزرع أرضًا في هذه المنطقة، ثم نزحت وعدت منذ ذلك الحين، فهل يمكنك الوصول إلى نفس الأرض كما كنت تفعل من قبل؟
+
+[المشغل: إجابة واحدة.]
+
+1)نعم
+2)لا
+3)لم يكن لدي أرض هنا قط
+4)لا أعرف
+5) رفض الإجابة</t></si><si><t>Send if "resp_residencetype " "Equals" "Returnee" if not satisfied go to "hh_size"</t></si><si><t>1 = hh_size
+2 = crp_orig_plot
+3-5 =hh_size</t></si><si><t>Asked only to respondents that indicated returnees as head of household, if non-returnee, proceed to hh_size.
+
+If crp_returnee_plotaccess = 1,3-5, go to hh_size
+if crp_returnee_plotaccess = 2, go to crp_orig_plot</t></si><si><t>crp_orig_plot</t></si><si><t>crp_orig_plot_
+
+1)crp_origplot_occup_comm
+2)crp_origplot_occup_displacedppl
+3)crp_origplot_occup_armedgps
+4)crp_plot_unsafe_armedgps
+5)crp_plot_unsafe_explosives
+6)crp_orig_plot_distance
+7)crp_orig_plot_other
+8)crp_orig_plot_dk
+9)crp_orig_plot_ref</t></si><si><t>Why are you unable to access your original land for cultivation?
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE.]
+
+1)Occupied by someone else from my community
+2)Land given away to / occupied by displaced persons
+3)Occupied by armed groups 
+4)No safe access - presence of armed groups  
+5)No safe access - there are explosive ordnance, IEDs, or landmines on the land
+6)Land is too far from where I'm settled
+7)Other [specify]
+8)DON'T KNOW
+9)REFUSED</t></si><si><t>لماذا لا تستطيع الوصول إلى أرضك الأصلية للزراعة؟
+
+[المشغل: إجابات متعددة ممكنة.]
+
+1) محتلة من قبل شخص آخر من مجتمعي
+2) الأرض مُنحت للنازحين/محتلة من قبلهم
+3) محتلة من قبل الجماعات المسلحة
+4) عدم وجود وصول آمن - وجود الجماعات المسلحة
+5) عدم وجود وصول آمن - هناك ذخائر متفجرة أو عبوات ناسفة أو ألغام أرضية على الأرض
+6) الأرض بعيدة جدًا عن المكان الذي أستقر فيه
+7) أخرى [حدد]
+8) لا أعرف</t></si><si><t>Open Ended-Select All That Apply</t></si><si><t>Form Type - Checklist
+7,8= IsNone</t></si><si><t>1-8 = hh_size</t></si><si><t>1)crp_origplot_occup_comm
+2)crp_origplot_occup_displacedppl
+3)crp_origplot_occup_armedgps
+4)crp_plot_unsafe_armedgps
+5)crp_plot_unsafe_explosives
+6)crp_orig_plot_distance
+7)crp_orig_plot_other
+8)crp_orig_plot_dk
+9)crp_orig_plot_ref</t></si><si><t>hh_size</t></si><si><t>How many people are part of the household?
+
+[OPERATOR: RECORD NUMBER OF MEMBERS IN HOUSEHOLD. ENTER 88 FOR DON'T KNOW &amp; 99 FOR REFUSED.]
+[HINT: TO BE A PART OF THE SAME HOUSEHOLD, MEMBERS MUST LIVE UNDER THE SAME ROOF, SHARE THE SAME RESOURCES &amp; EAT FROM THE SAME POT.]</t></si><si><t>كم عدد الأشخاص الذين هم جزء من الأسرة؟
+
+[المُشغل: سجل عدد أعضاء الأسرة. أدخل 88 للا أعرف و 99 في حالة الرفض.]
+[ملحوظة: لكي يكونوا جزءًا من نفس الأسرة، يجب أن يكون جميع الاعضاء يعيشون تحت سقف منزل واحد، و يتشاركون نفس الموارد و يأكلون من نفس القدر]</t></si><si><t>1-50 = hh_asset_prod
+88-88 = hh_asset_prod
+99-99 = hh_asset_prod</t></si><si><t>For any response, go to [next question]</t></si><si><t>For any response, go to  o_hh_asset</t></si><si><t>o_hh_asset</t></si><si><t>hh_asset_prod_
+
+1)hh_asset_prod_process
+2)hh_asset_prod_farmmach
+3)hh_asset_prod_sewing
+4)hh_asset_prod_taxi
+5)hh_asset_prod_truck
+6)hh_asset_prod_other
+7) hh_asset_prod_none
+8) hh_asset_prod_dk
+9) hh_asset_prod_ref</t></si><si><t>Does your household own any of the following assets? 
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE. READ ANSWER OPTIONS OUT LOUD.]
+
+1)	Land
+2)	Farm/agriculture tools [manual items like a plough, sickle, rake etc.]
+3)	Farm/agriculture machinery [e.g. tractor, power harvester, etc.]
+4)	Water/irrigation pump
+5)	Processing assets [e.g. grinding/crushing machine, mill, oil press]
+6)	Fishing net
+7)	Fishing boat
+8)	Livestock (cattle/goats/sheep)
+9)	Taxi/ Truck/Van [small truck]
+10)	Car
+11)	Motorbike / scooter / auto rickshaw
+12)	Bicycle
+13)	Sewing machine or weaving tool
+14)	Other productive assets
+15)	Do not own any productive assets
+16)	House/Apartment
+17)	Mattress or sofa
+18)	Stove
+19)	Fridge
+20)	Television
+21)	Radio
+22)	Mobile phone
+23)	Internet
+24)	Bank savings/jewellery/other savings
+25)	Generator
+26)	Electric bulbs/solar panels/batteries 
+27)	Other household assets
+28)	Do not own any household assets
+29)	DON’T KNOW
+30)	REFUSED</t></si><si><t>هل تمتلك أسرتك أيًا من الأصول التالية؟
+
+[المشغل: عدة استجابات محتملة. يرجي قراءة اختيارات الإجابة بصوت مرتفع]
+
+1) أرض
+2) معدات زراعية [معدات زراعية يدوية مثل المحراث ، والمنجل ، مجرفة ، إلخ]
+3) آلات زراعية [على سبيل المثال حراثة ، حصادة كهربائية ، إلخ]
+4) مضخة مياه / ري
+5) ادوات تستخدم لمعاملات ما بعد الحصاد [على سبيل المثال آلة طحن / سحق ، مطحنة ، معصرة زيت]
+6) شبكة صيد
+7) قارب صيد
+8) الثروة الحيوانية (الأبقار / الماعز / الأغنام)
+9) تاكسي / شاحنة / سيارة نقل [شاحنة صغيرة]
+10) سيارة
+11) دراجة نارية / دراجة صغيرة / عربة آلية
+12) دراجة هوائية
+13) ماكينة الخياطة أو أداة النسيج
+14) أصول إنتاجية أخرى
+15) لا تملك أي أصول إنتاجية
+16) بيت / شقة
+17) مرتبة أو أريكة
+18) موقد
+19) ثلاجة
+20) تلفاز
+21) راديو
+22) الهاتف المحمول
+23) الإنترنت
+24) مدخرات بنكية / مجوهرات / مدخرات أخرى
+25) مولد
+26) المصابيح الكهربائية / الألواح الشمسية / البطاريات
+27) أصول الأسرة الأخرى
+28) لا تملك أي أصول منزلية
+29) لا أعرف
+30) رفض الإجابة</t></si><si><t>Form Type - Checklist
+28,29,30 = IsNone</t></si><si><t>1-30 =  hh_maritalstat</t></si><si><t>For any response, go to [hh_maritalstat]</t></si><si><t xml:space="preserve">This wealth indicator may be useful to Identify poor households in middle income countries. It could be interesting for F2F surveys, to be used as baseline reference for follow-up surveys. </t></si><si><t>hh_maritalstat</t></si><si><t xml:space="preserve">What is the head of household’s current marital status? 
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)Single / never married 
+2)Married
+3)Separated
+4)Divorced
+5)Widowed
+6)DON’T KNOW
+7)REFUSED </t></si><si><t>ما هي الحالة الاجتماعية الحالية لرب الأسرة؟
+
+[المشغل: استجابة واحدة.]
+
+1) أعزب / لم يتزوج قط
+2) متزوج
+3) منفصل
+4) مطلق
+5) أرمل
+6) لا أعرف
+7) رفض الإجابة</t></si><si><t>1-7 = hh_age</t></si><si><t>hh_age</t></si><si><t>How old is the head of household? 
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)Under 18
+2)18 to 40 
+3)41 to 65 
+4)Over 65
+5)DON'T KNOW
+6)REFUSED</t></si><si><t>كم عمر رب الاسرة؟
+
+[المشغل: استجابة واحدة.]
+
+1) أقل من 18 عامًا
+2) بين 18 و 40 عامًا
+3) بين 41 و 65 عامًا
+4) فوق 65 عامًا
+5) لا أعرف
+6) رفض الإجابة</t></si><si><t>1-6 = income_main</t></si><si><t>C. INCOME SOURCES, LIVELIHOOD AND SHOCKS</t></si><si><t>C. INCOME &amp; SHOCKS</t></si><si><t>income_main</t></si><si><t>What was your household's main source of income in the past 3 months?
+
+[OPERATOR: SINGLE RESPONSE. REFUSED OPTION SHOULD BE AVOIDED AS MUCH AS POSSIBLE.]
+
+1)Production and sale of staple crops
+2)Production and sale of vegetables or fruit 
+3)Production and sale of cashcrops
+4)Production and sale of livestock or livestock products 
+5)Production and sale of honey or bee products
+6)Production and sale of fish or aquatic products
+7)Collection and sale of forestry or bush products 
+8)Agricultural trade EXCLUDING producers [formal or informal]
+9)Daily wage on farms and other casual employment in agricultural sector 
+10)Stable employment in agricultural sector 
+11)Non-agricultural self-employed or liberal profession / doctor / architect / lawyer / including restaurant
+12)Off-farm daily wages and other non-agricultural casual employment
+13)Stable employment in non-agricultural sector
+14)Public employment 
+15)Income not derived from work / Charity
+16)Income not derived from work / Welfare transfer, pension, humanitarian aid
+17)Income not derived from work / Remittances
+18)Income not derived from work / Income from other rents 
+19)No income source in the last 3 months and used exclusively savings / debt
+20)REFUSED</t></si><si><t>ما كان مصدر الدخل الرئيسي لأسرتك في الأشهر الثلاثة الماضية؟
+
+[المشغل: استجابة واحدة. يجب تجنب الخيار "رفض الإجابة" قدر الإمكان.]
+
+1) إنتاج وبيع المحاصيل الأساسية
+2) إنتاج وبيع الخضار أو الفاكهة
+3) إنتاج وبيع المحاصيل النقدية
+4) إنتاج وبيع الحيوانات الأليفة أو منتجاتها
+5) انتاج و بيع العسل أو منتجات النحل 
+6) إنتاج وبيع الأسماك أو منتجات المنتجات المائية
+7) جمع وبيع منتجات الغابات أو الأحراش
+8) التجارة الزراعية الرسمية و غير الرسمية باستثناء المنتجين
+9) الأجر اليومي في المزارع وغيرها من العمالة العرضية في قطاع الزراعة
+10) العمالة المستقرة في القطاع الزراعي
+11) العاملين لحسابهم الخاص غير الزراعيين أو المهنة الحرة / طبيب / مهندس معماري / محامٍ / بما في ذلك مطعم
+12) الأجور اليومية خارج المزرعة وغيرها من العمالة العرضية غير الزراعية
+13) العمالة المستقرة في القطاع غير الزراعي
+14) الوظائف العامة
+15) الدخل غير المستمد من العمل / الاعمال الخيرية 
+16) الدخل غير المستمد من العمل / المدفوعات التحويلية ، المعاش التقاعدي ، المساعدات الإنسانية
+17) الدخل غير المستمد من العمل / التحويلات
+18) الدخل غير المستمد من العمل / الدخل من الإيجارات الأخرى
+19) لم يكن هناك مصدر دخل خلال الأشهر الثلاثة الماضية واستخدمت المدخرات أو الدين حصريًا
+20) رفض الإجابة</t></si><si><t>Form Type - Buttons
+
+IsDemographic</t></si><si><t>1-3 = income_main_crop_check
+4 = income_main_ls_check 
+5 = income_main_comp OR optional question
+6 = income_main_fish_check 
+7-18 = income_main_comp OR optional question
+19-20 = o_debt</t></si><si><t>if options #1-3 selected go to income_main_crop_check 
+
+if options #4 selected go to income_main_ls_check 
+
+if options #6 selected go to income_main_fish_check
+
+if options #5, 7-18 selected, go to [income_main_comp OR optional question] 
+
+if options #19-20 selected, go to shock</t></si><si><t>income_main_gender</t></si><si><t>income_main_crop_check</t></si><si><t xml:space="preserve">Are the crops sold also produced by you or anyone in your household?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED </t></si><si><t>هل تم إنتاج المحاصيل التي تبيعها أنت أو أي شخص في منزلك أيضًا؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1-4 = income_main_comp OR optional question</t></si><si><t>if income_main_crop_check = 1-4, go to [income_main_comp OR optional question]</t></si><si><t>1-4 = income_main_gender</t></si><si><t>income_main_ls_check</t></si><si><t xml:space="preserve">Are the livestock or livestock products sold also produced by you or anyone in your household?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED </t></si><si><t>هل تم إنتاج المواشي ومنتجاتها التي تبيعها أنت أو أي شخص في منزلك أيضًا؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>if income_main_ls_check = 1-4, go to [income_main_comp OR optional question]</t></si><si><t>income_main_fish_check</t></si><si><t xml:space="preserve">Are the fish or aquatic products sold also captured/harvested by you or anyone in your household?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED </t></si><si><t>هل الأسماك أو المنتجات المائية التي تُباع تم أيضًا صيدها أو جمعها بواسطتك أو أي شخص في منزلك؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>if income_main_fish_check = 1-4, go to [income_main_comp OR optional question]</t></si><si><t>What is the gender of the household member[s] generating income from this source? 
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)Male
+2)Female
+3)Joint [both male &amp; female]
+4)DON'T KNOW
+5)REFUSED</t></si><si><t>ما هو جنس الفرد ( الأفراد ) داخل الاسرة الذين يحصلون علي الدخل من هذا المصدر ؟ 
+[المشغل: استجابة واحدة.]
+1) ذكر
+2) أنثى 
+3) مختلط ( ذكر و أنثى )
+4) لا أعرف
+5) رفض الإجابة</t></si><si><t>1-5 = [income_main_comp OR optional question]</t></si><si><t>if income_main_gender = 1-5, go to income_main_comp or optional question</t></si><si><t>1-5 = income_main_comp</t></si><si><t>income_main_comp</t></si><si><t>Has your household's income from {income_main} changed in the last 3 months compared to the same period of last year?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)A lot more [increased by more than 50%]
+2)Slightly more
+3)Same
+4)Slightly less
+5)A lot less [less than half as much]
+6)DON'T KNOW
+7)REFUSED</t></si><si><t>هل تغير دخل أسرتك من {income_main} في الأشهر الثلاثة الماضية مقارنة بنفس الفترة من العام الماضي؟
+
+[المشغل: استجابة واحدة.]
+
+1) أكثر بكثير [زاد بنسبة تزيد عن 50٪]
+2) أكثر قليلا
+3) نفس الشيء
+4) أقل قليلاً
+5) أقل بكثير [أقل من نصف الكمية]
+6) لا أعرف
+7) رفض الإجابة</t></si><si><t>1-7= income_sec</t></si><si><t>if income_main_comp = 1-7, go to income_sec</t></si><si><t>income_sec</t></si><si><t>What was your household's second most important source of income in the past 3 months?
+
+[OPERATOR: SINGLE RESPONSE. DON'T KNOW AND REFUSED OPTIONS SHOULD BE AVOIDED AS MUCH AS POSSIBLE.]
+
+1)Production and sale of staple crops
+2)Production and sale of vegetables or fruit 
+3)Production and sale of cashcrops
+4)Production and sale of livestock or livestock products 
+5)Production and sale of honey or bee products
+6)Production and sale of fish or aquatic products
+7)Collection and sale of forestry or bush products 
+8)Agricultural trade EXCLUDING producers [formal or informal]
+9)Daily wage on farms and other casual employment in agricultural sector 
+10)Stable employment in agricultural sector 
+11)Non-agricultural self-employed or liberal profession / doctor / architect / lawyer / including restaurant
+12)Off-farm daily wages and other non-agricultural casual employment
+13)Stable employment in non-agricultural sector
+14)Public employment 
+15)Income not derived from work / Charity
+16)Income not derived from work / Welfare transfer, pension, humanitarian aid
+17)Income not derived from work / Remittances
+18)Income not derived from work / Income from other rents
+19)No second most important source of income
+20)DON'T KNOW
+21)REFUSED</t></si><si><t>ما هو ثاني أهم مصدر دخل لأسرتك فى الثلاثة أشهر الماضية ؟
+
+[المشغل: استجابة واحدة. يجب تجنب خيارات الإجابة "لا أعرف" و "رفض الإجابة" قدر الإمكان.]
+
+1) إنتاج وبيع المحاصيل الأساسية
+2) إنتاج وبيع الخضار أو الفاكهة
+3) إنتاج وبيع المحاصيل النقدية
+4) إنتاج وبيع الحيوانات الأليفة أو منتجاتها
+5) انتاج و بيع العسل أو منتجات النحل 
+6) إنتاج وبيع الأسماك أو منتجات المنتجات المائية
+7) جمع وبيع منتجات الغابات أو الأحراش
+8) التجارة الزراعية الرسمية و غير الرسمية باستثناء المنتجين
+9) الأجر اليومي في المزارع وغيرها من العمالة العرضية في قطاع الزراعة
+10) العمالة المستقرة في القطاع الزراعي
+11) العاملين لحسابهم الخاص غير الزراعيين أو المهنة الحرة / طبيب / مهندس معماري / محامٍ / بما في ذلك مطعم
+12) الأجور اليومية خارج المزرعة وغيرها من العمالة العرضية غير الزراعية
+13) العمالة المستقرة في القطاع غير الزراعي
+14) الوظائف العامة
+15) الدخل غير المستمد من العمل / الاعمال الخيرية 
+16) الدخل غير المستمد من العمل / المدفوعات التحويلية ، المعاش التقاعدي ، المساعدات الإنسانية
+17) الدخل غير المستمد من العمل / التحويلات
+18) الدخل غير المستمد من العمل / الدخل من الإيجارات الأخرى
+19) لم يكن هناك مصدر دخل ثانٍ
+20) لا أعرف
+21) رفض الإجابة</t></si><si><t>Form Type - Buttons
+exclude selected "income_main"
+
+IsDemographic</t></si><si><t>1-3 = income_sec_crop_check
+4 = income_sec_ls_check
+5 = income_sec_comp OR optional question
+6 = income_sec_fish_check
+7-18 = income_sec_comp OR optional question
+19-21 = o_debt</t></si><si><t>if options #1-3 selected, go to income_sec_crop_check
+
+if options #4 selected, go to income_sec_ls_check
+
+if options #6 selected, go to income_sec_fish_check 
+
+if options #5, 7-18 selected, go to [income_sec_comp OR optional question]
+
+if options #19-21 selected, go to shock</t></si><si><t xml:space="preserve"> income_sec_gender </t></si><si><t>income_sec_crop_check</t></si><si><t>1-4 = income_sec_comp OR optional question</t></si><si><t>if income_sec_crop_check = 1-4, go to [income_sec_comp OR optional question]</t></si><si><t>1-4 = income_sec_gender</t></si><si><t>income_sec_ls_check</t></si><si><t>if income_sec_ls_check = 1-4, go to [income_sec_comp OR optional question]</t></si><si><t>income_sec_fish_check</t></si><si><t>if income_sec_fish_check = 1-4, go to [income_sec_comp OR optional question]</t></si><si><t>income_sec_gender</t></si><si><t>1-5 = [income_sec_comp OR optional question]</t></si><si><t>if income_sec_gender = 1-5, go to income_sec_comp or optional question</t></si><si><t>1-5 = income_sec_comp</t></si><si><t>income_sec_comp</t></si><si><t>Has your household's income from {income_sec} changed in the last 3 months compared to the same period of  last year? 
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)A lot more [increased by more than 50%]
+2)Slightly more
+3)Same
+4)Slightly less
+5)A lot less [less than half as much]
+6)DON'T KNOW
+7)REFUSED</t></si><si><t>هل تغير دخل أسرتك من {income_sec} في الأشهر الثلاثة الماضية مقارنة بنفس الفترة من العام الماضي؟
+
+[المشغل: استجابة واحدة.]
+
+1) أكثر بكثير [زاد بنسبة تزيد عن 50٪]
+2) أكثر قليلا
+3) نفس الشيء
+4) أقل قليلاً
+5) أقل بكثير [أقل من نصف الكمية]
+6) لا أعرف
+7) رفض الإجابة</t></si><si><t>1-7= income_third</t></si><si><t>if income_sec_comp = 1-7, go to income_third</t></si><si><t>income_third</t></si><si><t>What was your household's third most important source of income in the past 3 months?
+
+[OPERATOR: SINGLE RESPONSE. DON'T KNOW AND REFUSED OPTIONS SHOULD BE AVOIDED AS MUCH AS POSSIBLE.]
+
+1)Production and sale of staple crops
+2)Production and sale of vegetables or fruit 
+3)Production and sale of cashcrops
+4)Production and sale of livestock or livestock products 
+5)Production and sale of honey or bee products
+6)Production and sale of fish or aquatic products
+7)Collection and sale of forestry or bush products 
+8)Agricultural trade EXCLUDING producers [formal and informal]
+9)Daily wage on farms and other casual employment in agricultural sector 
+10)Stable employment in agricultural sector 
+11)Non-agricultural self-employed or liberal profession / doctor / architect / lawyer / including restaurant
+12)Off-farm daily wages and other non-agricultural casual employment
+13)Stable employment in non-agricultural sector
+14)Public employment 
+15)Income not derived from work / Charity
+16)Income not derived from work / Welfare transfer, pension, humanitarian aid
+17)Income not derived from work / Remittances
+18)Income not derived from work / Income from other rents
+19)No third most important source of income
+20)DON'T KNOW
+21)REFUSED</t></si><si><t>ما هو ثالث أهم مصدر دخل لأسرتك فى الثلاثة أشهر الماضية ؟
+
+[المشغل: استجابة واحدة. يجب تجنب خيارات الإجابة "لا أعرف" و "رفض الإجابة" قدر الإمكان.]
+
+1) إنتاج وبيع المحاصيل الأساسية
+2) إنتاج وبيع الخضار أو الفاكهة
+3) إنتاج وبيع المحاصيل النقدية
+4) إنتاج وبيع الحيوانات الأليفة أو منتجاتها
+5) انتاج و بيع العسل أو منتجات النحل 
+6) إنتاج وبيع الأسماك أو منتجات المنتجات المائية
+7) جمع وبيع منتجات الغابات أو الأحراش
+8) التجارة الزراعية الرسمية و غير الرسمية باستثناء المنتجين
+9) الأجر اليومي في المزارع وغيرها من العمالة العرضية في قطاع الزراعة
+10) العمالة المستقرة في القطاع الزراعي
+11) العاملين لحسابهم الخاص غير الزراعيين أو المهنة الحرة / طبيب / مهندس معماري / محامٍ / بما في ذلك مطعم
+12) الأجور اليومية خارج المزرعة وغيرها من العمالة العرضية غير الزراعية
+13) العمالة المستقرة في القطاع غير الزراعي
+14) الوظائف العامة
+15) الدخل غير المستمد من العمل / الاعمال الخيرية 
+16) الدخل غير المستمد من العمل / المدفوعات التحويلية ، المعاش التقاعدي ، المساعدات الإنسانية
+17) الدخل غير المستمد من العمل / التحويلات
+18) الدخل غير المستمد من العمل / الدخل من الإيجارات الأخرى
+19) لم يكن هناك مصدر دخل ثالث
+20) لا أعرف
+21) رفض الإجابة</t></si><si><t>Form Type - Buttons
+exclude selected "income_main"
+exclude selected "income_sec"
+
+IsDemographic</t></si><si><t>1-3 = income_third_crop_check
+4 = income_third_ls_check
+5 = income_third_comp OR optional question
+6 = income_third_fish_check
+7-18 = income_third_comp OR optional question
+19-21 = o_debt</t></si><si><t>if options #1-3 selected, go to income_third_crop_check
+
+if options #4 selected, go to income_third_ls_check
+
+if option #6 selected, go to income_third_fish_check 
+
+if options #5, 7-18 selected, go to [income_third_comp OR optional question] 
+
+if options #19-21 selected, go to shock</t></si><si><t xml:space="preserve"> income_third_gender </t></si><si><t>income_third_crop_check</t></si><si><t>1-4 = income_third_comp OR optional question</t></si><si><t>if income_third_crop_check = 1-4, go to [income_third_comp OR optional question]</t></si><si><t>1-4 = income_third_gender</t></si><si><t>income_third_ls_check</t></si><si><t>if income_third_ls_check = 1-4, go to [income_third_comp OR optional question]</t></si><si><t>income_third_fish_check</t></si><si><t>if income_third_fish_check = 1-4, go to [income_third_comp OR optional question]</t></si><si><t>income_third_gender</t></si><si><t>1-5 = income_third_comp or optional question</t></si><si><t>if income_third_gender = 1-5, go to [income_third_comp or optional question]</t></si><si><t xml:space="preserve">1-5 = income_third_comp </t></si><si><t>income_third_comp</t></si><si><t>Has your household's income from {income_third} changed in the last 3 months compared to the same period of  last year?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)A lot more [increased by more than 50%]
+2)Slightly more
+3)Same
+4)Slightly less
+5)A lot less [less than half as much]
+6)DON'T KNOW
+7)REFUSED</t></si><si><t>هل تغير دخل أسرتك من {income_third} في الأشهر الثلاثة الماضية مقارنة بنفس الفترة من العام الماضي؟
+
+[المشغل: استجابة واحدة.]
+
+1) أكثر بكثير [زاد بنسبة تزيد عن 50٪]
+2) أكثر قليلا
+3) نفس الشيء
+4) أقل قليلاً
+5) أقل بكثير [أقل من نصف الكمية]
+6) لا أعرف
+7) رفض الإجابة</t></si><si><t>1-7= shock</t></si><si><t>if income_third_comp = 1-7, go to shock</t></si><si><t>1-7 = o_debt</t></si><si><t>o_debt</t></si><si><t>Have you incurred any new debt in the past three months which you have not repaid?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON’T KNOW
+4)REFUSED</t></si><si><t>هل تكبدت أي ديون جديدة في الأشهر الثلاثة الماضية لم تسددها؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1 = o_debt_amount;
+2-4 = shock</t></si><si><t>o_debt_amount</t></si><si><t>What is the total amount of debt you currently have [in Rial]?
+ 
+[OPERATOR: DOUBLE CHECK FOR OUTLIERS &amp; MAKE SURE THE INFORMATION IS RECORDED IN THE CORRECT CURRENCY. ENTER 8888888 FOR DON'T KNOW AND 9999999 FOR REFUSED.]</t></si><si><t>ما هو المبلغ الإجمالي للديون التي عليك حاليًا [بالريال]؟
+ 
+[المُشغل: تحقق مزدوج من القيم المتطرفة وتأكد من تسجيل المعلومات بالعملة الصحيحة. أدخل 8888888 للا أعرف و 9999999 في حالة الرفض.]</t></si><si><t>Any response go to shock</t></si><si><t>Debt minimum: YER 1000
+Debt Maximum: YER 1000000</t></si><si><t>shock</t></si><si><t>shock_
+
+1) shock_noshock
+2) shock_sicknessordeathofhh
+3) shock_lostemplorwork
+4) shock_otherintrahhshock
+5) shock_higherfoodprices
+6) shock_higherfuelprices
+7) shock_mvtrestrict
+8) shock_othereconomicshock
+9) shock_pestoutbreak
+10) shock_plantdisease
+11) shock_animaldisease
+12) shock_napasture
+13) shock_othercropandlivests
+14) shock_coldtemporhail
+15) shock_flood
+16) shock_hurricane
+17) shock_drought
+18) shock_earthquake
+19) shock_landslides
+20) shock_firenatural
+21) shock_othernathazard
+22) shock_violenceinsecconf
+23) shock_theftofprodassets
+24) shock_firemanmade
+25) shock_othermanmadehazard
+26) shock_dk
+27) shock_ref</t></si><si><t>Has your household or community faced any particular disaster or crisis affecting your household's ability to raise an income and/or to produce food for self consumption in the last 3 months, and if so, which one[s]? 
+
+[OPERATOR: SELECT RELEVANT SHOCKS EXPERIENCED BY THE HOUSEHOLD. MULTIPLE RESPONSES POSSIBLE. REFER TO ECONOMIC SHOCKS, CROP AND LIVESTOCK SHOCKS, INTRA-HOUSEHOLD SHOCK, NATURAL HAZARDS AND HUMAN-INDUCED HAZARDS.]
+
+1)No shock
+2)Sickness or accident or death of household member[s] [sickness of breadwinner / unusually high medical expenditure / funeral expenses / death of breadwinner]
+3)Lost employment or working opportunities [not due to illness/accident]
+4)Other intra-household shock
+5)Unusually high food prices
+6)Unusually high fuel prices or transport prices 
+7)Population movement restrictions [e.g. due to epidemic or infrastructure damage]
+8)Other economic shock 
+9)Pest outbreak
+10)Plant disease
+11)Animal disease [affecting many animals] or death
+12)Lack of physical access to pasture 
+13)Other crop and livestock shock
+14)Cold temperatures or hail
+15)Flood / riverbank erosion
+16)Hurricane / cyclone / tornado
+17)Drought / heat stress
+18)Earthquake
+19)Landslides
+20)Fire from natural disaster
+21)Other natural hazard
+22)Violence and insecurity / conflict
+23)Theft of production assets [land / livestock / tools / etc]
+24)Fire from human-induced disaster
+25)Other human-induced hazard
+26)DON'T KNOW
+27)REFUSED</t></si><si><t>هل واجهت أسرتك أو هل واجه مجتمعك أي كارثة أو أزمة معينة أثرت على قدرة أسرتك على إدرار الدخل و / أو إنتاج الغذاء للاستهلاك الذاتي في الأشهر الثلاثة الماضية ، وإذا كان الأمر كذلك ، فما كانت؟
+
+[المُشغل: حدد الصدمات ذات الصلة التي اختبرتها الأسرة. استجابات متعددة ممكنة. راجع الصدمات الاقتصادية والصدمات التي تصيب المحصول والمواشي و داخل الأسرة والمخاطر الطبيعية والأخطار التي يسببها الإنسان.]
+
+1) لا صدمة
+2) مرض أو حادث أو وفاة أحد أفراد الأسرة [مرض العائل / النفقات الطبية المرتفعة بشكل غير عادي / نفقات الجنازة / وفاة العائل]
+3) فرص العمل أو العمل المفقودة [ليس بسبب مرض / حادث]
+4) صدمة أخرى داخل الأسرة
+5) أسعار المواد الغذائية أعلى بكثير من المعتاد
+6) أسعار الوقود  أو أسعار النقل أعلى بكثير من المعتاد
+7) القيود المفروضة على حركة السكان [على سبيل المثال بسبب الوباء أو تلف البنية التحتية]
+8) صدمة اقتصادية أخرى
+9) تفشي الآفات
+10) أمراض نباتية
+11) أمراض حيوانية تصيب العديد من الحيوانات أو تتسبب بنفقها
+12) عدم إمكانية الوصول للمراعي 
+13) صدمة أخرى للمحاصيل والماشية
+14) درجات الحرارة الباردة أو البرد
+15)  الفيضانات / تآكل ضفاف الأنهار
+16) إعصار 
+17) الجفاف / الإجهاد الحراري
+18) زلزال
+19) الانهيارات الارضية
+20) حريق مسبب من كارثة طبيعية
+21) مخاطر طبيعية أخرى
+22) العنف وانعدام الأمن / النزاع
+23) سرقة أصول الإنتاج [الأرض / الماشية / الأدوات / إلخ]
+24) حريق مسبب من كارثة من صنع الإنسان
+25) مخاطر أخرى من صنع الإنسان
+26) لا أعرف
+27) رفض الإجابة</t></si><si><t>Form Type - Checklist 
+1,26,27 = IsNone</t></si><si><t>1-27 = [confl_wellbeing]</t></si><si><t>1)shock_noshock
+2)shock_sicknessordeathofhh
+3)shock_lostemplorwork
+4)shock_otherintrahhshock
+5)shock_higherfoodprices
+6)shock_higherfuelprices
+7)shock_mvtrestrict
+8)shock_othereconomicshock
+9)shock_pestoutbreak
+10)shock_plantdisease
+11)shock_animaldisease
+12)shock_napasture
+13)shock_othercropandlivests
+14)shock_coldtemporhail
+15)shock_flood
+16)shock_hurricane
+17)shock_drought
+18)shock_earthquake
+19)shock_landslides
+20)shock_firenatural
+21)shock_othernathazard
+22)shock_violenceinsecconf
+23)shock_theftofprodassets
+24)shock_firemanmade
+25)shock_othermanmadehazard
+26)shock_dk
+27)shock_ref</t></si><si><t>if shock = 1-27, go to [confl_wellbeing]</t></si><si><t>1-27 = confl_wellbeing</t></si><si><t>o_flood_loss_agri_assets</t></si><si><t>Did your household lose any agricultural land, crops, livestock, or fishery assets due to the recent floods?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON’T KNOW
+4)REFUSED</t></si><si><t>هل فقدت أسرتك أي أراضي زراعية أو محاصيل أو ثروة حيوانية أو أصول سمكية بسبب الفيضانات الأخيرة؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>Send if "shock" "Equals" "Flood / riverbank erosion" Or "shock" "Equals" "Hurricane / cyclone / tornado" if not satisfied go to "confl_wellbeing"</t></si><si><t>1 = o_flood_asset_loss_type
+2-4 = confl_wellbeing</t></si><si><t>o_flood_asset_loss_type</t></si><si><t>What type of loss did your household experience?
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE. SELECT ALL THAT APPLY.]
+
+1)Agricultural land
+2)Crops
+3)Livestock
+4)Fishery assets
+5)DON'T KNOW
+6)REFUSED</t></si><si><t>ما نوع الخسارة التي تعرضت لها أسرتك؟
+
+[المشغل: إجابات متعددة ممكنة. حدد كل ما ينطبق.]
+
+1) الأراضي الزراعية
+2) المحاصيل
+3) الثروة الحيوانية
+4) أصول الثروة السمكية
+5) لا أعرف
+6) رفض الإجابة</t></si><si><t>1-6 = confl_wellbeing</t></si><si><t>CONFLICT MODULE</t></si><si><t>confl_wellbeing</t></si><si><t>confl_wellbeing
+
+1)confl_wb_none
+2)confl_wb_livelihood
+3)confl_wb_health
+4)confl_wb_transport
+5)confl_wb_edu
+6)confl_wb_food_water
+7)confl_wb_safety
+8)confl_wb_land_sec
+9)confl_wb_lack_justice
+10)confl_wb_corrupt
+11)confl_wb_lack_gov
+12)confl_wb_assistance
+13)confl_wb_other
+14)confl_wb_dk
+15)confl_wb_ref</t></si><si><t>What are the main problems affecting the community's wellbeing?
+
+[OPERATOR: UP TO THREE RESPONSES ALLOWED]
+
+1)There are no issues or concerns
+2)Employment / livelihoods [lack of or inadequate]
+3)Health care [lack of or inadequate]
+4)Transportation [lack of or inadequate]
+5)Education [lack of or inadequate]
+6)Access to food/water [lack of or inadequate]
+7)Security and safety of family members [lack of or inadequate]
+8)Security of land or property [lack of or inadequate]
+9)Lack of justice
+10)Corruption
+11)Lack of governance
+12)Accessing or receiving assistance
+13)Other [specify]
+14)DON'T KNOW
+15)REFUSED</t></si><si><t>ما هي المشاكل الرئيسية التي تؤثر على تحسين حال المجتمع؟
+
+[المشغل: مسموح بثلاث إجابات كحد أقصى]
+
+1) لا توجد مشكلات أو مخاوف
+2) التوظيف / سبل العيش [نقص أو عدم كفاية]
+3) الرعاية الصحية [نقص أو عدم كفاية]
+4) وسائل النقل [نقص أو عدم كفاية]
+5) التعليم [نقص أو عدم كفاية]
+6) الوصول إلى الغذاء / المياه [نقص أو عدم كفاية]
+7) أمن وسلامة أفراد الأسرة [نقص أو عدم كفاية]
+8) أمان الأرض أو الممتلكات [نقص أو عدم كفاية] 
+9) نقص العدالة 
+10) الفساد
+11) عدم الحوكمة
+12) الوصول إلى المساعدة أو تلقيها
+13) آخر [حدد]
+14) لا أعرف
+15) رفض الإجابة</t></si><si><t>Form Type - Checklist
+
+1,14,15 = IsNone
+
+Min = 1
+Max = 3</t></si><si><t>1-15 = confl_yn</t></si><si><t>1)confl_wb_none
+2)confl_wb_livelihood
+3)confl_wb_health
+4)confl_wb_transport
+5)confl_wb_edu
+6)confl_wb_food_water
+7)confl_wb_safety
+8)confl_wb_land_sec
+9)confl_wb_lack_justice
+10)confl_wb_corrupt
+11)confl_wb_lack_gov
+12)confl_wb_assistance
+13)confl_wb_other
+14)confl_wb_dk
+15)confl_wb_ref</t></si><si><t>For any response, go to confl_yn.</t></si><si><t>Better if optional. Some options might be a bit sensitive in some contexts (e.g. corruption)</t></si><si><t>confl_yn</t></si><si><t>Have you or anyone within your household been affected by any form of insecurity or conflict during the past 3 months?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>هل تأثرت أنت أو أي شخص في أسرتك بأي شكل من أشكال انعدام الأمن أو الصراع خلال الأشهر الثلاثة الماضية؟
+
+1)نعم
+2)لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1 = confl_prim_insec
+2-4 = crp_intro</t></si><si><t>if confl_yn = 1, go to confl_prim_insec.
+Otherwise, go to crp_intro</t></si><si><t>Better with 3 months recall period indeed</t></si><si><t>confl_pimary_insec</t></si><si><t>confl_prim_insec</t></si><si><t>What has been the primary type of insecurity affecting your household?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)Disputes or conflicts over land, water or pasture
+2)Criminality, gang violence or banditry
+3)Conflict between community groups
+4)Armed conflict
+5)Disputes or conflicts over assistance being provided
+6)Other [specify]
+7)DON'T KNOW
+8)REFUSED</t></si><si><t>ما هو نوع عدم الأمان الرئيسي الذي يؤثر على أسرتك؟
+
+[المشغل: إجابة واحدة.]
+
+1) النزاعات حول الأرض أو المياه أو المراعي 
+2) الإجرام أو عنف العصابات أو اللصوصية
+3) النزاعات/ الخلافات بين مجموعات المجتمع
+4) النزاعات المسلحة أو الأعمال العدائية المسلحة
+5) النزاعات أو الصراعات حول تقديم المساعدة
+6) أخرى [حدد]
+7) لا أعرف
+8) رفض الإجابة</t></si><si><t>1-8 = confl_agri_imp</t></si><si><t>if confl_prim_insec = 1-8, go to confl_agri_imp.</t></si><si><t>In enumerator training, include explanation/examples of ''insecurity''</t></si><si><t>confl_agri_imp</t></si><si><t>confl_agri_imp
+
+1)confl_agri_none
+2)confl_agri_access_field
+3)confl_agri_inputs
+4)confl_agri_prod_asset
+5)confl_agri_water_infra
+6)confl_agri_crp_damage
+7)confl_agri_crp_theft_occup
+8)confl_agri_ls_reduce_mob
+9)confl_agri_ls_damage
+10)confl_agri_ls_theft
+11)confl_agri_land_contam
+12)confl_agri_extortion
+13)confl_agri_other
+14)confl_agri_dk
+15)confl_agri_ref</t></si><si><t>How has insecurity and/or conflict affected your household's farming, livestock or fishing activities? 
+
+[OPERATOR: SELECT UP TO THREE IMPACTS.]
+
+1)No effect on my household's agricultural activities
+2)Could not access or limited access to fields/fishing areas
+3)Could not access [or poor quality] inputs [seeds, fertiliser]
+4)Damage or destruction of productive assets [tools, machinery]
+5)Damage to water infrastructure and/or reduced access to water
+6)Damage or destruction of crops
+7)Theft/occupation of agricultural land
+8)Reduced livestock mobility due to insecurity
+9)Death or injury of livestock
+10)Theft of livestock
+11)Land contaminated by landmines and/or explosive remnants of war
+12)Extortion [e.g. payments demanded by armed groups]
+13)Other [specify]
+14)DON'T KNOW
+15)REFUSED</t></si><si><t>كيف أثر انعدام الأمن على أنشطة الزراعة أو الثروة الحيوانية أو صيد السماك في أسرتك؟
+
+[المشغل: حدد ما يصل إلى ثلاثة تأثيرات.]
+
+1) لا يوجد تأثير على الأنشطة الزراعية لأسرتي
+2) عدم القدرة على الوصول إلى الحقول/مناطق الصيد أو تقييد الوصول إليها
+3) عدم القدرة على الوصول إلى المدخلات [البذور والأسمدة] [أو جودتها رديئة]
+4) إتلاف أو تدمير الأصول الإنتاجية [الأدوات والآلات]
+5) إتلاف البنية التحتية للمياه و/أو انخفاض الوصول إلى المياه
+6) إتلاف أو تدمير المحاصيل
+7) سرقة/احتلال الأراضي الزراعية
+8) تقليل حركة الماشية بسبب انعدام الأمن
+9) موت أو إصابة الماشية
+10) سرقة الماشية
+11) تلوث الأراضي بالألغام الأرضية و/أو آثار الحروب المتفجرة
+12) الابتزاز [على سبيل المثال الجبايات التي تطالب بها الجماعات المسلحة]
+13) أخرى [حدد] 
+14) لا أعرف
+15) رفض الإجابة</t></si><si><t>Open-Ended - Select All That Apply</t></si><si><t>Send if "hh_agricactivity" "Equals" "Yes - crop production" Or "hh_agricactivity" "Equals" "Yes - livestock production" Or "hh_agricactivity" "Equals" "Yes - both crop and livestock production" Or "hh_fish" "Equals" "YES" Or "income_main_crop_check" "Equals" "YES" Or "income_sec_crop_check" "Equals" "YES" Or "income_third_crop_check" "Equals" "YES" Or "income_main_ls_check" "Equals" "YES" Or "income_sec_ls_check" "Equals" "YES" Or "income_third_ls_check" "Equals" "YES" Or "income_main_fish_check" "Equals" "YES" Or "income_sec_fish_check" "Equals" "YES" Or "income_third_fish_check" if not satisfied go to "confl_foodsec_imp"</t></si><si><t>Form Type - Checklist
+
+14,15 = IsNone
+
+Min = 1
+Max = 3</t></si><si><t>1-15 = confl_foodsec_imp</t></si><si><t>1)confl_agri_none
+2)confl_agri_access_field
+3)confl_agri_inputs
+4)confl_agri_prod_asset
+5)confl_agri_water_infra
+6)confl_agri_crp_damage
+7)confl_agri_crp_theft_occup
+8)confl_agri_ls_reduce_mob
+9)confl_agri_ls_damage
+10)confl_agri_ls_theft
+11)confl_agri_land_contam
+12)confl_agri_extortion
+13)confl_agri_other
+14)confl_agri_dk
+15)confl_agri_ref</t></si><si><t>if confl_agri_imp = 1-15, go to confl_foodsec_imp.</t></si><si><t>confl_foodsec_imp</t></si><si><t>confl_foodsec_imp
+
+1)confl_fs_none
+2)confl_fs_high_cost
+3)confl_fs_lack_food_mkt
+4)confl_fs_access_mkt
+5)confl_fs_reduced_income
+6)confl_fs_access_assistance
+7)confl_fs_theft_damage
+8)confl_fs_illicit_pay
+9)confl_fs_other
+10)confl_fs_dk
+11)confl_fs_ref</t></si><si><t>How has insecurity  affected your household's access to food?
+
+[OPERATOR: SELECT UP TO THREE IMPACTS.]
+
+1)No effect on my access to food
+2)High food costs
+3)Lack of food in the markets
+4)Difficult/dangerous to access markets
+5)Reduced income to buy food
+6)Difficult to access assistance [food, cash or vouchers]
+7)Theft/damage to household food stores
+8)Demands for illicit payments or taxes
+9)Other [specify]
+10)DON'T KNOW
+11)REFUSED</t></si><si><t>كيف أثر انعدام الأمن على قدرة أسرتك على الوصول إلى الغذاء؟
+
+[المشغل: حدد ما يصل إلى ثلاثة تأثيرات.]
+
+1) لا يوجد تأثير على قدرتي على الوصول إلى الغذاء
+2) ارتفاع تكاليف الغذاء
+3) نقص الغذاء في الأسواق
+4) صعوبة/خطورة الوصول إلى الأسواق
+5) انخفاض الدخل لشراء الغذاء
+6) صعوبة الوصول إلى المساعدة [الغذائية أو النقدية أو القسائم]
+7) سرقة/تلف مخازن الغذاء المنزلية
+8) مطالبات بمدفوعات أو ضرائب غير مشروعة
+9) أخرى [حدد]
+10) لا أعرف
+11) رفض الإجابة</t></si><si><t>Form Type - Checklist
+
+10,11 = IsNone
+
+Min = 1
+Max = 3</t></si><si><t>1-11 = crp_intro</t></si><si><t>1)confl_fs_none
+2)confl_fs_high_cost
+3)confl_fs_lack_food_mkt
+4)confl_fs_access_mkt
+5)confl_fs_reduced_income
+6)confl_fs_access_assistance
+7)confl_fs_theft_damage
+8)confl_fs_illicit_pay
+9)confl_fs_other
+10)confl_fs_dk
+11)confl_fs_ref</t></si><si><t>if confl_foodsec_imp = 1-11, go to crp_intro.</t></si><si><t>D. CROP PRODUCTION</t></si><si><t>crp_intro</t></si><si><t>We will now ask you some questions about crop production which apply to you and anyone in your household that is involved in crop production or sales. All questions refer to the crops grown during Ongoing season.
+
+1)CONTINUE</t></si><si><t>سنطرح عليك الآن بعض الأسئلة حول إنتاج المحاصيل التي تنطبق عليك وعلى أي شخص في أسرتك يشارك في إنتاج المحاصيل أو بيعها. تشير جميع الأسئلة إلى المحاصيل المزروعة خلال الموسم الحالي. 
+
+1) تابع</t></si><si><t>Send if "hh_agricactivity" "Equals" "Yes - crop production" Or "hh_agricactivity" "Equals" "Yes - both crop and livestock production" Or "income_main_crop_check" "Equals" "YES" Or "income_sec_crop_check" "Equals" "YES" Or "income_third_crop_check" "Equals" "YES", if not satisfied go to "crp_salesmain"</t></si><si><t>1 = crp_landsize_num</t></si><si><t>If hh_agricactivity = "Yes - crop production" or "Yes - both crop and livestock production" or if they reported production and sales of crops in one of the three main income sources and confirmed that they are involved in production, then this section will be asked to respondents.
+Otherwise, skip to crp_salesmain.
+
+Next question is crp_landsize_num</t></si><si><t>crp_landsize_num</t></si><si><t>What is the total size of the land you can cultivate?
+
+[OPERATOR: RECORD THE TOTAL LAND SIZE PROVIDED BY THE RESPONDENT. WRITE 8888888 FOR DON'T KNOW AND 9999999 FOR REFUSED. MEASUREMENT UNIT WILL BE SPECIFIED IN THE FOLLOWING QUESTION.]</t></si><si><t>ما هو الحجم الإجمالي للأرض التي يمكنك زراعتها؟
+
+[المُشغل: سجل إجمالي حجم الأرض الذي ذكره المجيب. اكتب 8888888 للا أعرف و 9999999 في حالة الرفض. سيتم تحديد وحدة القياس في السؤال التالي.]</t></si><si><t>0-1000000 = crp_landsize_unit
+8888888-8888888 = crp_main
+9999999-9999999 = crp_main</t></si><si><t>For any response, go to crp_landsize_unit. Range is between 0 and 1000000. For "Don't know" and "Refused", go to crp_main.</t></si><si><t>crp_landsize_unit</t></si><si><t xml:space="preserve">Unit of measurement for land size: 
+
+[OPERATOR: DO NOT READ. SINGLE RESPONSE.]
+
+1)Acres
+2)Hectares
+3)Square meters
+4)Square feet
+5)5)Labneh
+6)Qassabh
+7)Hablah
+8)Ma'ad
+9)Salook
+10)Shaklah
+11)Neiha
+12)Matreh
+13)Wadan
+14)Oqum
+15)Asaoo
+16)Shagan
+17)Arfad
+18)Aber
+19)Taleem
+20)Magabi
+21)Hediah
+22)Thera'a
+23)Materah
+
+</t></si><si><t>وحدة قياس مساحة الارض:
+
+[المُشغل: لا تقرأ. استجابة واحدة.]
+
+1) فدان
+2) هكتار
+3) متر مربع
+4) قدم مربع
+5) 5)لبنة
+6)قصبة
+7) حبل/حبلة
+8) معاد
+9)سلوق
+10) شكلة
+11) نيحة
+12) مطرح
+13)ودن
+14) عقم
+15)اسعاو
+16) شجن
+17)رفد/ارفاد
+19) عبر
+20) تليم
+21)مجابي
+22) حدية
+23) ذراع
+24) مطبرة</t></si><si><t>1-5 = crp_main</t></si><si><t>if crp_landsize_unit = 1-5, go to crp_main</t></si><si><t>crp_main</t></si><si><t>What has been the main crop that your household has grown for food and income generation in $season$, if any? 
+ [OPERATOR: SINGLE RESPONSE. "NO CROP PRODUCTION" IS IN LAST OPTIONS AT THE END.] 
+ 
+1)Wheat
+2)Millet
+3)Sorghum
+4)Potatoe
+5)Lentils
+6)Tomatoes
+7)Okra
+8)Orange
+9)Grapes
+10)Coffee
+11)Qat
+12)Maize
+13)Barley
+14)Other Cereal
+15)Cassava
+16)Sweet Potatoes
+17)Yams
+18)Carrots
+19)Cocoyam
+20)Other tubers
+21)Beans
+22)Peas
+23)Soybeans
+24)Chickpeas
+25)Fava beans
+26)Broad beans
+27)Other pulses
+28)Cabbage
+29)Lettuce
+30)Spinach-Amaranth
+31)Cassava leaves
+32)Potatoe leaves
+33)Moringa
+34)Sorrel Hibiscus / Rosselle
+35)Green salad herbs [thyme, parsley, mint, rocca, other]
+36)Cauliflower
+37)Other leafy vegetables
+38)Cucumber
+39)Pumpkin
+40)Eggplant/aubergine
+41)Zucchini
+42)Bell pepper
+43)Onions
+44)Haricot
+45)Green peas
+46)Fava beans green
+47)Other non leafy vegs
+48)Lemon
+49)Grapefruit
+50)Mandarins/clementines
+51)Other citrus fruit
+52)Sweet Banana
+53)Plantains
+54)Papaya
+55)Mango
+56)Guava
+57)Pineapple
+58)Avocado
+59)Water Melon
+60)Dates
+61)Figs
+62)Olives
+63)Apple
+64)Apricot
+65)Cherries
+66)Peach/nectarine
+67)Strawberries
+68)Melon [Cantaloupe]
+69)Other fruit
+70)Coconuts
+71)Groundnut/peanut
+72)Cashew Nut
+73)Kola Nut
+74)Sesame
+75)Bambara nut
+76)Almond
+77)Walnut
+78)Other nuts
+79)Cocoa
+80)Tea
+81)Sugarcane
+82)Sunflower
+83)Other food cash crop
+84)Cotton
+85)Rubber
+86)Jute
+87)Fodder
+88)Tobacco
+89)Other non-food cash crop
+90)Rice
+91)No crop production
+92)DON'T KNOW
+93)REFUSED</t></si><si><t>ما هو المحصول الرئيسي الذي تزرعه أسرتك من أجل الغذاء وتوليد الدخل في موسم $ Season $ ، إن وجد؟ 
+ [المشغل: استجابة واحدة. 'لا إنتاج للمحصول' في آخر الخيارات في النهاية.] 
+ 
+1)القمح
+2)الدخن
+3)الذرة الرفيعة
+4)البطاطا
+5)العدس
+6)الطماطم
+7)البامية
+8)البرتقال
+9)العنب
+10)القهوة
+11)القات
+12)الذرة
+13)الشعير
+14)الحبوب الأخرى
+15)الكسافا
+16)البطاطا الحلوة
+17)اليام
+18)الجزر
+19)القلقاس
+20)الدرنات الأخرى
+21)الفاصوليا
+22)البازيلاء
+23)فول الصويا
+24)الحمص
+25)الفول
+26)الفاصوليا العريضة
+27)البقول الاخرى
+28)الملفوف
+29)الخس
+30)السبانخ - القطيفة
+31)أوراق الكسافا
+32)أوراق البطاطا
+33)المورينجا
+34)الكركديه
+35)أعشاب السلطة الخضراء [زعتر ، بقدونس ، نعناع ، جرجير ، أنواع أخرى]
+36)القرنبيط
+37)الخضار الورقية الأخرى
+38)الخيار
+39)اليقطين
+40)الباذنجان
+41)الكوسة
+42)الفلفل حلو
+43)بصل
+44)اللوبياء
+45)البازلاء الخضراء
+46)الفول الأخضر
+47)الخضار غير الورقية الأخرى
+48)الليمون
+49)الجريب فروت
+50)اليوسفي / الكليمنتين
+51)الحمضيات الأخرى
+52)الموز
+53)موز الجنة
+54)البابايا
+55)المانجو
+56)الجوافة
+57)الأناناس
+58)الأفوكادو
+59)البطيخ الأحمر
+60)التمر
+61)التين
+62)الزيتون
+63)التفاح
+64)المشمش
+65)الكرز
+66)الدراق / النكتارين
+67)الفراولة
+68)الشمام
+69)الفواكه الأخرى
+70)جوز الهند
+71)الفول السوداني
+72)الكاجو
+73)جوز الكولا
+74)السمسم
+75)جوز البامبارا
+76)اللوز
+77)الجوز
+78)المكسرات الأخرى
+79)الكاكاو
+80)الشاي
+81)قصب السكر
+82)دوار الشمس
+83)المحاصيل الغذائية النقدية الأخرى 
+84)القطن
+85)المطاط
+86)الجوت
+87)العلف
+88)التبغ
+89) المحاصيل النقدية غير الغذائية الأخرى 
+90)الرز
+91)لا إنتاج المحاصيل
+92)لا أعرف
+93)رفض</t></si><si><t>Form Type - Dropdown
+
+IsDemographic</t></si><si><t>1-90 = crp_irrig_source
+91 = crp_main_check
+92-93 = crp_salesmain</t></si><si><t>1)1.2
+2)1.3
+3)1.4
+4)2.2
+5)3.2
+6)5.1
+7)5.6
+8)6.1
+9)7.11
+10)9.2
+11)10.6
+12)1.5
+13)1.6
+14)1.99
+15)2.1
+16)2.3
+17)2.4
+18)2.5
+19)2.6
+20)2.99
+21)3.1
+22)3.3
+23)3.4
+24)3.5
+25)3.6
+26)3.7
+27)3.99
+28)4.1
+29)4.2
+30)4.3
+31)4.4
+32)4.5
+33)4.6
+34)4.7
+35)4.9
+36)4.101
+37)4.99
+38)5.2
+39)5.3
+40)5.4
+41)5.5
+42)5.7
+43)5.8
+44)5.9
+45)5.101
+46)5.11
+47)5.99
+48)6.2
+49)6.3
+50)6.4
+51)6.99
+52)7.1
+53)7.2
+54)7.3
+55)7.4
+56)7.5
+57)7.6
+58)7.7
+59)7.8
+60)7.9
+61)7.101
+62)7.12
+63)7.13
+64)7.14
+65)7.15
+66)7.16
+67)7.17
+68)7.18
+69)7.99
+70)8.1
+71)8.2
+72)8.3
+73)8.4
+74)8.5
+75)8.6
+76)8.7
+77)8.8
+78)8.99
+79)9.1
+80)9.3
+81)9.4
+82)9.5
+83)9.99
+84)10.1
+85)10.2
+86)10.3
+87)10.4
+88)10.5
+89)10.99
+90)1.1
+91)777
+92)888
+93)999</t></si><si><t>if crp_main = any type of crop, go to crp_irrig_source;
+if crp_main = "No crop production", go to crp_main_check
+if crp_main = "Don't know" or "Refused", go to crp_salesmain</t></si><si><t>crp_main_check</t></si><si><t>Why did you not produce any crops in Ongoing season?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)Don’t usually produce during this season 
+2)Wasn't able to produce [e.g. due to difficulties]</t></si><si><t>لماذا لم تنتج أي محاصيل في الموسم الحالي؟
+
+[المشغل: استجابة واحدة.]
+
+1) لا أنتج عادة محاصيل خلال هذا الموسم
+2) لم أتمكن من إنتاج المحاصيل (على سبيل المثال بسبب الصعوبات)</t></si><si><t>1 = crp_salesmain
+2 = crp_proddif</t></si><si><t>if crp_main_check = 1, go to crp_salesmain
+if crp_main_check = 2, go to crp_proddif</t></si><si><t>crp_irrig_source</t></si><si><t>Where do you normally and mainly obtain water for the production of {crp_main}? 
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)Rainfed
+2)Groundwater
+3)Natural surface water [river / lake / stream / pond / etc.]
+4)Constructed water point [canal / dam / etc.]
+5)Public water supply system [e.g. tap water]
+6)Other [specify]
+7)DON'T KNOW
+8)REFUSED</t></si><si><t>كيف  تحصل عادة على الماء لري {crp_main} بشكل رئيسي؟
+
+[المشغل: استجابة واحدة.]
+
+1) بعلي (لا يوجد نظام ري)
+2) مياه جوفية
+3) مياه سطحية طبيعية ( نهر / بحيرة / بركة مياه / إلخ )
+4) نقطة مياه منشأة ( قناة / سد / إلخ)
+5) نظام تزويد مياه عام ( ماء الصنبور علي سبيل المثال )
+6)  آخر [حدد]
+7) لا أعرف
+8) رفض الإجابة</t></si><si><t>1-8 = crp_seed_supply</t></si><si><t>if crp_irrig_source = crp_seed_supply</t></si><si><t xml:space="preserve">1-8=crp_seed_supply </t></si><si><t>crp_seed_supply</t></si><si><t>crp_seed_supply
+
+1) crp_seed_ownprod
+2) crp_seed_market
+3) crp_seed_company
+4) crp_seed_ngo
+5) crp_seed_organized_community
+6) crp_seed_gov
+7) crp_seed_relatives_friends
+8) crp_seed_other
+9) crp_seed_dk
+10) crp_seed_ref</t></si><si><t>Who do you normally procure your seeds from? 
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE.]
+
+1)Own production
+2)Local market or agro-input shop/dealer
+3)Private seed company
+4)NGOs
+5)Community seed banks / farmer networks / farmers' association / etc.
+6)Government [e.g. MoA]
+7)Relatives or friends
+8)Other
+9)DON'T KNOW
+10)REFUSED</t></si><si><t>من أين تحصل عادة على البذور؟
+
+[المُشغل: احتمال وجود عدة استجابات.]
+
+1) الإنتاج الخاص
+2) اشتريها من السوق أو متجر المدخلات الزراعية
+3) اشتريها  من شركة بذور خاصة
+4) المنظمات الغير حكومية
+5) بنوك البذور المجتمعية / شبكات المزارعين / إلخ
+6) الحكومة ( وزارة الزراعة علي سبيل المثال )
+7) الاقارب أو الاصدقاء
+8) آخر
+9) لا أعرف
+10) رفض الإجابة</t></si><si><t xml:space="preserve">Select All That Apply </t></si><si><t>Form Type - Checklist
+9,10 = IsNone</t></si><si><t>1-10 = crp_area_change</t></si><si><t>1)crp_seed_ownprod
+2)crp_seed_market
+3)crp_seed_company
+4)crp_seed_ngo
+5)crp_seed_organized_community
+6)crp_seed_gov
+7)crp_seed_relatives_friends
+8)crp_seed_other
+9)crp_seed_dk
+10)crp_seed_ref</t></si><si><t>if crp_seed_supply = 1-10, go to crp_area_change</t></si><si><t>crp_area_change</t></si><si><t>How did the area planted for {crp_main} from Ongoing season compare to  last year?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)A lot more [increased by more than 50%]
+2)Slightly more
+3)Same
+4)Slightly less
+5)A lot less [less than half as much]
+6)DON'T KNOW
+7)REFUSED</t></si><si><t>كيف يمكن مقارنة المساحة المزروعة ل {crp_main} في الموسم الحالي نسبةً ل العام الماضي؟
+
+[المشغل: استجابة واحدة.]
+
+1) أكثر بكثير [زادت بنسبة تزيد عن 50٪]
+2) أكثر قليلا
+3) نفس الشيء
+4) أقل قليلاً
+5) أقل بكثير [أقل من نصف الكمية]
+6) لا أعرف
+7) رفض الإجابة</t></si><si><t>1-7 = crp_harv_change</t></si><si><t>if crp_area_change = 1-7, go to crp_harv_change</t></si><si><t>crp_harv_change</t></si><si><t>How does the  harvest of {crp_main} in the Ongoing season compare to  last year? 
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)A lot more [increased by more than 50%]
+2)Slightly more
+3)Same
+4)Slightly less
+5)A lot less [less than half as much]
+6)DON'T KNOW
+7)REFUSED</t></si><si><t>كيف يمكن مقارنة الحصاد   لـ {crp_main} في الموسم الحالي نسبةً ل العام الماضي؟
+
+[المشغل: استجابة واحدة.]
+
+1) أكثر بكثير [زادت بنسبة تزيد عن 50٪]
+2) أكثر قليلا
+3) نفس الشيء
+4) أقل قليلاً
+5) أقل بكثير [أقل من نصف الكمية]
+6) لا أعرف
+7) رفض الإجابة</t></si><si><t>1-7 = crp_proddif OR crp_harv_vol</t></si><si><t>if crp_harv_change = 1-7, go to [crp_proddif or crp_harv_vol]</t></si><si><t>1-7 = crp_proddif</t></si><si><t>crp_proddif</t></si><si><t>Has your household faced any significant difficulty in terms of crop production in Ongoing season?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>هل واجهت أسرتك أي صعوبة في إنتاج المحاصيل في الموسم الحالي؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1 = crp_proddif_2
+2-4 = [crp_salesmain or optional question]</t></si><si><t>if crp_proddif = 1, go to crp_proddif_2 ; 
+if crp_proddif = 2-4, go to [crp_salesmain or optional question]</t></si><si><t>1 = crp_proddif_2
+2-4 = crp_salesmain</t></si><si><t>crp_proddif_2</t></si><si><t>crp_proddif_
+
+1) crp_proddif_plant_disease
+2) crp_proddif_pest_outbreak
+3) crp_proddif_animal_grazing
+4) crp_proddif_access_plot
+5) crp_proddif_access_fertilize
+6) crp_proddif_seed_quality
+7) crp_proddif_seed_quantity
+8) crp_proddif_access_pesticide
+9) crp_proddif_access_labour
+10) crp_proddif_access_machinery
+11) crp_proddif_access_fuel
+12) crp_proddif_soil_erosion
+13) crp_proddif_lack_irrigation
+14) crp_proddif_excess_water
+15) crp_proddif_access_credit
+16) crp_proddif_other
+17) crp_proddif_dk
+18) crp_proddif_ref</t></si><si><t>Which difficulty has your household faced with crop production in Ongoing season?
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE. SELECT OPTION(S) THAT BEST FIT THE INFORMATION PROVIDED BY THE RESPONDENTS.]
+
+1)Plant disease 
+2)Pest outbreak [including birds]
+3)Uncontrolled animal grazing
+4)Access to plot
+5)Access to fertilizer [not available on markets or prices too high]
+6)Access to quality seeds
+7)Access to enough seeds [not available on markets or prices too high]
+8)Access to pesticides
+9)Access to manpower labour
+10)Access to machinery, tools or animals for ploughing
+11)Access to fuel or electricity to power agricultural equipment
+12)Soil erosion
+13)Not enough irrigation / rainfall water
+14)Too much irrigation / water 
+15)Access to credit
+16)Other
+17)DON'T KNOW
+18)REFUSED</t></si><si><t>ما الصعوبات التي واجهتها أسرتك في إنتاج المحاصيل في الموسم الحالي؟
+
+[المُشغل: عدة استجابات محتملة. حدد الخيار (الخيارات) الأنسب للمعلومات المقدمة من المجيب.]
+
+1) مرض نباتي
+2) تفشي الافات ( بما في ذلك الطيور )
+3) رعي الحيوانات الغير منضبط
+4) الوصول إلى قطعة الأرض
+5) الوصول إلى الأسمدة [غير متوفرة في الأسواق أو أن اسعارها مرتفعة جداً]
+6) الوصول الي البذور الجيدة
+7)  الوصول إلى ما يكفي من البذور [غير متوفرة في الأسواق أو أن اسعارها مرتفعة جداً]
+8) الوصول إلى المبيدات الحشرية
+9) الوصول إلى العمالة أو القوى العاملة
+10)  الوصول إلى آلات أو أدوات أو حيوانات للحراثة
+11) الحصول على الوقود أو الكهرباء لتشغيل المعدات الزراعية
+12) تعرية التربة
+13) عدم كفاية مياه الري أو مياه الأمطار
+14) زيادة مياه الري
+15) الحصول على تمويل
+16) آخر
+17) لا أعرف
+18) رفض الإجابة</t></si><si><t>Form Type - Checklist
+17,18 = IsNone</t></si><si><t>1-18 = [crp_salesmain OR optional question]</t></si><si><t>1)crp_proddif_plant_disease
+2)crp_proddif_pest_outbreak
+3)crp_proddif_animal_grazing
+4)crp_proddif_access_plot
+5)crp_proddif_access_fertilize
+6)crp_proddif_seed_quality
+7)crp_proddif_seed_quantity
+8)crp_proddif_access_pesticide
+9)crp_proddif_access_labour
+10)crp_proddif_access_machinery
+11)crp_proddif_access_fuel
+12)crp_proddif_soil_erosion
+13)crp_proddif_lack_irrigation
+14)crp_proddif_excess_water
+15)crp_proddif_access_credit
+16)crp_proddif_other
+17)crp_proddif_dk
+18)crp_proddif_ref</t></si><si><t>if crp_proddif_2 = 1-18, go to [crp_salesmain OR optional question]</t></si><si><t>1-18 = crp_salesmain</t></si><si><t>D. CROP MARKETING</t></si><si><t>crp_salesmain</t></si><si><t>What has been the main crop that you have sold over the last 3 months?
+[OPERATOR: SELECT ALL CROPS LISTED BY THE RESPONDENT.]
+
+1)Wheat
+2)Millet
+3)Sorghum
+4)Potatoe
+5)Lentils
+6)Tomatoes
+7)Okra
+8)Orange
+9)Grapes
+10)Coffee
+11)Qat
+12)Maize
+13)Barley
+14)Other Cereal
+15)Cassava
+16)Sweet Potatoes
+17)Yams
+18)Carrots
+19)Cocoyam
+20)Other tubers
+21)Beans
+22)Peas
+23)Soybeans
+24)Chickpeas
+25)Fava beans
+26)Broad beans
+27)Other pulses
+28)Cabbage
+29)Lettuce
+30)Spinach-Amaranth
+31)Cassava leaves
+32)Potatoe leaves
+33)Moringa
+34)Sorrel Hibiscus / Rosselle
+35)Green salad herbs [thyme, parsley, mint, rocca, other]
+36)Cauliflower
+37)Other leafy vegetables
+38)Cucumber
+39)Pumpkin
+40)Eggplant/aubergine
+41)Zucchini
+42)Bell pepper
+43)Onions
+44)Haricot
+45)Green peas
+46)Fava beans green
+47)Other non leafy vegs
+48)Lemon
+49)Grapefruit
+50)Mandarins/clementines
+51)Other citrus fruit
+52)Sweet Banana
+53)Plantains
+54)Papaya
+55)Mango
+56)Guava
+57)Pineapple
+58)Avocado
+59)Water Melon
+60)Dates
+61)Figs
+62)Olives
+63)Apple
+64)Apricot
+65)Cherries
+66)Peach/nectarine
+67)Strawberries
+68)Melon [Cantaloupe]
+69)Other fruit
+70)Coconuts
+71)Groundnut/peanut
+72)Cashew Nut
+73)Kola Nut
+74)Sesame
+75)Bambara nut
+76)Almond
+77)Walnut
+78)Other nuts
+79)Cocoa
+80)Tea
+81)Sugarcane
+82)Sunflower
+83)Other food cash crop
+84)Cotton
+85)Rubber
+86)Jute
+87)Fodder
+88)Tobacco
+89)Other non-food cash crop
+90)Rice
+91)DON'T KNOW
+92)REFUSED</t></si><si><t>ما هو المحصول الرئيسي الذي بعته خلال الأشهر الثلاثة الماضية؟ 
+ [حدد جميع المحاصيل التي سجلها المجيب.] 
+ 
+1)القمح
+2)الدخن
+3)الذرة الرفيعة
+4)البطاطا
+5)العدس
+6)الطماطم
+7)البامية
+8)البرتقال
+9)العنب
+10)القهوة
+11)القات
+12)الذرة
+13)الشعير
+14)الحبوب الأخرى
+15)الكسافا
+16)البطاطا الحلوة
+17)اليام
+18)الجزر
+19)القلقاس
+20)الدرنات الأخرى
+21)الفاصوليا
+22)البازيلاء
+23)فول الصويا
+24)الحمص
+25)الفول
+26)الفاصوليا العريضة
+27)البقول الاخرى
+28)الملفوف
+29)الخس
+30)السبانخ - القطيفة
+31)أوراق الكسافا
+32)أوراق البطاطا
+33)المورينجا
+34)الكركديه
+35)أعشاب السلطة الخضراء [زعتر ، بقدونس ، نعناع ، جرجير ، أنواع أخرى]
+36)القرنبيط
+37)الخضار الورقية الأخرى
+38)الخيار
+39)اليقطين
+40)الباذنجان
+41)الكوسة
+42)الفلفل حلو
+43)بصل
+44)اللوبياء
+45)البازلاء الخضراء
+46)الفول الأخضر
+47)الخضار غير الورقية الأخرى
+48)الليمون
+49)الجريب فروت
+50)اليوسفي / الكليمنتين
+51)الحمضيات الأخرى
+52)الموز
+53)موز الجنة
+54)البابايا
+55)المانجو
+56)الجوافة
+57)الأناناس
+58)الأفوكادو
+59)البطيخ الأحمر
+60)التمر
+61)التين
+62)الزيتون
+63)التفاح
+64)المشمش
+65)الكرز
+66)الدراق / النكتارين
+67)الفراولة
+68)الشمام
+69)الفواكه الأخرى
+70)جوز الهند
+71)الفول السوداني
+72)الكاجو
+73)جوز الكولا
+74)السمسم
+75)جوز البامبارا
+76)اللوز
+77)الجوز
+78)المكسرات الأخرى
+79)الكاكاو
+80)الشاي
+81)قصب السكر
+82)دوار الشمس
+83)المحاصيل الغذائية النقدية الأخرى 
+84)القطن
+85)المطاط
+86)الجوت
+87)العلف
+88)التبغ
+89) المحاصيل النقدية غير الغذائية الأخرى 
+90)الرز
+91) لا اعرف
+92)رفض الإجابة</t></si><si><t>Send if "income_main" "Equals" "Production and sale of staple crops" Or "income_main" "Equals" "Production and sale of vegetable or fruit" Or "income_main" "Equals" "Production and sale of cashcrops" Or "income_sec" "Equals" "Production and sale of staple crops" Or "income_sec" "Equals" "Production and sale of vegetable or fruit" Or "income_sec" "Equals" "Production and sale of cashcrops"  Or "income_third" "Equals" "Production and sale of staple crops" Or "income_third" "Equals" "Production and sale of vegetable or fruit" Or "income_third" "Equals" "Production and sale of cashcrops", if not satisfied go to "ls_intro"</t></si><si><t>1-90 = crp_salesdif
+91-92 = ls_intro</t></si><si><t>1)1.2
+2)1.3
+3)1.4
+4)2.2
+5)3.2
+6)5.1
+7)5.6
+8)6.1
+9)7.11
+10)9.2
+11)10.6
+12)1.5
+13)1.6
+14)1.99
+15)2.1
+16)2.3
+17)2.4
+18)2.5
+19)2.6
+20)2.99
+21)3.1
+22)3.3
+23)3.4
+24)3.5
+25)3.6
+26)3.7
+27)3.99
+28)4.1
+29)4.2
+30)4.3
+31)4.4
+32)4.5
+33)4.6
+34)4.7
+35)4.9
+36)4.101
+37)4.99
+38)5.2
+39)5.3
+40)5.4
+41)5.5
+42)5.7
+43)5.8
+44)5.9
+45)5.101
+46)5.11
+47)5.99
+48)6.2
+49)6.3
+50)6.4
+51)6.99
+52)7.1
+53)7.2
+54)7.3
+55)7.4
+56)7.5
+57)7.6
+58)7.7
+59)7.8
+60)7.9
+61)7.101
+62)7.12
+63)7.13
+64)7.14
+65)7.15
+66)7.16
+67)7.17
+68)7.18
+69)7.99
+70)8.1
+71)8.2
+72)8.3
+73)8.4
+74)8.5
+75)8.6
+76)8.7
+77)8.8
+78)8.99
+79)9.1
+80)9.3
+81)9.4
+82)9.5
+83)9.99
+84)10.1
+85)10.2
+86)10.3
+87)10.4
+88)10.5
+89)10.99
+90)1.1
+91)888
+92)999</t></si><si><t>If either income_main or income_sec or income_third = "Production and sale of staple crops" or "Production and sale of vegetable/ fruit" or "Production and sale of cashcrops (cocoa, tobacco, etc)", then this section will be asked to respondents.
+Otherwise, skip to ls_intro.
+
+For any crop selected, go to crp_salesdif
+If "Don't know" or "Refused", go to ls_intro</t></si><si><t>crp_salesdif</t></si><si><t>Has your household faced any significant difficulty in the last 3 months selling your {crp_salesmain}?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>هل واجهت أسرتك أي صعوبة خلال الأشهر الثلاثة الماضية في بيع {crp_salesmain}؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1 = crp_salesdif_2
+2-4 = crp_salesprice</t></si><si><t>if crp_salesdif = 1, go to crp_salesdif_2 ; 
+if crp_salesdif = 2-4, go to crp_salesprice</t></si><si><t>crp_salesdif_2</t></si><si><t>crp_saledif_
+
+1) crp_saledif_marketing_cost
+2) crp_saledif_damage_losses
+3) crp_saledif_low_demand
+4) crp_saledif_pay_delay
+5) crp_saledif_low_price
+6) crp_saledif_processing
+7) crp_saledif_competition
+8) crp_saledif_other
+9) crp_saledif_dk
+10) crp_saledif_ref</t></si><si><t>Which difficulties has your household faced in the last 3 months selling your {crp_salesmain}?
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE. SELECT OPTION(S) THAT BEST FIT THE INFORMATION PROVIDED BY THE RESPONDENTS.]
+
+1)High transportation or other marketing costs
+2)Damages and losses due to storage difficulties and/or difficulty accessing the market [e.g. insecurity, poor infrastructure, etc.]
+3)Lack of demand from usual traders or buyers
+4)Payment delays from traders / buyers
+5)Low selling prices [e.g. compared to input prices / inflation]
+6)Difficulty processing product [lack of processing inputs / equipment / etc]
+7)Market flooded with products
+8)Other
+9)DON'T KNOW
+10)REFUSED</t></si><si><t xml:space="preserve">ما الصعوبات التي واجهتها أسرتك في الأشهر الثلاثة الماضية عند بيع {crp_salesmain}؟
+
+[المشغل: عدة استجابات محتملة. حدد الخيار (الخيارات) الأنسب للمعلومات المقدمة من المجيب.]
+
+1) ارتفاع تكاليف النقل أو تكاليف التسويق الأخرى
+2) الاضرار و الخسائر نتيجة صعوبات التخزين و صعوبة الوصول الي السوق ( انعدام الامن / البنية التحتية الفقيرة و غيرها ) 
+3) قلة الطلب من المشترين و التجار المعتادين
+4) تأخر المدفوعات من التجار و المشترين
+5) انخفاض أسعار البيع ( مقارنة باسعار المدخلات / التضخم علي سبيل المثال ) 
+6) صعوبة معالجة المنتج (قلة مدخلات المعالجة ، المعدات و غيرها ) 
+7) تشبع السوق بالمنتجات 
+8) آخر
+9) لا اعرف
+10 ) رفض الإجابة </t></si><si><t>1-10 = crp_salesprice</t></si><si><t>1)crp_saledif_marketing_cost
+2)crp_saledif_damage_losses
+3)crp_saledif_low_demand
+4)crp_saledif_pay_delay
+5)crp_saledif_low_price
+6)crp_saledif_processing
+7)crp_saledif_competition
+8)crp_saledif_other
+9)crp_saledif_dk
+10)crp_saledif_ref</t></si><si><t>if crp_salesdif_2 = 1-10, go to crp_salesprice</t></si><si><t>crp_salesprice</t></si><si><t>How does the current price of your household's {crp_salesmain} compare to the average price in the same period of  last year? 
+
+[OPERATOR: SINGLE RESPONSE. INSIST ON THE MAIN PRODUCT MENTIONED.]
+
+1)A lot more [increased by more than 50%]
+2)Slightly more
+3)Same
+4)Slightly less
+5)A lot less [less than half as much]
+6)DON'T KNOW
+7)REFUSED</t></si><si><t>كيف تقارن السعر الحالي ل{crp_salesmain} لأسرتك بمتوسط ​​السعر في نفس الفترة من العام الماضي؟
+
+[المشغل: استجابة واحدة. قم بالإصرار على المحصول الرئيسي المذكور.]
+
+1) أكثر بكثير [زادت بنسبة تزيد عن 50٪]
+2) أكثر قليلا
+3) نفس الشيء
+4) أقل قليلاً
+5) أقل بكثير [أقل من نصف الكمية]
+6) لا أعرف
+7) رفض الإجابة</t></si><si><t xml:space="preserve">1-7 = ls_intro </t></si><si><t>if crp_salesprice = 1-7, go to ls_intro</t></si><si><t>E. LIVESTOCK PRODUCTION</t></si><si><t>ls_intro</t></si><si><t>We will now ask you some questions about livestock production which apply to you and anyone in your household that is involved in livestock production or sales. 
+
+1)CONTINUE</t></si><si><t>سنطرح عليك الآن بعض الأسئلة حول إنتاج الماشية التي تنطبق عليك وعلى أي شخص في أسرتك يشارك في إنتاج الماشية أو بيعها.
+
+1) تابع</t></si><si><t>Send if "hh_agricactivity" "Equals" "Yes - livestock production" Or "hh_agricactivity" "Equals" "Yes - both crop and livestock production" Or "income_main_ls_check" "Equals" "YES" Or "income_sec_ls_check" "Equals" "YES" Or "income_third_ls_check" "Equals" "YES" if not satisfied go to "ls_salesmain"</t></si><si><t>1 = ls_main</t></si><si><t>If hh_agricactivity = "Yes - livestock production" or "Yes - both crop and livestock production" or if they reported production and sales of livestocks in one of the three main income sources and confirmed that they are involved in production, then this section will be administered to respondents.
+Otherwise, skip to ls_salesmain.</t></si><si><t>ls_main</t></si><si><t>What was the main animal raised by your household for food or income generation in the last 12 months?
+
+[OPERATOR: SINGLE RESPONSE. ASK ABOUT THE MOST IMPORTANT ANIMAL ONLY.] [HINT: DON'T FORGET TO PROBE ABOUT TRANSHUMANCE - MOVING LIVESTOCK FROM ONE GRAZING GROUND TO ANOTHER.]
+
+1)Cattle [cow / beef / veal / yak / buffalo]
+2)Goat
+3)Sheep
+4)Swine [pig / boar / hog / etc]
+5)Equine [donkey / horse / etc]
+6)Small domesticated mammals [rabbits / minks / guinea pigs / etc]
+7)Poultry [chicken / guineafowl / duck / quail / turkey / etc]
+8)Camelids
+9)Other
+10)DON'T KNOW
+11)REFUSED</t></si><si><t>ما هو الحيوان الرئيسي الذي قامت أسرتك بتربيته للاستخدام الغذائي أو لتوليد الدخل خلال الاثني عشر شهرًا الماضية؟
+
+[المشغل: استجابة واحدة. اسأل عن الحيوان الأكثر أهمية فقط.] [ملحوظة: لا تنسَ التحقيق في مسألة التنقل الرعوي - نقل االماشية من أرض رعي إلى أخرى.]
+
+1) البقر [بقرة / ثور / عجل  / ياك / جاموس]
+2) الماعز
+3) الأغنام
+4) الخنازير [خنزير / خنزير بري / إلخ]
+5) الحمير/ الأحصنة
+6) الثدييات المستأنسة الصغيرة [الأرانب / المنك / خنازير غينيا / إلخ]
+7) دواجن [دجاج / دجاج غينيا / بطة / سمان / ديك رومي / إلخ]
+8) الإبل
+9) آخر
+10) لا أعرف
+11) رفض الإجابة</t></si><si><t>Form Type - Buttons
+
+set demographic</t></si><si><t>1-9 = ls_num_lastyr
+10-11 = ls_proddif</t></si><si><t>if ls_main = 1-9, go to ls_num_lastyr ; 
+If ls_main = 10-11, go to ls_proddif</t></si><si><t>ls_num_lastyr</t></si><si><t>How many {ls_main] did you have at the same time last year?
+
+[OPERATOR: RECORD THE NUMBER OF ANIMALS. ENTER 88888 FOR DON'T KNOW AND 99999 FOR REFUSED.]</t></si><si><t>كم {ls_main] كان لديك في نفس الوقت من العام الماضي؟
+
+[المُشغل: سجل عدد الحيوانات. أدخل 88888 للا أعرف و 99999 في حالة الرفض.]</t></si><si><t>0-10000 = ls_num_now
+88888-88888 = ls_num_now
+99999-99999 = ls_num_now</t></si><si><t>answers can range from 0-10000; any response goes to ls_num_now</t></si><si><t>ls_num_now</t></si><si><t>How many {ls_main} do you have now?
+
+[OPERATOR: RECORD THE NUMBER OF ANIMALS. ENTER 88888 FOR DON'T KNOW AND 99999 FOR REFUSED.]</t></si><si><t>كم {ls_main} لديك الآن؟
+
+[المُشغل: سجل عدد الحيوانات. أدخل 88888 للا أعرف و 99999 في حالة الرفض.]</t></si><si><t>0-10000 = ls_num_change
+88888-88888 = ls_num_change
+99999-99999 = ls_num_change</t></si><si><t>answers can range from 0-10000; any response goes to ls_num_change</t></si><si><t>ls_num_change</t></si><si><t>ls_num_
+
+1) ls_num_no_change
+2) ls_num_inc_less_sales
+3) ls_num_inc_more_birth
+4) ls_num_inc_more_acquired
+5) ls_num_inc_received_free
+6) ls_num_dec_poor_health
+7) ls_num_dec_death
+8) ls_num_dec_sales_good_price
+9) ls_num_dec_sales_distress
+10) ls_num_dec_escape_stolen
+11) ls_num_dec_consumed
+12) ls_num_inc_dec_other
+13) ls_num_inc_dec_dk
+14) ls_num_inc_dec_ref</t></si><si><t>Why did the number of livestock change?
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE.] 
+
+1)No significant change in livestock number
+2)Did not sell as many
+3)Many more were born
+4)Purchased or bartered more animals this year
+5)Received animals for free [restocking / gift]
+6)Animal death due to malnutrition, drought, lack of feed
+7)Animal death due to other factors [e.g. diseases, parasites, injury]
+8)Sold more than usual because of good prices
+9)Sold more than usual because of distress sales [unable to feed animal / need money urgently for household basic needs even if sales were unsustainable]
+10)Animal escaped or was lost or stolen
+11)Killed or gave away more animals than usual for household consumption or celebrations [marriage / funerals / etc]
+12)Other
+13)DON’T KNOW
+14)REFUSED</t></si><si><t>لماذا تغير عدد الماشية؟
+
+[المُشغل: احتمال وجود عدة استجابات.]
+
+1) لا تغيير ملحوظ في عدد الماشية
+2) لم نتمكن البيع بنفس المقدار
+3) زيادة عدد المواليد
+4) شراء أو مقايضة المزيد من الحيوانات هذا العام
+5) إستلام حيوانات مجانًا [إعادة تخزين / هدية]
+6) وفاة الحيوانات نتيجة سوء التغذية / الجفاف / قلة الغذاء
+7) وفاة الحيوانات نتيجة عوامل أخرى ( الامراض / الطفيليات / الإصابات علي سبيل المثال )
+8) بيعت أكثر من المعتاد بسبب الأسعار الجيدة
+9) تم البيع أكثر من المعتاد بسبب المبيعات الضائقة [عدم القدرة على إطعام الحيوانات / بحاجة ماسة إلى المال لتلبية الاحتياجات الأساسية للأسرة حتى لو كانت المبيعات غير مستدامة]
+10) هروب الحيوانات أو فقدانها أو سرقتها
+11) قتل أو توزيع حيوانات أكثر من المعتاد للاستهلاك المنزلي أو للاحتفالات [زواج / جنازات / إلخ]
+12) آخر
+13) لا أعرف
+14) رفض الإجابة</t></si><si><t>Form Type - Checklist
+1,13,14 = IsNone</t></si><si><t>1-14 = [ls_feed]</t></si><si><t>1)ls_num_no_change
+2)ls_num_inc_less_sales
+3)ls_num_inc_more_birth
+4)ls_num_inc_more_acquired
+5)ls_num_inc_received_free
+6)ls_num_dec_poor_health
+7)ls_num_dec_death
+8)ls_num_dec_sales_good_price
+9)ls_num_dec_sales_distress
+10)ls_num_dec_escape_stolen
+11)ls_num_dec_consumed
+12)ls_num_inc_dec_other
+13)ls_num_inc_dec_dk
+14)ls_num_inc_dec_ref</t></si><si><t>If ls_num_change 1-14 = [ls_feed]</t></si><si><t>1-14 = ls_feed</t></si><si><t>ls_feed</t></si><si><t>ls_feed
+
+1) ls_feed_open_pasture
+2) ls_feed_common_pasture
+3) ls_feed_self_produced
+4) ls_feed_purchased
+5) ls_feed_free_dist
+6) ls_feed_other
+7) ls_feed_dk
+8) ls_feed_ref</t></si><si><t>Where do you usually access feed for your {ls_main}?  
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE.] 
+
+1)Open pasture
+2)Community-managed pasture land
+3)Owned or rented field or self-produced fodder
+4)Purchase feed or fodder at the market
+5)Free distribution
+6)Other
+7)DON'T KNOW
+8)REFUSED</t></si><si><t>من أين تحصل على الغذاء ل {ls_main} ؟
+
+[المُشغل: احتمال وجود عدة استجابات.]
+
+1) المرعى المفتوح
+2) أراضي المراعي التي يديرها المجتمع
+3) الحقول المملوكة أو المؤجرة أو الأعلاف المنتجة ذاتيا
+4) شراء العلف من الأسواق
+5) التوزيع المجاني
+6) آخر
+7) لا أعرف
+8) رفض الإجابة</t></si><si><t>Form Type - Checklist
+7,8 = IsNone</t></si><si><t>1-8 = ls_proddif</t></si><si><t>1)ls_feed_open_pasture
+2)ls_feed_common_pasture
+3)ls_feed_self_produced
+4)ls_feed_purchased
+5)ls_feed_free_dist
+6)ls_feed_other
+7)ls_feed_dk
+8)ls_feed_ref</t></si><si><t>For any response, go to ls_proddif</t></si><si><t>ls_proddif</t></si><si><t>Has your household faced any significant difficulty with livestock production over the last 3 months?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES 
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>هل واجهت أسرتك أي صعوبة في إنتاج الماشية خلال الأشهر الثلاثة الماضية؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1=ls_proddif_2
+2-4= [ls_salesmain OR optional question]</t></si><si><t>if ls_proddif = 1, go to ls_proddif_2 ; 
+if ls_proddif = 2-4, go to [ls_salesmain OR optional question]</t></si><si><t>1=ls_proddif_2
+2-4= ls_salesmain</t></si><si><t>ls_proddif_2</t></si><si><t>ls_proddif_
+
+1) ls_proddif_feed_purchase
+2) ls_proddif_access_pasture
+3) ls_proddif_access_water
+4) ls_proddif_vet_serv
+5) ls_proddif_vet_input
+6) ls_proddif_diseases
+7) ls_proddif_theft
+8) ls_proddif_access_market
+9) ls_proddif_access_credit
+10) ls_proddif_access_labour
+11) ls_proddif_other
+12) ls_proddif_dk
+13) ls_proddif_ref</t></si><si><t>Which difficulties has your household faced with livestock production in the last 3 months?
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE. SELECT OPTION(S) THAT BEST FIT THE INFORMATION PROVIDED BY THE RESPONDENTS.]
+
+1)Difficulty to purchase feed [e.g. prices or access to market]
+2)Access to pasture
+3)Access to water
+4)Access to veterinary services [vaccinations, treatments, spraying, advisory etc]
+5)Access to veterinary inputs [medicine for animals / tools for animal health / etc]
+6)Livestock diseases or injury
+7)Livestock theft
+8)Access to livestock market to buy young animals
+9)Access to credit
+10)Access to manpower labour 
+11)Other
+12)DON'T KNOW
+13)REFUSED</t></si><si><t>ما الصعوبات التي واجهتها أسرتك في إنتاج الماشية في الأشهر الثلاثة الماضية؟
+
+[المُشغل: عدة استجابات محتملة. حدد الخيار (الخيارات) الأنسب للمعلومات المقدمة من المجيب.]
+
+1) صعوبة شراء العلف [الأسعار أو الوصول إلى السوق]
+2) الوصول إلى المراعي
+3) الحصول على الماء
+4) الحصول على الخدمات البيطرية ( التطعيمات / العلاج / نصائح الرش و غيرها )
+5) الوصول إلى المدخلات البيطرية [أدوية للحيوانات / أدوات لصحة الحيوان / إلخ]
+6) أمراض الماشية أو الموت
+7) سرقة المواشي
+8) الوصول إلى سوق المواشي لشراء الحيوانات الصغيرة العمر
+9) الحصول على الائتمان
+10) الوصول إلى القوى العاملة
+11) آخر
+12) لا أعرف
+13) رفض الإجابة</t></si><si><t>Form Type - Checklist
+12,13 = IsNone</t></si><si><t>1-13 = [ls_salesmain OR optional question]</t></si><si><t>1)ls_proddif_feed_purchase
+2)ls_proddif_access_pasture
+3)ls_proddif_access_water
+4)ls_proddif_vet_serv
+5)ls_proddif_vet_input
+6)ls_proddif_diseases
+7)ls_proddif_theft
+8)ls_proddif_access_market
+9)ls_proddif_access_credit
+10)ls_proddif_access_labour
+11)ls_proddif_other
+12)ls_proddif_dk
+13)ls_proddif_ref</t></si><si><t>if ls_proddif_2 = 1-13, go to ls_salesmain OR optional question</t></si><si><t>1-13 = ls_salesmain</t></si><si><t>E. LIVESTOCK MARKETING</t></si><si><t>ls_salesmain</t></si><si><t>What was the main livestock or livestock product sold by your household in the last 3 months?
+
+[OPERATOR: SINGLE RESPONSE. INSIST ON THE MAIN PRODUCT.]
+
+1)Cattle [cow / beef / veal / yak / buffalo]
+2)Goat
+3)Sheep
+4)Swine [pig / boar / hog / etc]
+5)Equine [donkey / horse / etc]
+6)Small domesticated mammals [rabbits / minks / guinea pigs / etc]
+7)Poultry [chicken / guineafowl / duck / quail / turkey / etc]
+8)Camelids
+9)Eggs
+10)Milk or dairy products
+11)Skin or leather or wool
+12)DON'T KNOW
+13)REFUSED</t></si><si><t>ما كان نوع الماشية الأساسي أو المنتج الحيواني الرئيسي الذي باعته أسرتك في الأشهر الثلاثة الماضية؟
+
+[المشغل: استجابة واحدة. قم بالإصرار على المنتج الرئيسي.]
+
+1) البقر [بقرة / ثور / عجل / ياك / جاموس]
+2) الماعز
+3) الأغنام
+4) الخنازير [خنزير / خنزير بري / إلخ]
+5) الحمير/ الأحصنة
+6) الثدييات المستأنسة الصغيرة [الأرانب / المنك / خنازير غينيا / إلخ]
+7) دواجن [دجاج / دجاج غينيا / بطة / سمان / ديك رومي / إلخ]
+8) الإبل
+9) البيض
+10) الحليب أو مشتقاته
+11) الجلد أو الصوف
+12) لا أعرف
+13) رفض الإجابة</t></si><si><t>Send if "income_main" "Equals" "Production and sale of livestock or livestock products" Or "income_sec" "Equals" "Production and sale of livestock or livestock products" Or "income_third" "Equals" "Production and sale of livestock or livestock products" if not satisfied go to "fish_intro"</t></si><si><t>Form Type - Buttons
+IsDemographic</t></si><si><t>1-11 = ls_salesdif
+12-13 = fish_intro</t></si><si><t>If either income_main or income_sec or income_third = "Production and sale of livestock or livestock products", then this section will be asked to respondents.
+Otherwise, skip to fish_main.
+
+if ls_salesmain = 1-11, go to ls_salesdif ; 
+if ls_salesmain = 12-13, go to fish_intro</t></si><si><t>ls_salesdif</t></si><si><t>Has your household faced any significant difficulty in the last 3 months selling your {ls_salesmain}?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>هل واجهت أسرتك أي صعوبة خلال الأشهر الثلاثة الماضية في بيع {ls_salesmain}؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1 = ls_salesdif_2
+2-4 = ls_salesprice</t></si><si><t>if ls_salesdif = 1, go to ls_salesdif_2 ; 
+if ls_salesdif = 2-4, go to ls_salesprice</t></si><si><t>ls_salesdif_2</t></si><si><t>ls_salesdif_
+
+1) ls_salesdif_marketing_cost
+2) ls_salesdif_damage_losses
+3) ls_salesdif_low_demand
+4) ls_salesdif_pay_delay
+5) ls_salesdif_low_price
+6)  ls_salesdif_slaughterhouse
+7) ls_salesdif_processing
+8) ls_salesdif_competition
+9) ls_salesdif_other
+10) ls_salesdif_dk
+11) ls_salesdif_ref</t></si><si><t>Which difficulties has your household faced in the last 3 months selling your {ls_salesmain}?
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE. SELECT OPTION(S) THAT BEST FIT THE INFORMATION PROVIDED BY THE RESPONDENTS.]
+
+1)High transportation or other marketing costs
+2)Damage and losses during transportation or difficulty accessing the market
+3)Lack of demand from usual traders or buyers  
+4)Payment delays from traders / buyers 
+5)Low selling prices [e.g. compared to input prices / inflation]
+6)Closure of slaughterhouses or difficulties accessing slaughterhouses
+7)Difficulties processing product other than closure of slaughterhouse [lack of access to processing inputs / equipment / etc]
+8)Market flooded with products
+9)Other
+10)DON'T KNOW
+11)REFUSED</t></si><si><t>ما الصعوبات التي واجهتها أسرتك خلال الأشهر الثلاثة الماضية في بيع {ls_salesmain}؟
+
+[المُشغل: عدة استجابات محتملة. حدد الخيار (الخيارات) الأنسب للمعلومات المقدمة من المجيب.]
+
+1) ارتفاع تكاليف النقل أو تكاليف التسويق الأخرى
+2) الأضرار والخسائر أثناء النقل أو صعوبة الوصول إلى السوق
+3) انخفاض الطلب من التجار و المشترين المعتادين
+4) تأخر المدفوعات من التجار و المشترين 
+5) أسعار بيع منخفضة [على سبيل المثال مقارنة بأسعار المدخلات / التضخم]
+6) إغلاق المسالخ أو صعوبة الوصول إلى المسالخ
+7) صعوبات في معالجة المنتج بخلاف إغلاق المسلخ [تعثر الوصول إلى مدخلات المعالجة / المعدات / إلخ]
+8) تشبع السوق بالمنتجات
+9) آخر
+10) لا أعرف
+11) رفض الإجابة</t></si><si><t>Form Type - Checklist
+10,11 = IsNone</t></si><si><t>1-11 = ls_salesprice</t></si><si><t>1)ls_salesdif_marketing_cost
+2)ls_salesdif_damage_losses
+3)ls_salesdif_low_demand
+4)ls_salesdif_pay_delay
+5)ls_salesdif_low_price
+6)ls_salesdif_slaughterhouse
+7)ls_salesdif_processing
+8)ls_salesdif_competition
+9)ls_salesdif_other
+10)ls_salesdif_dk
+11)ls_salesdif_ref</t></si><si><t>if ls_salesdif_2 = 1-11, go to ls_salesprice</t></si><si><t>ls_salesprice</t></si><si><t>How does the current price of your household's {ls_salesmain} compare to the average price in the same period of  last year?
+
+[OPERATOR: SINGLE RESPONSE. INSIST ON THE MAIN PRODUCT MENTIONED.]
+
+1)A lot more [increased by more than 50%]
+2)Slightly more
+3)Same
+4)Slightly less
+5)A lot less [less than half as much]
+6)DON'T KNOW
+7)REFUSED</t></si><si><t>كيف تقارن السعر الحالي ل {ls_salesmain} لأسرتك بمتوسط ​​السعر في نفس الفترة من العام الماضي؟ 
+
+[المشغل: استجابة واحدة. قم بالإصرار على المنتج الرئيسي المذكور.]
+
+1) أكثر بكثير [زادت بنسبة تزيد عن 50٪]
+2) أكثر قليلا
+3) نفس الشيء
+4) أقل قليلاً
+5) أقل بكثير [أقل من نصف الكمية]
+6) لا أعرف
+7) رفض الإجابة</t></si><si><t>1-7 = fish_intro</t></si><si><t>For options #1-7, go to fish_intro</t></si><si><t>F. FISHERIES PRODUCTION</t></si><si><t>fish_intro</t></si><si><t>We will now ask you some questions about fishing and aquaculture production which apply to you and anyone in your household that is involved in the capture, culture, or harvest of fish and aquatic products.
+
+1)CONTINUE</t></si><si><t>سنطرح عليك الآن بعض الأسئلة حول صيد الأسماك وتربية الأحياء المائية، وهي تنطبق عليك وعلى أي شخص في أسرتك يشارك في الصيد أو تربية الأسماك والمنتجات المائية، أو حصادها وتجهيزها وبيعها.
+
+1) تابع</t></si><si><t>Send if "income_main_fish_check" "Equals" "YES" Or "income_sec_fish_check" "Equals" "YES" Or "income_third_fish_check" "Equals" "YES" Or "hh_fish" "Equals" "YES" if not satisfied go to "fies"</t></si><si><t>1 = fish_main</t></si><si><t>If the respondent reported production and sales of fish in one of the three main income sources and confirmed that they are involved in production, or if they indicated being involved involved in fishing or aquaculture activities in the past 12 months in hh_fish, then this section will be administered to respondents. Otherwise, skip to fies</t></si><si><t>fish_main</t></si><si><t>fish_main_
+
+1) fish_main_coastal
+2) fish_main_offshore_sea
+3) fish_main_freshwater
+4) fish_main_aquaculture
+5) fish_main_dk
+6) fish_main_ref</t></si><si><t>What type of fishing activity does your household generally practice?
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE.]
+
+1)Near coastal, delta, lagoon fishing
+2)Offshore sea fishing
+3)Freshwater fishing [in lakes, reservoirs, ponds, rivers, or wetlands]
+4)Aquaculture
+5)DON'T KNOW
+6)REFUSED</t></si><si><t>ما نوع نشاط الصيد الذي تمارسه أسرتك بشكل عام؟
+
+[المُشغل: احتمال وجود عدة استجابات.]
+
+1) الصيد الساحلي بالقرب من الساحل و الدلتا و البحيرات
+2) الصيد البحري المفتوح
+3) صيد الأسماك في المياه العذبة [على سبيل المثال البحيرات والبرك والأنهار]
+4) تربية الأحياء المائية
+5) لا أعرف
+6) رفض الإجابة</t></si><si><t>Form Type - Checklist
+5,6 = IsNone</t></si><si><t>1-6 = fish_change</t></si><si><t>1)fish_main_coastal
+2)fish_main_offshore_sea
+3)fish_main_freshwater
+4)fish_main_aquaculture
+5)fish_main_dk
+6)fish_main_ref</t></si><si><t>if fish_main = 1-6, go to fish_change</t></si><si><t>fish_change</t></si><si><t>How does your fish catch [farmed] in the last 3 months [last harvest] compare to the same period [harvest] last year?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)A lot more [increased by more than 50%]
+2)Slightly more
+3)Same
+4)Slightly less
+5)A lot less [less than half as much]
+6)DON'T KNOW
+7)REFUSED</t></si><si><t>كيف يتم إنتاج الأسماك [زراعتها] في الأشهر الثلاثة الماضية [آخر حصاد] مقارنة بنفس الفترة [الحصاد] في العام الماضي؟
+
+[المشغل: استجابة واحدة.]
+
+1) أكثر بكثير [زادت بنسبة تزيد عن 50٪]
+2) أكثر قليلا
+3) نفس الشيء
+4) أقل قليلاً
+5) أقل بكثير [أقل من نصف الكمية]
+6) لا أعرف
+7) رفض الإجابة</t></si><si><t>1-7 = fish_proddif</t></si><si><t>if fish_change = 1-7, go to fish_proddif</t></si><si><t>fish_proddif</t></si><si><t>Has your household faced any significant difficulty with fish catch / harvest / farming in the last 3 months?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>هل واجهت أسرتك أي صعوبة كبيرة في صيد الأسماك أو حصادها أو تربيتها خلال الأشهر الثلاثة الماضية؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1=fish_proddif_2
+2-4= [fish_salesmain OR optional question]</t></si><si><t>if fish_proddif = 1, go to fish_proddif_2 ; 
+if fish_proddif = 2-4, go to fish_salesmain OR optional question</t></si><si><t>1=fish_proddif_2
+2-4= fish_salesmain</t></si><si><t>fish_proddif_2</t></si><si><t>fish_proddif_
+
+1) fish_proddif_find_fish
+2) fish_proddif_pests
+3) fish_proddif_access_area
+4) fish_proddif_fuel
+5) fish_proddif_input_access
+6) fish_proddif_labour
+7) fish_proddif_infrastructure
+8) fish_proddif_damage_equip
+9) fish_proddif_other
+10) fish_proddif_dk
+11) fish_proddif_ref</t></si><si><t>Which difficulties has your household faced with fish catch / harvest / farming in the last 3 months?
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE. SELECT OPTION(S) THAT BEST FIT THE INFORMATION PROVIDED BY THE RESPONDENTS.]
+
+1)Fish is more difficult to find than in previous years in the same season [fishing]
+2)Fish pests and diseases [aquaculture]
+3)Access to fishing or aquaculture area [e.g. due to weather or security]
+4)Access to fuel [prices higher or not available]
+5)Access to other fishing or culture inputs [prices higher or not available]
+6)Access to labour or crew labour [prices higher or not available]
+7)Damage or destruction of infrastructure [ponds, cages, ports, landing sites]
+8)Damage or destruction of boats or gears
+9)Other
+10)DON'T KNOW
+11)REFUSED</t></si><si><t>ما هي الصعوبات التي واجهتها أسرتك في صيد الأسماك و / أو حصادها أو تربيتها خلال الأشهر الثلاثة الماضية؟
+
+[المُشغل: عدة استجابات محتملة. حدد الخيار (الخيارات) الأنسب للمعلومات المقدمة من المجيب.]
+
+1) يصعب العثور على الأسماك مقارنة بالسنوات السابقة في نفس الموسم
+2) الآفات و الامراض السمكية ( تربية الاحياء السمكية)
+3) الوصول الي الاسماك أو مناطق تربية الاحياء المائية ( بسبب الطقس أو مشاكل امنية علي سبيل المثال)
+4)الوصول الي الوقود [أسعار أعلى او غير متوفرة]
+5) الوصول إلى مواد الصيد و- أو غيرها من المدخلات [أسعار أعلى أو غير متوفرة]
+6) الوصول إلى العمالة أو طاقم العمل [أسعار أعلى أو غير متوفرة]
+7) إتلاف أو تدمير البنية التحتية [الأحواض والأقفاص والموانئ ومواقع الإنزال]
+8) إتلاف أو تدمير القوارب و المعدات
+9) آخر 
+10) لا أعرف
+11) رفض الإجابة</t></si><si><t>1-11 = [fish_salesmain OR optional question]</t></si><si><t>1)fish_proddif_find_fish
+2)fish_proddif_pests
+3)fish_proddif_access_area
+4)fish_proddif_fuel
+5)fish_proddif_input_access
+6)fish_proddif_labour
+7)fish_proddif_infrastructure
+8)fish_proddif_damage_equip
+9)fish_proddif_other
+10)fish_proddif_dk
+11)fish_proddif_ref</t></si><si><t>If fish_proddif_2 = 1-11, go to fish_salesmain OR optional question</t></si><si><t>5=  fish_inputdif
+ 1-4, 6-11 = fish_salesmain</t></si><si><t>fish_inputdif</t></si><si><t>Which fishing [culture] input material has your household had difficulties accessing in the last 3 months?
+
+[OPERATOR: MULTIPLE RESPONSE POSSIBLE.]
+
+1)Feed or bait
+2)Fingerlings
+3)Fishing gear [e.g. rods, hooks, nets]
+4)Ice
+5)Fuel
+6)Equipment repairs [including boats] or spare parts
+7)Labour
+8)Other [specify]
+9)DON'T KNOW
+10)REFUSED</t></si><si><t>ما هي مواد الصيد أو المدخلات التي واجهت أسرتك صعوبة في الوصول إليها خلال الأشهر الثلاثة الماضية؟
+
+[المُشغل: احتمال وجود عدة استجابات.]
+
+1) العلف أو الطعم
+2) الاسماك اليافعة ( صغار الاسماك )
+3)معدات الصيد [الشبك ، الخطاف ، القضبان علي سبيل المثال]
+4) الجليد (الثلج)
+5) الوقود
+6) اصلاح المعدات بما فيها القوارب و قطع الغيار 
+7) العمالة 
+8) آخر [حدد]
+9) لا أعرف
+10) رفض الإجابة</t></si><si><t xml:space="preserve">Open Ended - Select All That Apply </t></si><si><t>Send if "fish_proddif_2" "Contains" "Access to other fishing or culture inputs [prices higher or not available]" if not satisfied go to "fish_salesmain"</t></si><si><t>Form Type - Checklist
+9,10= IsNone</t></si><si><t>1-10 = [fish_salesmain]</t></si><si><t>1)fish_inputdif_bait_feed
+2)fish_inputdif_fingerling
+3)fish_inputdif_gear
+4)fish_inputdif_ice
+5)fish_inputdif_fuel
+6)fish_inputdif_repairs
+7)fish_inputdif_labour
+8)fish_inputdif_other 
+9)fish_inputdif_dk
+10) fish_inputdif_ref</t></si><si><t>Asked only to respondents that answered fish_proddif_2 = 4.
+
+if fish_inputdif = 1-10, go to fish_salesmain</t></si><si><t>F. FISHERIES MARKETING</t></si><si><t>fish_salesmain</t></si><si><t>What was the main fish or aquatic product sold by your household in the last 3 months?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)Fresh product [any kind, including invertebrates]
+2)Preserved product [including dry, smoked, fermented, salted]
+3)Frozen product
+4)Canned product
+5)Other [specify]
+6)DON'T KNOW
+7)REFUSED</t></si><si><t>ما هو السمك أو المنتج المائي الرئيسي الذي باعته أسرتك في الأشهر الثلاثة الماضية؟
+
+[المشغل: استجابة واحدة.]
+
+1) المنتج الطازج [أي نوع، بما في ذلك اللافقاريات]
+2) المنتج المحفوظ [بما في ذلك الجاف، المدخن، المخمر، المملح]
+3) المنتج المجمد
+4) المنتج المعلب
+5) آخر [حدد]
+6) لا أعرف
+7) رفض الإجابة</t></si><si><t>Send if "income_main" "Equals" "Production and sale of fish or aquatic products" Or "income_sec" "Equals" "Production and sale of fish or aquatic products" Or "income_third" "Equals" "Production and sale of fish or aquatic products" if not satisfied go to "fies"</t></si><si><t>Form Type - RadioList
+IsDemographic</t></si><si><t>1-5 = fish_salesdif
+6-7 = fies</t></si><si><t>If either income_main or income_sec or income_third = "Production and sale of fish or aquatic products", then this section will be asked to respondents.
+Otherwise, skip to fies.
+
+if fish_salesmain = 1-5, go to fish_salesdif
+if fish_salesmain = 6-7, go to fies</t></si><si><t>fish_salesdif</t></si><si><t>Has your household faced any significant difficulty marketing / selling your {fish_salesmain} in the last 3 months?
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>هل واجهت أسرتك أي صعوبة خلال الأشهر الثلاثة الماضية في بيع  و تسويق  {fish_salesmain}؟
+
+[المشغل: استجابة واحدة]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1 = fish_salesdif_2
+2-4 = fish_salesprice</t></si><si><t>if fish_salesdif = 1, go to fish_salesdif_2 ;
+if fish_salesdif = 2-4, go to fish_salesprice</t></si><si><t>fish_salesdif_2</t></si><si><t xml:space="preserve">fish_saledif_
+
+1) fish_saledif_marketing_cost
+2) fish_saledif_damage_losses
+3) fish_saledif_low_demand
+4) fish_saledif_pay_delay
+5) fish_saledif_low_prices
+6) fish_saledif_processing
+7) fish_saledif_competition
+8) fish_saledif_other
+9) fish_saledif_dk
+10) fish_saledif_ref
+</t></si><si><t>Which difficulties has your household faced in the last 3 months selling your {fish_salesmain}?
+
+[OPERATOR: MULTIPLE RESPONSES POSSIBLE. SELECT OPTION(S) THAT BEST FIT THE INFORMATION PROVIDED BY THE RESPONDENTS.]
+
+1)High transportation or other marketing costs
+2)Deterioration and losses due to storage difficulties or delays or inability to physically access markets
+3)Lack of demand from usual buyers/traders
+4)Payment delays from traders/buyers 
+5)Low selling prices [e.g. compared to input prices / inflation]
+6)Difficulties processing product [lack of access to processing inputs / equipment / etc]
+7)Market flooded with product
+8)Other
+9)DON'T KNOW
+10)REFUSED</t></si><si><t>ما الصعوبات التي واجهتها أسرتك في الأشهر الثلاثة الماضية في بيع {fish_salesmain}؟
+
+[المُشغل: عدة استجابات محتملة. حدد الخيار (الخيارات) الأنسب للمعلومات المقدمة من المجيب.]
+
+1) ارتفاع تكاليف النقل أو تكاليف التسويق الأخرى
+2) الأضرار والخسائر الناتجة عن صعوبات في التخزين أو التأخير أو عدم القدرة على الوصول  إلى الأسواق
+3) قلة الطلب من التجار أو المشترين المعتادين
+4) تأخر المدفوعات من التجار و المشترين 
+5) أسعار بيع منخفضة [على سبيل المثال مقارنة بأسعار المدخلات / التضخم]
+6) صعوبات في معالجة المنتج [تعثر الوصول إلى مدخلات المعالجة / المعدات / إلخ]
+7)تشبع السوق بالمنتجات
+8) آخر 
+9) لا أعرف
+10) رفض الإجابة</t></si><si><t>1-10 = fish_salesprice</t></si><si><t>1)fish_saledif_marketing_cost
+2)fish_saledif_damage_losses
+3)fish_saledif_low_demand
+4)fish_saledif_pay_delay
+5)fish_saledif_low_prices
+6)fish_saledif_processing
+7)fish_saledif_competition
+8)fish_saledif_other
+9)fish_saledif_dk
+10)fish_saledif_ref</t></si><si><t>if fish_salesdif = 1-10, go to fish_salesprice</t></si><si><t>fish_salesprice</t></si><si><t>How does the current price of your household's {fish_salesmain} sold compare to the average price in the same period/harvest of  last year? 
+
+[OPERATOR: SINGLE RESPONSE. INSIST ON THE MAIN PRODUCT MENTIONED.]
+
+1)A lot more [increased by more than 50%]
+2)Slightly more
+3)Same
+4)Slightly less
+5)A lot less [less than half as much]
+6)DON'T KNOW
+7)REFUSED</t></si><si><t>كيف تقارن السعر الحالي لبيع  {fish_salesmain}  لأسرتك بمتوسط ​​السعر في نفس الفترة من العام الماضي؟
+
+[المشغل: استجابة واحدة. قم بالإصرار على المنتج الرئيسي المذكور.]
+
+1) أكثر بكثير [زادت بنسبة تزيد عن 50٪]
+2) أكثر قليلا
+3) نفس الشيء
+4) أقل قليلاً
+5) أقل بكثير [أقل من نصف الكمية]
+6) لا أعرف
+7) رفض الإجابة</t></si><si><t>1-7 = fies</t></si><si><t>if fish_salesprice = 1-7, go to fies</t></si><si><t>G. FOOD SECURITY AND CONSUMPTION</t></si><si><t>fies_intro</t></si><si><t>Now I would like to ask you some questions about food consumption, food utilization and coping mechanisms. Make sure to refer to the correct time period for each set of questions. The first set of questions refers to experiences faced by you or any of your household members over the past 30 days. 
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)NEXT</t></si><si><t>الآن أود أن أطرح عليك بعض الأسئلة حول استهلاك الغذاء ، واستخدام الغذاء و استراتيجيات المواجهة. تأكد من الرجوع إلى الفترة الزمنية الصحيحة لكل مجموعة من الأسئلة. تشير المجموعة الأولى من الأسئلة إلى التجارب التي واجهتها أنت أو أي فرد من أفراد أسرتك خلال الثلاثين يومًا الماضية.
+
+[المشغل: استجابة واحدة]
+
+1) التالي</t></si><si><t>1 = fies_worried</t></si><si><t>if fies = 1, go to fies_worried</t></si><si><t>Check if the ESS team has an official translation.</t></si><si><t>fies_worried</t></si><si><t>During the last 30 days, was there a time when you or others in your household were worried about not having enough food to eat because of lack of money or other resources?
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>خلال الثلاثين يومًا الماضية ، هل حدث أن كنت أنت أو الآخرين في اسرتك قلقين بأنه لن يتوفر لكم الطعام الكافي لتأكلوا بسبب نقص النقود أو المصادر الأخرى؟
+
+[المشغل: استجابة واحدة]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1-4 = fies_healthy</t></si><si><t>if fies_worried = 1-4, go to fies_healthy</t></si><si><t>fies_healthy</t></si><si><t>During the last 30 days, was there a time when you or others in your household were unable to eat healthy and nutritious food because of lack of money or other resources?
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>خلال الثلاثين يومًا الماضية ، هل حدث أن لم يكن باستطاعتك أنت أو الآخرين في اسرتك أكل طعام صحي ومغذي بسبب نقص النقود أو المصادر الأخرى؟
+
+[المشغل: استجابة واحدة]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1-4 = fies_fewfoods</t></si><si><t>if fies_healthy = 1-4, go to fies_fewfoods</t></si><si><t>fies_fewfoods</t></si><si><t>During the last 30 days, was there a time when you or others in your household ate only a few kinds of foods because of lack of money or other resources?
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>خلال الثلاثين يومًا الماضية ، هل حدث أن أنت أو الآخرين في اسرتك أكلتم أنواعاً قليلةً من الأطعمة بسبب نقص النقود أو المصادر الأخرى ؟ 
+
+[المشغل: استجابة واحدة]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1-4 = fies_skipped</t></si><si><t>if fies_fewfoods = 1-4, go to fies_skipped</t></si><si><t>fies_skipped</t></si><si><t>During the last 30 days, was there a time when you or others in your household had to skip a meal because of lack of money or other resources to get food?
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>خلال الثلاثين يومًا الماضية ، هل كان عليك أنت أو الآخرين في اسرتك أن تتخلوا عن وجبة طعام بسبب نقص النقود أو المصادر الأخرى للحصول على الطعام ؟
+
+[المشغل: استجابة واحدة]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1-4 = fies_ateless</t></si><si><t>if fies_skipped = 1-4, go to fies_ateless</t></si><si><t>fies_ateless</t></si><si><t>During the last 30 days, was there a time when you or others in your household ate less than you thought you should because of lack of money or other resources?
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>خلال الثلاثين يومًا الماضية ، هل حدث أن أكلت أنت أو الآخرين في اسرتك أقل مما اعتقدت أنكم يجب أن تأكلوا بسبب نقص النقود أو المصادر الأخرى؟ 
+
+[المشغل: استجابة واحدة]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1-4 = fies_ranout</t></si><si><t>if fies_ateless = 1-4, go to fies_ranout</t></si><si><t>fies_ranout</t></si><si><t>In the past 30 days, was there ever no food to eat of any kind in your house because of lack of resources to get food?
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>خلال الثلاثين يومًا الماضية ، هل حدث أن لم يكن هنالك أي طعام لتأكله من أي نوع في منزلك  (نفد الطعام في منزلك) بسبب نقص الموارد للحصول على الطعام؟ 
+
+[المشغل: استجابة واحدة]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1=fies_ranout_hhs
+2-4 = fies_hungry</t></si><si><t>if fies_ranout = 1, go to fies_ranout_hhs. Otherwise, go to fies_hungry</t></si><si><t>fies_ranout_hhs</t></si><si><t>How often did this happen?
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)Rarely [1-2 times in the past 30 days]
+2)Sometimes [3-10 times in the past 30 days]
+3)Often [more than 10 times in the last 30 days]
+4)DON'T KNOW
+5)REFUSED</t></si><si><t>كم مرة حدث ذلك؟
+
+[المشغل: استجابة واحدة]
+
+1) نادرًا (مرة إلى مرتين في الثلاثين يومًا الماضية)
+2) في بعض الأحيان (3-10 مرات في الثلاثين يومًا الماضية)
+3) في كثير من الأحيان (أكثر من 10 مرات في آخر 30 يومًا)
+4) لا أعرف
+5) رفض الإجابة</t></si><si><t xml:space="preserve">1-5 = fies_hungry </t></si><si><t>if fies_ranout_hhs = 1-5, go to fies_hungry</t></si><si><t>fies_hungry</t></si><si><t>In the past 30 days, did you or any household member ever go to sleep at night hungry because there was not enough food?
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>خلال الثلاثين يومًا الماضية ، هل سبق لك أو لأي فرد من أفراد أسرتك أن تنام ليلاً وأنت جائعاً بسبب عدم وجود ما يكفي من الطعام؟ 
+
+[المشغل: استجابة واحدة]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1=fies_hungry_hhs
+2-4 = fies_whlday</t></si><si><t>if fies_hungry = 1, go to fies_hungry_hhs. Otherwise, go to fies_whlday</t></si><si><t>fies_hungry_hhs</t></si><si><t>1-5 = fies_whlday</t></si><si><t>if fies_hungry_hhs = 1-5, go to fies_whlday</t></si><si><t>fies_whlday</t></si><si><t>In the past 30 days, did you or any household member ever go a whole day and night without eating anything at all because there was not enough food?
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>خلال الثلاثين يومًا الماضية ، هل بقيت أنت أو أي فرد من أفراد أسرتك يومًا كاملاً ليلاً ونهارًا دون تناول أي شيء على الإطلاق بسبب عدم وجود ما يكفي من الطعام؟ 
+
+[المشغل: استجابة واحدة]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1=fies_whlday_hhs
+2-4 = [lcsi_intro OR hdds]</t></si><si><t>if fies_whlday = 1, go to fies_whlday_hhs. Otherwise, go to lcsi_intro OR hdds</t></si><si><t>2-4 = lcsi_intro</t></si><si><t>fies_whlday_hhs</t></si><si><t>1-5 = [lcsi_intro OR hdds]</t></si><si><t>if fies_whlday_hhs = 1-5, go to lcsi_intro OR hdds</t></si><si><t>1-5 = lcsi_intro</t></si><si><t>lcsi_intro</t></si><si><t>Now I would like to ask you another set of questions on coping strategies, referring to the past 30 days.
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)NEXT</t></si><si><t>الآن أود أن أسألك عن المجموعة الثانية من الأسئلة حول استراتيجيات المواجهة ، بالإشارة إلى الثلاثين يومًا الماضية.
+
+[المشغل: استجابة واحدة]
+
+1) التالي</t></si><si><t>1 = [next question]</t></si><si><t>1 = cs_stress_hh_assets</t></si><si><t>Coping strategies should be selected based on the local context. Ten (10) coping strategies should be selected; 4 in stress, 3 in crisis and 3 in emergency. 
+
+Please delete coping strategies that you do not want to use in your survey or propose changes for the "English" column (i.e. text) under the "Additional notes" column.</t></si><si><t>hdds</t></si><si><t>hdds
+
+1) hdds_cereals
+2) hdds_rootstubers
+3) hdds_vegetables
+4) hdds_fruits
+5) hdds_meat
+6) hdds_eggs
+7) hdds_fish
+8) hdds_legumes
+9) hdds_milkdairy
+10) hdds_oils
+11)hdds_sugar
+12) hdds_condiments</t></si><si><t>Now I would like to ask you a set of questions on food consumption, referring to the 24 hours of yesterday. Please describe the foods [meals and snacks] that you or any household member ate or drank at home yesterday [in the 24 hours of yesterday: breakfast, lunch, dinner and snacks].
+
+[OPERATOR: SELECT ALL FOOD GROUPS CONSUMED IN THE 24 HOURS OF YESTERDAY AS THE RESPONDENT ANSWERS. MULTIPLE RESPONSES POSSIBLE.]
+
+1)Cereals [sorghum / millet / corn / wheat / rice / spaghetti / bread or insert any other locally available grain]
+2)Roots and tubers [white sweet potato / potato / yam / cassava or other tubers]
+3)Vegetables [all]
+4)Fruit [all]
+5)Meat, poultry and offal [beef / pork / lamb / goat / rabbit / wild game / chicken / duck / liver / kidney / heart / or other organ meats]
+6)Eggs
+7)Fish or shellfish [fresh or dried fish / shellfish]
+8)Legumes, nuts and seeds [beans / peas / peanut / lentils / almond / other nuts]
+9)Milk and other dairy products [fresh milk / sour / yogurt / cheese / other dairy products]
+10)Oils and fat [cooking / butter / margarine / fat / oil / other oil]
+11)Sugar or sugary products [honey / jam / donuts / candy / chocolate / biscuits / pastries / cakes and other sweet products]
+12)Condiments [cocoa / salt / garlic / spices / yeast / baking powder / tomato or tomato sauce / meat or fish as a condiment] and coffee / tea</t></si><si><t>الآن أود أن أسألك عن المجموعة الثالثة من الأسئلة حول استهلاك الغذاء ، بالإشارة إلى 24 ساعة أمس. يرجى وصف الأطعمة (الوجبات والوجبات الخفيفة) التي أكلتها أو شربتها أنت أو أي فرد من أفراد أسرتك في المنزل أمس (في 24 ساعة من أمس: الإفطار والغداء والعشاء والوجبات الخفيفة).
+
+[المُشغل: حدد كل المجموعات الغذائية المستهلكة خلال الـ 24 ساعة الماضية كإجابة للمُجيب. ردود متعددة ممكنة.]
+
+1) الحبوب [الذرة الرفيعة / الدخن / الذرة / القمح / الأرز / السباغيتي / الخبز أو أدخل أي حبوب أخرى متوفرة محليًا]
+2) الجذور والدرنات [البطاطا الحلوة البيضاء / البطاطا / اليام / الكسافا أو درنات أخرى]
+3) الخضار [الكل]
+4) الفواكه [الكل]
+5) اللحوم / الدواجن ومخلفاتها [لحم البقر / لحم الخنزير / لحم الغنم / لحم الماعز / الأرانب / الطرائد البرية / الدجاج / البط / الكبد / الكلى / القلب / أو غيرها من لحوم الأعضاء]
+6) البيض
+7) الأسماك أو المحار [الأسماك الطازجة أو المجففة/ المحار]
+8) البقوليات والمكسرات [الفول / الفاصوليا / البازلاء / الفول السوداني / العدس / اللوز / المكسرات الأخرى]
+9) الحليب ومنتجات الألبان الأخرى [حليب طازج / لبن رائب / زبادي / جبن / منتجات ألبان أخرى]
+10) الزيوت والدهون [ الزبدة / المارجرين / الدهون / الزيت / الزيوت الأخرى]
+11) السكر أو المنتجات السكرية [عسل / مربى / دوناتس / حلوى / شوكولاتة / بسكويت / حلو / كيك ومنتجات حلوة أخرى]
+12) التوابل [الكاكاو / الملح / الثوم / البهارات / الخميرة / مسحوق الخبز (بكنج باودر) / الطماطم أو صلصة الطماطم / اللحوم أو الأسماك كتوابل] والقهوة / الشاي</t></si><si><t>Form Type - Checklist</t></si><si><t>1-12 = hdds_confirmation</t></si><si><t>1)hdds_cereals
+2)hdds_rootstubers
+3)hdds_vegetables
+4)hdds_fruits
+5)hdds_meat
+6)hdds_eggs
+7)hdds_fish
+8)hdds_legumes
+9)hdds_milkdairy
+10)hdds_oils
+11)hdds_sugar
+12)hdds_condiments</t></si><si><t>if hdds = 1-12, go to hdds_confirmation</t></si><si><t>hdds_confirmation</t></si><si><t>[OPERATOR: REMEMBER TO PROBE FOR SNACKS, SPECIAL FOODS GIVEN TO CHILDREN OR PREGNANT WOMEN, INGREDIENTS IN MIXED DISHES. AT THE END, PROBE FOR FOOD GROUPS NOT MENTIONED. 
+
+IF YOU HAVE ALREADY PROBED, CLICK CONTINUE. OTHERWISE, GO BACK TO MAKE SURE ALL FOOD GROUPS CONSUMED IN THE 24 HRS OF YESTERDAY WERE SELECTED.]
+
+1)CONTINUE</t></si><si><t>تذكر: تحقق من الوجبات الخفيفة والأطعمة الخاصة المقدمة للأطفال أو النساء الحوامل والمكونات في الأطباق المختلطة. في النهاية ، تحقق من المجموعات الغذائية التي لم يتم تناولها.
+
+إذا قمت بالتحقق مسبقًا ، فيرجى النقر على "تابع". بخلاف ذلك ، يرجى الرجوع والتأكد من تحديد جميع المجموعات الغذائية المستهلكة في 24 ساعة من اليوم.
+
+1) تابع</t></si><si><t>1 = need or next question</t></si><si><t>if hdds_confirmation = 1, go to need or optional question</t></si><si><t>1= fcs_intro</t></si><si><t>fcs_intro</t></si><si><t xml:space="preserve">Now I would like to ask you about the foods and drinks your household ate or drank in the last 7 days during the day and at night [breakfast, lunch, dinner, snacks]. 
+
+1)CONTINUE
+</t></si><si><t>الآن أود أن أسألك عن الأطعمة والمشروبات التي أكلتها أو شربتها أسرتك في آخر 7 أيام خلال النهار والليل [الإفطار ، والغداء ، والعشاء ، والوجبات الخفيفة]
+
+1) تابع</t></si><si><t>1 = fcs_staple_days</t></si><si><t>if fcs_intro = 1, go to fcs_staple_days</t></si><si><t>fcs_staple_days</t></si><si><t>How many days over the last 7 days, did members of your household eat starches, roots and tubers such as rice, maize, pasta, bread, sorghum, millet, potato, yam, cassava, white sweet potato?
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7.]
+[HINT: IF CONSUMED ONLY IN SMALL QUANTITY, DO NOT INCLUDE.]</t></si><si><t>كم يومًا خلال السبعة أيام الماضية ، تناول أفراد أسرتك النشويات والجذور والدرنات مثل الأرز والذرة والمعكرونة والخبز والذرة الرفيعة والدخن والبطاطا والكسافا والبطاطا الحلوة البيضاء؟
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]
+[ملحوظة: إذا تم تناول هذه الأطعمة بكميات صغيرة فقط ، فلا تقم بتضمينها.]</t></si><si><t>0-7 = fcs_pulses_days</t></si><si><t>For any response, go to fcs_pulses_days</t></si><si><t>fcs_pulses_days</t></si><si><t>How many days over the last 7 days, did members of your household eat pulses and nuts such as beans, lentils, cowpeas, soybean, pigeon peas and peanuts or other nuts?
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7]
+[HINT: IF CONSUMED ONLY IN SMALL QUANTITY, DO NOT INCLUDE.]</t></si><si><t>كم يومًا خلال السبعة أيام الماضية ، تناول أفراد أسرتك البقول والمكسرات مثل الفاصوليا والعدس واللوبيا وفول الصويا والفول والفول السوداني أو غيرها من المكسرات؟
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]
+[ملحوظة: إذا تم تناول هذه الأطعمة بكميات صغيرة فقط ، فلا تقم بتضمينها.]</t></si><si><t>0-7 = fcs_vegetables_days</t></si><si><t>For any response, go to fcs_vegetables_days</t></si><si><t>fcs_vegetables_days</t></si><si><t>How many days over the last 7 days, did members of your household eat vegetables or leaves such as tomatoes, okra, zucchini, cauliflower, cucumber, onions and/or other leaves/vegetables?
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7] 
+[HINT: IF CONSUMED ONLY IN SMALL QUANTITY, DO NOT INCLUDE.]</t></si><si><t>كم يومًا خلال السبعة أيام الماضية ، أكل أفراد أسرتك خضروات أو خضار ورقية مثل  طماطم ، بامية ، كوسة ، قرنييط (زهرة) ، خيار ، بصل و / أو خضار ورقية / خضروات أخرى؟
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]
+[ملحوظة: إذا تم تناول هذه الأطعمة بكميات صغيرة فقط ، فلا تقم بتضمينها.]</t></si><si><t>0-7 = fcs_fruit_days</t></si><si><t>For any response, go to fcs_fruit_days</t></si><si><t>fcs_fruit_days</t></si><si><t>How many days over the last 7 days, did members of your household eat fruit such as apple, orange, banana, grapes, mango, papaya, fig, muskmelon, red watermelon, dates and/or other fruits?
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7]
+[HINT: IF CONSUMED ONLY IN SMALL QUANTITY, DO NOT INCLUDE.]</t></si><si><t>كم يومًا خلال السبعة أيام الماضية ، تناول أفراد أسرتك فواكه مثل التفاح / البرتقال ، الموز ، العنب ، المانجو ، البابايا ، التين ، الشمام ، البطيخ الاحمر ، البلح و / أو غيرها من الفواكه؟
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]
+[ملحوظة: إذا تم تناول هذه الأطعمة بكميات صغيرة فقط ، فلا تقم بتضمينها.]</t></si><si><t>0-7 = fcs_meat_fish_days</t></si><si><t>For any response, go to fcs_meat_fish_days</t></si><si><t>fcs_meat_fish_days</t></si><si><t>How many days over the last 7 days, did members of your household eat meat, eggs or fish [any type of meat or fish including insects, birds, bush meat, seafood, or organs]?
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7]
+[HINT: IF CONSUMED ONLY IN SMALL QUANTITY, DO NOT INCLUDE.]</t></si><si><t>كم يومًا خلال السبعة أيام الماضية ، تناول أفراد أسرتك اللحوم أو البيض أو الأسماك [أي نوع من اللحوم أو الأسماك بما في ذلك الحشرات أو الطيور أو لحوم الحيوانات البرية أو المأكولات البحرية أو لحوم الأعضاء] ؟
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]
+[ملحوظة: إذا تم تناول هذه الأطعمة بكميات صغيرة فقط ، فلا تقم بتضمينها.]</t></si><si><t>0-7 = fcs_dairy_days</t></si><si><t>For any response, go to fcs_dairy_days</t></si><si><t>fcs_dairy_days</t></si><si><t>How many days over the last 7 days, did members of your household consume fresh milk, sour milk, yogurt, cheese or other dairy products? [Excluding margarine/butter or small amounts of milk for tea/ coffee]
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7]
+[HINT: IF CONSUMED ONLY IN SMALL QUANTITY, DO NOT INCLUDE.]</t></si><si><t>كم يومًا خلال السبعة أيام الماضية ، استهلك أفراد أسرتك الحليب الطازج أو اللبن الرائب أو الزبادي أو الجبن أو منتجات الألبان الأخرى؟ [باستثناء المارجرين / الزبدة أو كميات صغيرة من الحليب للشاي / القهوة]
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]
+[ملحوظة: إذا تم تناول هذه الأطعمة بكميات صغيرة فقط ، فلا تقم بتضمينها.]</t></si><si><t>0-7 = fcs_sugar_days</t></si><si><t>For any response, go to fcs_sugar_days</t></si><si><t>fcs_sugar_days</t></si><si><t>How many days over the last 7 days, did members of your household consume sugar or sweets such as sugar, honey, jam, cakes, candy, cookies, pastries, cakes and other sweets and sugary drinks?
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7]
+[HINT: IF CONSUMED ONLY IN SMALL QUANTITY, DO NOT INCLUDE.]</t></si><si><t>كم يومًا خلال السبعة أيام الماضية ، استهلك أفراد أسرتك السكر أو الحلوى مثل السكر والعسل والمربى والكيك والحلو والبسكويت والحلويات الأخرى والمشروبات السكرية؟
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]
+[ملحوظة: إذا تم تناول هذه الأطعمة بكميات صغيرة فقط ، فلا تقم بتضمينها.]</t></si><si><t>0-7 = fcs_oil_days</t></si><si><t>For any response, go to fcs_oil_days</t></si><si><t>fcs_oil_days</t></si><si><t>How many days over the last 7 days, did members of your household eat oil/fat/butter such as vegetable oil, palm oil, groundnut oil, margarine, other fats / oil?
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7]
+[HINT: IF CONSUMED ONLY IN SMALL QUANTITY, DO NOT INCLUDE.]</t></si><si><t>كم يومًا خلال السبعة أيام الماضية ، تناول أفراد أسرتك الزيت / الدهون / الزبدة مثل الزيت النباتي وزيت النخيل وزيت الفول السوداني والسمن النباتي والدهون / الزيوت الأخرى؟
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]
+[ملحوظة: إذا تم تناول هذه الأطعمة بكميات صغيرة فقط ، فلا تقم بتضمينها.]</t></si><si><t>0-7 = fcs_condiments_days</t></si><si><t>For any response, go to fcs_condiments_days</t></si><si><t>fcs_condiments_days</t></si><si><t>How many days over the last 7 days, did members of your household eat spices or condiments such as tea, coffee, cocoa, salt, garlic, spices, yeast, meat fish as a condiment or small amounts of milk for tea or coffee?
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7]</t></si><si><t>كم يومًا خلال السبعة أيام الماضية ، تناول أفراد أسرتك البهارات أو التوابل مثل الشاي أو القهوة أو الكاكاو أو الملح أو الثوم أو البهارات أو الخميرة أو اللحوم والأسماك كتوابل أو كميات صغيرة من الحليب للشاي أو القهوة؟
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]
+[ملحوظة: إذا تم تناول هذه الأطعمة بكميات صغيرة فقط ، فلا تقم بتضمينها.]</t></si><si><t>0-7 = rcsi_intro</t></si><si><t>For any response, go to rcsi_intro</t></si><si><t>rcsi_intro</t></si><si><t>Now I will ask you about the number of days, in the last 7 days, during which the household has done some of the actions that I will mention to cope with the lack of food or money to buy food.
+
+1)CONTINUE</t></si><si><t>الآن سوف أسألك عن عدد الأيام ، في الأيام السبعة الماضية ، والتي قامت خلالها الأسرة ببعض الإجراءات التي سأذكرها للتغلب على نقص الطعام أو المال لشراء الطعام.
+
+1) تابع</t></si><si><t>1 = rcsi_less_preferred_foods</t></si><si><t>For any response, go to rcsi_less_preferred_foods</t></si><si><t>rcsi_less_preferred_foods</t></si><si><t>In the past 7 days, how many days did your household rely on less preferred or less expensive food due to lack of food/money?  
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7 ]</t></si><si><t>في الأيام السبعة الماضية ، كم عدد الأيام التي اعتمدت فيها أسرتك على طعام أقل تفضيلًا أو أقل تكلفة بسبب نقص الطعام / المال؟
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]</t></si><si><t>0-7 = rcsi_borrowed_food</t></si><si><t>For any response, go to rcsi_borrowed_food</t></si><si><t>rcsi_borrowed_food</t></si><si><t>In the past 7 days, how many days did your household borrow food, or rely on help from a friend or relative due to lack of food or money to buy food? 
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7 ]</t></si><si><t>في الأيام السبعة الماضية ، كم عدد الأيام التي استعارت فيها أسرتك الطعام ، أو اعتمدت على المساعدة من صديق أو قريب بسبب نقص الطعام أو المال لشراء الطعام؟
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]</t></si><si><t>0-7 = rcsi_reduce_number_meals</t></si><si><t>For any response, go to rcsi_reduce_number_meals</t></si><si><t>rcsi_reduce_number_meals</t></si><si><t>In the past 7 days, how many days did your household reduce the number of meals eaten in a day due to lack of food or money to buy food?
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7 ]</t></si><si><t>في الأيام السبعة الماضية ، كم عدد الأيام التي قللت فيها أسرتك عدد الوجبات التي يتم تناولها في اليوم بسبب نقص الطعام أو المال لشراء الطعام؟
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]</t></si><si><t>0-7 = rcsi_limit_portions</t></si><si><t>For any response, go to rcsi_limit_portions</t></si><si><t>rcsi_limit_portions</t></si><si><t>In the past 7 days, how many days did your household limit portion sizes at mealtime due to lack of food or money to buy food? 
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7 ]</t></si><si><t>في الأيام السبعة الماضية ، كم عدد الأيام التي حددت فيها أسرتك أحجام الحصص في وقت الوجبة بسبب نقص الطعام أو المال لشراء الطعام؟
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]</t></si><si><t>0-7 = rcsi_restrict_adult_consumpt</t></si><si><t>For any response, go to rcsi_restrict_adult_consumpt</t></si><si><t>rcsi_restrict_adult_consumpt</t></si><si><t>In the past 7 days, how many days did your household restrict consumption by adults so children could eat, due to lack of food or money to buy food?
+
+[OPERATOR: RECORD NUMBER OF DAYS 0 - 7 ]</t></si><si><t>في الأيام السبعة الماضية ، كم عدد الأيام التي قامت فيها أسرتك بتقييد استهلاك البالغين حتى يتمكن الأطفال من تناول الطعام ، بسبب نقص الطعام أو المال لشراء الطعام؟
+
+[المُشغل: سجل عدد الأيام من صفر إلى 7]</t></si><si><t>0-7 = percep_food_insecurity</t></si><si><t>For any response, go to percep_food_insecurity</t></si><si><t>o_percep_food_insecurity</t></si><si><t xml:space="preserve">
+How would you assess the current food security situation of your household compared to the same period last month?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1) Improved
+2) Remained the same
+3) Decreased
+4)DON'T KNOW
+5)REFUSED</t></si><si><t xml:space="preserve"> كيف تقيم الوضع الحالي للأمن الغذائي في أسرتك مقارنة بنفس الفترة من الشهر الماضي؟
+
+[للمشغل: إجابة واحدة.]
+
+1) تحسن
+2) ظل على حاله
+3) انخفض
+4) لا أعرف
+5) رفض الاجابه</t></si><si><t>Form Type - Bottons</t></si><si><t xml:space="preserve">
+1,3 = reason_foodins
+2, 4, 5 = need</t></si><si><t xml:space="preserve">
+if percep_food_insecurity = 1 or 3 go to reason_foodins
+if percep_food_insecurity = 2, 4, 5 go to need</t></si><si><t>o_reason_food_insecurity</t></si><si><t>Please specify the main reason for the increase or decrease in food security situation.
+
+[OPERATOR: RECORD THE RESPONSE.]</t></si><si><t xml:space="preserve">
+يرجى تحديد السبب الرئيسي لزيادة أو نقصان وضع الأمن الغذائي والذي تم تحديده اعلاه 
+
+[المشغل: تسجيل استجابة مفتوحة.]</t></si><si><t>For any response go need</t></si><si><t>For any response go to need</t></si><si><t>H. NEEDS ASSISTANCE</t></si><si><t>need</t></si><si><t>Does your household need any kind of assistance to support your ability to meet food and income needs over the next 6 months?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO
+3)DON'T KNOW
+4)REFUSED</t></si><si><t>هل تحتاج أسرتك إلى أي نوع من المساعدة لدعم قدرتك على تلبية احتياجاتك الغذائية والدخل خلال الأشهر الستة المقبلة؟
+
+[المُشغِّل: إجابة واحدة]
+
+1) نعم
+2) لا
+3) لا أعرف
+4) رفض الإجابة</t></si><si><t>1 = need_type
+2-4= need_received</t></si><si><t>if need = 1, go to need_type
+if need = 2-4, go to need_received</t></si><si><t>need_type</t></si><si><t>need_type
+
+1)need_type_food
+2)need_type_ag_livelihood
+3)need_type_nonag_livelihood
+4)need_type_other
+5)need_type_dk
+6)need_type_ref</t></si><si><t xml:space="preserve">What type of assistance will your household need?
+
+[OPERATOR: MULTIPLE RESPONSE.]
+
+1)Food aid 
+2)Support for agriculture or related livelihoods [crops, livestock, fisheries, and related marketing]
+3)Support for non-agricultural income
+4)Support for other essential needs [e.g. shelter, healthcare, education, water, sanitation]
+5)DON'T KNOW 
+6)REFUSED
+</t></si><si><t>ما نوع المساعدة التي ستحتاجها أسرتك؟
+
+[المُشغِّل: إجابات متعددة]
+
+1) مساعدات غذائية
+2) دعم في سبل العيش الزراعية ذات الصلة [المحاصيل، الثروة الحيوانية، مصايد الأسماك، والتسويق]
+3) دعم في سبل العيش غير الزراعية
+4) دعم الاحتياجات الأساسية الأخرى [مثل المأوى، الرعاية الصحية، التعليم، المياه، الصرف الصحي]
+5) لا أعرف
+6) رفض الإجابة</t></si><si><t>1-6 = need_type_main</t></si><si><t>1)need_type_food
+2)need_type_ag_livelihood
+3)need_type_nonag_livelihood
+4)need_type_other
+5)need_type_dk
+6)need_type_ref</t></si><si><t>For any response, go to need_type_main</t></si><si><t>need_type_main</t></si><si><t>Which of these types of support is the most important for your household? 
+
+[OPERATOR: PLEASE ONLY ASK THE QUESTION IF MORE THAN ONE ANSWER WAS PROVIDED IN THE PREVIOUS QUESTION.]
+
+1)Food aid 
+2)Support for agriculture or related livelihoods [crops, livestock, fisheries, and related marketing]
+3)Support for non-agricultural income
+4)Support for other essential needs [e.g. shelter, healthcare, education, water, sanitation]
+5)DON'T KNOW 
+6)REFUSED</t></si><si><t xml:space="preserve">أيٌّ من أنواع الدعم التالية هو الأهم لأسرتك؟
+
+[المُشغِّل: يُرجى طرح السؤال فقط إذا قُدِّمت أكثر من إجابة واحدة في السؤال السابق.]
+
+1) مساعدات غذائية
+2) دعم في سبل العيش الزراعية ذات الصلة [المحاصيل، الثروة الحيوانية، مصايد الأسماك، والتسويق]
+3) دعم في سبل العيش غير الزراعية
+4) دعم الاحتياجات الأساسية الأخرى [مثل المأوى، الرعاية الصحية، التعليم، المياه، الصرف الصحي]
+5) لا أعرف
+6) رفض الإجابة
+</t></si><si><t>Send if "need_type" "Contains" "Food aid" Or "need_type" "Contains" "Support for non-agricultural income" Or "need_type" "Contains" "Support for other essential needs [e.g. shelter, healthcare, education, water, sanitation" Or "need_type" "Contains" "Support for agriculture or related livelihoods [crop, livestock, fisheries, and related marketing]" if not satisfied go to "need_received"</t></si><si><t>Form Type - Buttons
+include selected "need_type"
+
+IsDemographic</t></si><si><t xml:space="preserve">Dynamics = need_2
+1-2 = need_2
+</t></si><si><t>For any response, go to need_2</t></si><si><t>need_2</t></si><si><t>need_
+
+1) need_crop_inputs
+2) need_crop_infrastructure
+3) need_crop_knowledge
+4) need_ls_feed
+5) need_ls_vet_service
+6) need_ls_infrastructure
+7) need_ls_knowledge
+8) need_fish_inputs
+9) need_fish_infrastructure
+10) need_fish_knowledge
+11) need_env_infra_rehab
+12) need_cold_storage
+13) need_marketing_supp
+14) need_food
+15) need_vouchers_fair
+16) need_cash
+17) need_other
+18) need_dk
+19) need_ref</t></si><si><t>Over the next 6 months, what kinds of assistance does your household need to support agricultural livelihood [including both production and marketing]? 
+
+[OPERATOR: MULTIPLE RESPONSE. DO NOT READ THE OPTIONS.]
+
+1)Inputs for crop and/or vegetable production [e.g. seeds, fertilizer, tools]
+2)Infrastructure for crop and/or vegetable production [e.g. irrigation, canal rehabilitation, pumps]
+3)Training &amp; technical knowledge/advice for crop production
+4)Livestock feed [fodder or supplementary feed]
+5)Veterinary services [e.g. vaccination, dips, deworming]
+6)Infrastructure for livestock [e.g. water points, transhumance corridors, shelter, health points]
+7)Training &amp; technical knowledge/advice for livestock production
+8)Inputs for fishing or aquaculture production
+9)Infrastructure for fisheries or aquaculture production [e.g. rehabilitation of port; repair of ponds]
+10)Training &amp; technical knowledge/advice for fisheries or aquaculture production
+11)Environmental or infrastructure rehabilitation [community-wide]
+12)Cold storage
+13)Marketing or sales support [e.g. public procurement]
+14)Food
+15)Cash
+16)Vouchers or input trade fairs
+17)Other [specify]
+18)DON'T KNOW
+19)REFUSED</t></si><si><t>على مدى الأشهر الستة المقبلة، ما هي أنواع المساعدة التي تحتاجها أسرتك لدعم سبل العيش الزراعية [بما في ذلك الإنتاج والتسويق]؟
+
+[المشغل: عدة استجابات محتملة. لا تقرأ الخيارات إذا كان ذلك ممكنًا.]
+
+1) مدخلات انتاج المحاصيل و الخضروات [على سبيل المثال البذور و الاسمدة و المعدات] 
+2) البنية التحتية لانتاج المحاصيل و الخضروات [على سبيل المثال الري، اعادة تأهيل قنوات الري و المضخات]
+3) التدريبات المهنية و المعرفة / النصائح التقنية لإنتاج المحاصيل 
+4) أعلاف الحيوانات [علف أو علف تكميلي]
+5) الخدمات البيطرية [على سبيل المثال التطعيم والتخلص من الديدان]
+6) البنية التحتية لانتاج الماشية [على سبيل المثال نقاط المياه ، ممرات التنقل الرعوي ، المأوى ، النقاط الصحية]
+7) التدريبات المهنية و المعرفة / النصائح التقنية لانتاج الماشية 
+8) المدخلات لانتاج الاسماك و تربية الاحياء المائية 
+9)البنية التحتية لانتاج مصايد الاسماك و تربية الاحياء المائية  [اعادة تأهيل الموانيء و اصلاح البرك علي سبيل المثال]
+10) التدريبات المهنية و المعرفة / النصائح التقنية لانتاج مصايد الاسماك و تربية الاحياء المائية
+11) اعادة ترميم البنية التحتية و البيئية ( علي نطاق مجتمعي ) 
+12) التخزين البارد
+13) دعم المبيعات أو التسويق [المشتريات العامة علي سبيل المثال]
+14) الطعام
+15) المساعدة النقدية 
+16) قسائم المشتريات 
+17) آخر [حدد]
+18)  لا أعرف
+19) رفض الإجابة</t></si><si><t>Send if "need_type" "Contains" "Support for agriculture or related livelihoods [crop, livestock, fisheries, and related marketing]" if not satisfied go to "need_received"</t></si><si><t>Form Type - Checklist
+18,19 = IsNone</t></si><si><t>1-19 = need_received</t></si><si><t>1) need_crop_inputs
+2) need_crop_infrastructure
+3) need_crop_knowledge
+4) need_ls_feed
+5) need_ls_vet_service
+6) need_ls_infrastructure
+7) need_ls_knowledge
+8) need_fish_inputs
+9) need_fish_infrastructure
+10) need_fish_knowledge
+11) need_env_infra_rehab
+12) need_cold_storage
+13) need_marketing_supp
+14) need_food
+15) need_vouchers_fair
+16) need_cash
+17) need_other
+18) need_dk
+19) need_ref</t></si><si><t>if need_2 = 1-19, go to need_received</t></si><si><t>need_received</t></si><si><t>need_received_
+
+1) need_received_food
+2) need_received_cash
+3) need_received_vouchers_fair
+4) need_received_crop_assist
+5) need_received_ls_assist
+6) need_received_fish_assist
+7) need_received_rehabilitation
+8) need_received_sales_support
+9) need_received_other
+10) need_received_none
+11) need_received_dk
+12) need_received_ref</t></si><si><t>Has your household received any assistance in the last 3 months, and if so, which kind?
+
+[OPERATOR: MULTIPLE RESPONSE POSSIBLE. READ OUT THE OPTIONS.]
+
+1)Food
+2)Cash 
+3)Vouchers/input trade fairs
+4)Crop and/or vegetable production assistance
+5)Livestock assistance
+6)Fisheries and/or aquaculture assistance
+7)Environmental or infrastructure rehabilitation [community-wide]
+8)Marketing or sales support [e.g. public procurement]
+9)Other [specify]
+10)No assistance received
+11)DON'T KNOW 
+12)REFUSED</t></si><si><t>هل تلقت أسرتك أي مساعدة خلال الأشهر الثلاثة الماضية ، وإذا كان الأمر كذلك ، فمن أي نوع؟
+
+[المشغل: عدة استجابات محتملة. اقرأ الخيارات.]
+
+1) الغذاء
+2) مساعدة نقدية 
+3) قسائم المشتريات
+4) مساعدة لانتاج المحاصيل و الخضروات
+5) مساعدة لانتاج الماشية 
+6) مساعدة لانتاج مصايد الاسماك و تربية الاحياء المائية 
+7) اعادة تأهيل البنية التحتية و البيئية علي نطاق مجتمعي 
+8) دعم المبيعات أو التسويق [المشتريات العامة على سبيل المثال]
+9) آخر [حدد]
+10) لم تتلق المساعدة
+11) لا أعرف 
+12) رفض الإجابة</t></si><si><t>Form Type - Checklist
+10,11,12 = IsNone</t></si><si><t>1-9 = assistance_quality 
+10-12 = callback</t></si><si><t>1)need_received_food
+2)need_received_cash
+3)need_received_vouchers_fair
+4)need_received_crop_assist
+5)need_received_ls_assist
+6)need_received_fish_assist
+7)need_received_rehabilitation
+8)need_received_sales_support
+9)need_received_other
+10)need_received_none
+11)need_received_dk
+12)need_received_ref</t></si><si><t xml:space="preserve">if need_received = 1-9, go to assistance_quality.
+Otherwise, go to callback. </t></si><si><t>assistance_quality</t></si><si><t>Were you satisfied with the quality of the assistance provided? 
+
+[OPERATOR: SINGLE RESPONSE. QUALITY OF ASSISTANCE IN TERMS OF SUFFICIENT ASSISTANCE FOR PRODUCTION OR SALES DIFFICULTY TO BE OVERCOME.]
+
+1)Yes
+2)No - not received on time
+3)No - did not meet my needs
+4)No - quantity was not sufficient
+5)No - there was a problem with the provider
+6)No - there was a malfunction of the in-kind assistance provided [e.g. poor quality tools]
+7)DON'T KNOW
+8)REFUSED</t></si><si><t>هل كنت راضيا عن جودة المساعدة التي قدمت لكم ؟ 
+[المشغل: استجابة واحدة. جودة المساعدة من حيث كفاية المساعدة للتغلب على صعوبات الانتاج أو البيع.]
+
+1) نعم
+2) لا - لم يتم استلامها في الوقت المحدد
+3) لا - لم تلبي احتياجاتي
+4) لا - الكمية لم تكن كافية
+5) لا - حدثت مشكلة مع المزود
+6) لا - حدث خلل في المساعدة العينية المقدمة [على سبيل المثال أدوات ذات جودة رديئة]
+7) لا أعرف
+8) رفض الإجابة</t></si><si><t>1-8 = [callback or optional question]</t></si><si><t>if assistance_quality = 1-8, go to callback or assistance_provider</t></si><si><t>1-8 = assistance provider</t></si><si><t>assistance_provider</t></si><si><t>assistance_provider
+
+1) assistance_fao
+2) assistance_wfp
+3) assistance_otherun
+4) assistance_gov
+5) assistance_ngo
+6) assistance_dk
+7) assistance_ref</t></si><si><t>Who provided your household with this assistance?
+
+[OPERATOR: MULTIPLE RESPONSE.]
+
+1)FAO
+2)WFP
+3)Other UN agencies
+4)Government
+5)Non-governmental/local organization
+6)DON'T KNOW
+7)REFUSED</t></si><si><t>من قام بتقديم تلك المساعدة لاسرتك ؟ 
+[المُشغل: احتمال وجود عدة استجابات.]
+1) منطمة الاغذية و الزراعة للأمم المتحدة 
+2) برنامج الغذاء العالمي 
+3) منظمات أخرى تابعة للامم المتحدة
+4) جهات حكومية
+5) منظمة محلية / غير حكومية 
+6) لا أعرف 
+7) رفض الإجابة</t></si><si><t>Form Type - Checklist
+6,7 = IsNone</t></si><si><t>1-7 = callback</t></si><si><t>1)assistance_fao
+2)assistance_wfp
+3)assistance_otherun
+4)assistance_gov
+5)assistance_ngo
+6)assistance_dk
+7)assistance_ref</t></si><si><t xml:space="preserve">if assistance_provider = 1-7, go to callback </t></si><si><t>I. CLOSING</t></si><si><t>callback</t></si><si><t>Your answers will help us to understand and respond to your community needs. May we call you back again in a few months?
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)YES
+2)NO</t></si><si><t>ستساعدنا إجاباتك على فهم احتياجات مجتمعك والاستجابة لها. هل يمكننا الاتصال بك مرة أخرى في غضون بضعة أشهر؟
+
+[المشغل: استجابة واحدة.]
+
+1) نعم
+2) لا</t></si><si><t>1 = leader_contact
+2 = language2</t></si><si><t>if callback = 1, go to future_int_day
+if 2, go to language2</t></si><si><t>future_int_day</t></si><si><t>future_int_day_
+
+1) future_int_day_mon
+2) future_int_day_tues
+3) future_int_day_wed
+4) future_int_day_thurs
+5) future_int_day_fri
+6) future_int_day_sat
+7) future_int_day_sun</t></si><si><t>For future interviews, in which day[s] can I call you?
+
+[OPERATOR: MULTIPLE ANSWERS POSSIBLE.]
+
+1)Monday
+2)Tuesday
+3)Wednesday
+4)Thursday
+5)Friday
+6)Saturday
+7)Sunday</t></si><si><t>للمقابلات المستقبلية ، في أي يوم (أيام) يمكنني الاتصال بك؟
+
+[المُشغل: إمكانية الحصول على إجابات متعددة.]
+
+1) الاثنين
+2) الثلاثاء
+3) الأربعاء
+4) الخميس
+5) الجمعة
+6) السبت
+7) الأحد</t></si><si><t>1-7 = future_int_time</t></si><si><t>if l_future_int_day = 1-7, go to future_int_time</t></si><si><t>future_int_time</t></si><si><t>future_int_time_ 
+
+1) future_int_time_morn
+2) future_int_time_aft
+3) future_int_time_eve</t></si><si><t>For future interviews, at what time[s] can I call you?
+
+[OPERATOR: MULTIPLE ANSWERS POSSIBLE.]
+
+1)Mornings
+2)Afternoons
+3)Evenings</t></si><si><t>للمقابلات المستقبلية ، في أي وقت (أوقات) يمكنني الاتصال بك؟
+
+[المُشغل: إمكانية الحصول على إجابات متعددة.]
+
+1) الصباح
+2) بعد الظهر
+3) المساء</t></si><si><t>1-3 = closeout</t></si><si><t>if future_int_time = 1-3, go to closeout</t></si><si><t>language2</t></si><si><t>Select the language that was mostly used to complete the interview.
+
+[OPERATOR: SINGLE RESPONSE.]
+
+1)Arabic</t></si><si><t>1-2 = closeout</t></si><si><t>closeout</t></si><si><t>Thank you for your time. The interview has come to an end. You will receive your #TOPUP# airtime credit on this phone within the next 2 days.</t></si><si><t>شكرا لك على وقتك. انتهت المقابلة. ستتلقى رصيدك #TOPUP# على هذا الهاتف في غضون اليومين المقبلين.</t></si><si><t xml:space="preserve">AVERAGE ESTIMATED DURATION </t></si><si><t>AVERAGE ESTIMATED DURATION (without fisheries section)</t></si><si><t>AVERAGE ESTIMATED DURATION (without fisheries section or panel)</t></si><si><t xml:space="preserve">Select top 10 crops </t></si><si><t>GeoPoll code</t></si><si><t>Dataset code</t></si><si><t>Label (EN)</t></si><si><t>Label (AR)</t></si><si><t>1.1</t></si><si><t>Rice</t></si><si><t>الرز</t></si><si><t>x</t></si><si><t>1.2</t></si><si><t>Wheat</t></si><si><t>القمح</t></si><si><t>1.3</t></si><si><t>Millet</t></si><si><t>الدخن</t></si><si><t>1.4</t></si><si><t>Sorghum</t></si><si><t>الذرة الرفيعة</t></si><si><t>1.5</t></si><si><t>Maize</t></si><si><t>الذرة</t></si><si><t>1.6</t></si><si><t>Barley</t></si><si><t>الشعير</t></si><si><t>1.99</t></si><si><t>Other Cereal</t></si><si><t>الحبوب الأخرى</t></si><si><t>2.1</t></si><si><t>Cassava</t></si><si><t>الكسافا</t></si><si><t>2.2</t></si><si><t>Potatoe</t></si><si><t>البطاطا</t></si><si><t>2.3</t></si><si><t>Sweet Potatoes</t></si><si><t>البطاطا الحلوة</t></si><si><t>2.4</t></si><si><t>Yams</t></si><si><t>اليام</t></si><si><t>2.5</t></si><si><t>Carrots</t></si><si><t>الجزر</t></si><si><t>2.6</t></si><si><t>Cocoyam</t></si><si><t>القلقاس</t></si><si><t>2.99</t></si><si><t>Other tubers</t></si><si><t>الدرنات الأخرى</t></si><si><t>3.1</t></si><si><t>Beans</t></si><si><t>الفاصوليا</t></si><si><t>3.2</t></si><si><t>Lentils</t></si><si><t>العدس</t></si><si><t>3.3</t></si><si><t>Peas</t></si><si><t>البازيلاء</t></si><si><t>3.4</t></si><si><t>Soybeans</t></si><si><t>فول الصويا</t></si><si><t>3.5</t></si><si><t>Chickpeas</t></si><si><t>الحمص</t></si><si><t>3.6</t></si><si><t>Fava beans</t></si><si><t>الفول</t></si><si><t>3.7</t></si><si><t>Broad beans</t></si><si><t>الفاصوليا العريضة</t></si><si><t>3.99</t></si><si><t>Other pulses</t></si><si><t>البقول الاخرى</t></si><si><t>4.1</t></si><si><t>Cabbage</t></si><si><t>الملفوف</t></si><si><t>4.2</t></si><si><t>Lettuce</t></si><si><t>الخس</t></si><si><t>4.3</t></si><si><t>Spinach-Amaranth</t></si><si><t>السبانخ - القطيفة</t></si><si><t>4.4</t></si><si><t>Cassava leaves</t></si><si><t>أوراق الكسافا</t></si><si><t>4.5</t></si><si><t>Potatoe leaves</t></si><si><t>أوراق البطاطا</t></si><si><t>4.6</t></si><si><t>Moringa</t></si><si><t>المورينجا</t></si><si><t>4.7</t></si><si><t>Sorrel Hibiscus / Rosselle</t></si><si><t>الكركديه</t></si><si><t>4.9</t></si><si><t>Green salad herbs [thyme, parsley, mint, rocca, other]</t></si><si><t>أعشاب السلطة الخضراء [زعتر ، بقدونس ، نعناع ، جرجير ، أنواع أخرى]</t></si><si><t>4.101</t></si><si><t>Cauliflower</t></si><si><t>القرنبيط</t></si><si><t>4.99</t></si><si><t>Other leafy vegetables</t></si><si><t>الخضار الورقية الأخرى</t></si><si><t>5.1</t></si><si><t>Tomatoes</t></si><si><t>الطماطم</t></si><si><t>5.2</t></si><si><t>Cucumber</t></si><si><t>الخيار</t></si><si><t>5.3</t></si><si><t>Pumpkin</t></si><si><t>اليقطين</t></si><si><t>5.4</t></si><si><t>Eggplant/aubergine</t></si><si><t>الباذنجان</t></si><si><t>5.5</t></si><si><t>Zucchini</t></si><si><t>الكوسة</t></si><si><t>5.6</t></si><si><t>Okra</t></si><si><t>البامية</t></si><si><t>5.7</t></si><si><t>Bell pepper</t></si><si><t>الفلفل حلو</t></si><si><t>5.8</t></si><si><t>Onions</t></si><si><t>بصل</t></si><si><t>5.9</t></si><si><t>Haricot</t></si><si><t>اللوبياء</t></si><si><t>5.101</t></si><si><t>Green peas</t></si><si><t>البازلاء الخضراء</t></si><si><t>5.11</t></si><si><t>Fava beans green</t></si><si><t>الفول الأخضر</t></si><si><t>5.99</t></si><si><t>Other non leafy vegs</t></si><si><t>الخضار غير الورقية الأخرى</t></si><si><t>6.1</t></si><si><t>Orange</t></si><si><t>البرتقال</t></si><si><t>6.2</t></si><si><t>Lemon</t></si><si><t>الليمون</t></si><si><t>6.3</t></si><si><t>Grapefruit</t></si><si><t>الجريب فروت</t></si><si><t>6.4</t></si><si><t>Mandarins/clementines</t></si><si><t>اليوسفي / الكليمنتين</t></si><si><t>6.99</t></si><si><t>Other citrus fruit</t></si><si><t>الحمضيات الأخرى</t></si><si><t>7.1</t></si><si><t>Sweet Banana</t></si><si><t>الموز</t></si><si><t>7.2</t></si><si><t>Plantains</t></si><si><t>موز الجنة</t></si><si><t>7.3</t></si><si><t>Papaya</t></si><si><t>البابايا</t></si><si><t>7.4</t></si><si><t>Mango</t></si><si><t>المانجو</t></si><si><t>7.5</t></si><si><t>Guava</t></si><si><t>الجوافة</t></si><si><t>7.6</t></si><si><t>Pineapple</t></si><si><t>الأناناس</t></si><si><t>7.7</t></si><si><t>Avocado</t></si><si><t>الأفوكادو</t></si><si><t>7.8</t></si><si><t>Water Melon</t></si><si><t>البطيخ الأحمر</t></si><si><t>7.9</t></si><si><t>Dates</t></si><si><t>التمر</t></si><si><t>7.101</t></si><si><t>Figs</t></si><si><t>التين</t></si><si><t>7.11</t></si><si><t>Grapes</t></si><si><t>العنب</t></si><si><t>7.12</t></si><si><t>Olives</t></si><si><t>الزيتون</t></si><si><t>7.13</t></si><si><t>Apple</t></si><si><t>التفاح</t></si><si><t>7.14</t></si><si><t>Apricot</t></si><si><t>المشمش</t></si><si><t>7.15</t></si><si><t>Cherries</t></si><si><t>الكرز</t></si><si><t>7.16</t></si><si><t>Peach/nectarine</t></si><si><t>الدراق / النكتارين</t></si><si><t>7.17</t></si><si><t>Strawberries</t></si><si><t>الفراولة</t></si><si><t>7.18</t></si><si><t>Melon [Cantaloupe]</t></si><si><t>الشمام</t></si><si><t>7.99</t></si><si><t>Other fruit</t></si><si><t>الفواكه الأخرى</t></si><si><t>8.1</t></si><si><t>Coconuts</t></si><si><t>جوز الهند</t></si><si><t>8.2</t></si><si><t>Groundnut/peanut</t></si><si><t>الفول السوداني</t></si><si><t>8.3</t></si><si><t>Cashew Nut</t></si><si><t>الكاجو</t></si><si><t>8.4</t></si><si><t>Kola Nut</t></si><si><t>جوز الكولا</t></si><si><t>8.5</t></si><si><t>Sesame</t></si><si><t>السمسم</t></si><si><t>8.6</t></si><si><t>Bambara nut</t></si><si><t>جوز البامبارا</t></si><si><t>8.7</t></si><si><t>Almond</t></si><si><t>اللوز</t></si><si><t>8.8</t></si><si><t>Walnut</t></si><si><t>الجوز</t></si><si><t>8.99</t></si><si><t>Other nuts</t></si><si><t>المكسرات الأخرى</t></si><si><t>9.1</t></si><si><t>Cocoa</t></si><si><t>الكاكاو</t></si><si><t>9.2</t></si><si><t>Coffee</t></si><si><t>القهوة</t></si><si><t>9.3</t></si><si><t>Tea</t></si><si><t>الشاي</t></si><si><t>9.4</t></si><si><t>Sugarcane</t></si><si><t>قصب السكر</t></si><si><t>9.5</t></si><si><t>Sunflower</t></si><si><t>دوار الشمس</t></si><si><t>9.99</t></si><si><t>Other food cash crop</t></si><si><t xml:space="preserve">المحاصيل الغذائية النقدية الأخرى </t></si><si><t>10.1</t></si><si><t>Cotton</t></si><si><t>القطن</t></si><si><t>10.2</t></si><si><t>Rubber</t></si><si><t>المطاط</t></si><si><t>10.3</t></si><si><t>Jute</t></si><si><t>الجوت</t></si><si><t>10.4</t></si><si><t>Fodder</t></si><si><t>العلف</t></si><si><t>10.5</t></si><si><t>Tobacco</t></si><si><t>التبغ</t></si><si><t>10.6</t></si><si><t>Qat</t></si><si><t>القات</t></si><si><t>10.99</t></si><si><t>Other non-food cash crop</t></si><si><t xml:space="preserve"> المحاصيل النقدية غير الغذائية الأخرى </t></si><si><t>Original</t></si><si><t>Replacement (EN)</t></si><si><t>Replacement (AR)</t></si><si><t>Comment (EN)</t></si><si><t>Comment (AR)</t></si><si><t>Example (EN)</t></si><si><t>Example (AR)</t></si><si><t>FOR CORE QUESTIONS    .
+(Mandatory to fill out)    .</t></si><si><t>ADMIN1</t></si><si><t>Governorate</t></si><si><t xml:space="preserve">محافظة </t></si><si><t>The first subdivision of the country, after national level; region; province; governorate; etc.</t></si><si><t>التقسيم الأول للبلاد ، بعد المستوى الوطني ؛ منطقة؛ محافظة؛ ولاية ؛ إلخ.</t></si><si><t>region</t></si><si><t>منطقة</t></si><si><t>ADMIN2</t></si><si><t>District</t></si><si><t>مديرية</t></si><si><t>The second subdivision of the country; district; municipality; LGA; etc.</t></si><si><t>التقسيم الثاني للبلاد ؛ قضاء؛ بلدية؛ إلخ.</t></si><si><t>district</t></si><si><t>قضاء</t></si><si><t>reference year</t></si><si><t>last year</t></si><si><t>العام الماضي</t></si><si><t xml:space="preserve">Comparison questions will need need a reference year. Select whether you want to use "last year" or "a normal year" as a baseline. A "normal year" should refers to an average year from the past 5 years - make sure to train the enumerators accordingly. </t></si><si><t>سوف تحتاج أسئلة المقارنة إلى سنة مرجعية. حدد ما إذا كنت تريد استخدام "العام الماضي" أو "العام العادي" كخط أساس. يجب أن يشير "العام العادي" إلى متوسط ​​عام من السنوات الخمس الماضية - تأكد من تدريب جامعي البيانات وفقًا لذلك.</t></si><si><t>a normal year</t></si><si><t>العام العادي</t></si><si><t>season</t></si><si><t>Ongoing season</t></si><si><t>الموسم الحالي</t></si><si><t>Name the crop season(s) of interest if there are several cropping seasons in the country (e.g. Meher and Belg in Ethiopia, rainy season / flood-recession cropping / irrigated dry season in the Sahel). You can refer to the “last season” or “ongoing season".</t></si><si><t>قم بتسمية موسم (مواسم) المحاصيل ذات الأهمية إذا كان هناك عدة مواسم محصولية في البلد (على سبيل المثال ، Meher و Belg في إثيوبيا ، موسم الأمطار / محاصيل الركود بسبب الفيضانات / موسم الجفاف المروي في منطقة الساحل). يمكنك الرجوع إلى "الموسم الماضي" أو "الموسم الجاري".</t></si><si><t>wet season</t></si><si><t>موسم الأمطار</t></si><si><t>season phase</t></si><si><t>Growth</t></si><si><t>النمو</t></si><si><t>Indicate the phase of the season at the time of data collection. If the harvest from the season has not yet occurred, the question on crop harvest (crp_harv_change) will include the word “expected” (where #expected or nothing# is located). If the harvest has occured, "expected" will not be inserted in the question.</t></si><si><t>حدد مرحلة الموسم في وقت جمع البيانات. إذا لم يتم الحصاد من الموسم بعد ، فإن السؤال عن حصاد المحاصيل (crp_harv_change) سيتضمن كلمة "متوقع" (حيث يوجد # متوقع أو لا شيء #). إذا تم الحصاد ، لن يتم إدخال "متوقع" في السؤال .</t></si><si><t>Harvesting</t></si><si><t>الحصاد</t></si><si><t>local measurement unit</t></si><si><t>5)Labneh
+6)Qassabh
+7)Hablah
+8)Ma'ad
+9)Salook
+10)Shaklah
+11)Neiha
+12)Matreh
+13)Wadan
+14)Oqum
+15)Asaoo
+16)Shagan
+17)Arfad
+18)Aber
+19)Taleem
+20)Magabi
+21)Hediah
+22)Thera'a
+23)Materah</t></si><si><t>5)لبنة
+6)قصبة
+7) حبل/حبلة
+8) معاد
+9)سلوق
+10) شكلة
+11) نيحة
+12) مطرح
+13)ودن
+14) عقم
+15)اسعاو
+16) شجن
+17)رفد/ارفاد
+18) عبر
+19) تليم
+20)مجابي
+21) حدية
+22) ذراع
+23) مطبرة</t></si><si><t xml:space="preserve">Specify the local measurement unit for land size, other than acres, hectares, square meters and square feet. If no other unit of measurement is needed, keep this cell blank. </t></si><si><t>حدد وحدة القياس المحلية لمساحة الأرض ، بخلاف الفدان والهكتار والمتر المربع والقدم المربع. إذا لم تكن هناك حاجة إلى وحدة قياس أخرى ، احتفظ بهذه الخلية فارغة.</t></si><si><t>Jeribs</t></si><si><t>جريب</t></si><si><t>local measurement unit conversion</t></si><si><t>Include the conversion of the local measurement unit to hectares. In other words, how many local measurement units are in 1 ha. Only digits in Latin numbers should be inputted.</t></si><si><t xml:space="preserve">قم بتضمين تحويل وحدة القياس المحلية إلى هكتار. بمعنى آخر ، إلى كم هو عدد وحدات القياس المحلية في هكتار واحد. يرجى إدخال الأرقام في الأبجدية اللاتينية (...3, 2, 1). </t></si><si><t>FOR OPTIONAL QUESTIONS    .
+(Fill out if applicable)    .</t></si><si><t>currency</t></si><si><t>Rial</t></si><si><t>الريال</t></si><si><t xml:space="preserve">The name of the main currency used nationally; USD; Naira; Rial; Pesos; etc. </t></si><si><t>اسم العملة الرئيسية المستخدمة وطنيا ؛ دولار أمريكي؛ نيرة؛ الريال؛ بيزو؛ إلخ.</t></si><si><t>Naira</t></si><si><t>نيرة</t></si><si><t>MIN AMOUNT</t></si><si><t>Not applicable</t></si><si><t>The minimum amount for an income source should be set at 0 or any value below which it is not possible to do a transaction. For example, the smallest coin/banknote in a currency can be 1000, in which case you would set the minimum at 1000. Provide this input in the same currency as specified above. Only digits in Latin numbers should be inputted.</t></si><si><t xml:space="preserve">يجب تعيين الحد الأدنى لمبلغ مصدر الدخل على 0 أو أي قيمة أقل منها لا يمكن إجراء معاملة. على سبيل المثال ، يمكن أن تكون أصغر عملة / ورقة نقدية في عملة ما هي 1000 ، وفي هذه الحالة يمكنك تعيين الحد الأدنى عند 1000. يجب أن يكون هذا المبلغ بنفس العملة المحددة في الصف أعلاه. يرجى إدخال الأرقام في الأبجدية اللاتينية (...3, 2, 1). </t></si><si><t>MAX AMOUNT</t></si><si><t>Set the maximum amount for an income source over 3 months. Enumerators will not be able to input values above this amount in questions related to income amounts. Using previous representative surveys for this population, you can estimate this amount by using the mean income plus five (5) standard deviations, unless the country has high inflation. In the latter case, set the maximum value based on your country context (higher than the proposed approach). Provide this input in the same currency as specified above. Only digits in Latin numbers should be inputted.</t></si><si><t xml:space="preserve">حدد الحد الأقصى لمبلغ مصدر الدخل على مدى 3 أشهر. لن يتمكن جامعي البيانات من إدخال قيم أعلى من هذا المبلغ في الأسئلة المتعلقة بمبالغ الدخل. باستخدام المسوح التمثيلية السابقة لهذه الفئة من السكان ، يمكنك تقدير هذا المبلغ باستخدام متوسط ​​الدخل بالإضافة إلى خمسة انحرافات معيارية ما لم يكن هناك تضخم مرتفع في الدولة. في الحالة الأخيرة ، قم بتعيين الحد الأقصى للقيمة بناءً على سياق بلدك (أعلى من النهج المقترح). يجب أن يكون هذا المبلغ بنفس العملة المحددة أعلاه.  يرجى إدخال الأرقام في الأبجدية اللاتينية (...3, 2, 1). </t></si><si><t>THRESHOLD</t></si><si><t>The threshold salary should be calculated to flag outliers (responses that look suspiciously high). Using previous representative surveys for this population, a good estimate is the average plus three (3) standard deviations, which should give the threshold for the 3 or 4% highest income values. Provide this input in the same currency as specified above. Only digits in Latin numbers should be inputted.</t></si><si><t xml:space="preserve">يجب حساب قيمة العتبة للراتب لتحديد القيم المتطرفة (الاستجابات التي تبدو مرتفعة بشكل مثير للريبة). باستخدام المسوح التمثيلية السابقة لهذه الفئة من السكان ، فإن التقدير الجيد هو المتوسط ​​زائد ثلاثة انحرافات معيارية ، والذي يجب أن يعطي قيمة العتبة لقيم الدخل الأعلى بنسبة 3 أو 4٪. يجب أن يكون هذا المبلغ بنفس العملة المحددة أعلاه. يرجى إدخال الأرقام في الأبجدية اللاتينية (...3, 2, 1). </t></si><si><t>local vegetables</t></si><si><t>tomatoes, okra, zucchini, cauliflower, cucumber, onions</t></si><si><t>طماطم ، بامية ، كوسة ، قرنييط (زهرة) ، خيار ، بصل</t></si><si><t>Input some common local vegetables [to be used as examples in the food consumption score indicator].</t></si><si><t>أدخل بعض الخضروات المحلية الشائعة [لاستخدامها كأمثلة في مؤشر درجة استهلاك الغذاء].</t></si><si><t>eggplants, zucchini, cauliflower</t></si><si><t>باذنجان ، كوسة ، قرنبيط</t></si><si><t>local fruits</t></si><si><t>apple, orange, banana, grapes, mango, papaya, fig, muskmelon, red watermelon, dates</t></si><si><t>التفاح / البرتقال ، الموز ، العنب ، المانجو ، البابايا ، التين ، الشمام ، البطيخ الاحمر ، البلح</t></si><si><t>Input some common local fruits [to be used as examples in the food consumption score indicator].</t></si><si><t>أدخل بعض الفاكهة المحلية الشائعة [لاستخدامها كأمثلة في مؤشر درجة استهلاك الغذاء].</t></si><si><t>apples, bananas, oranges</t></si><si><t>التفاح والموز والبرتقال</t></si><si><t>FILL OUT FOR QUESTIONNAIRE DURATION ESTIMATION    .</t></si><si><t>Expected percentage of respondents cultivating crops</t></si><si><t>38.7% (Source: YEM10)</t></si><si><t>If the survey is representative and has no quotas, write the proportion of rural households cultivating crops at country level, or if the survey follows a previous round with identical sample design, just report the percentage from the previous round. If you are using quotas, calculate the ratio of the quota over the minimum sample size at the level where the quota is implemented (so if you have a minimum sample size per strata of 110 with a quota of 100 crop producers, then it's 100/110 = 91% (the maximum you should write is 100%).</t></si><si><t xml:space="preserve">إذا كان المسح تمثيليًا وليس له حصص نسبية ، فاكتب نسبة الأسر الريفية التي تزرع محاصيل على المستوى الوطني ، أو إذا كان المسح يتبع جولة سابقة بتصميم عينة متطابق ، فما عليك سوى الإبلاغ عن النسبة المئوية من الجولة السابقة. إذا كنت تستخدم نظام الحصص النسبية ، فاحسب نسبة الحصة إلى الحد الأدنى لحجم العينة على المستوى الذي يتم فيه تنفيذ الحصة (لذلك إذا كان لديك حد أدنى لحجم العينة لكل طبقة 110 مع حصة 100 منتج محصول ، فسيكون 100 / 110 = 91٪ (الحد الأقصى الذي يجب أن تكتبه هو 100٪). </t></si><si><t>Expected percentage of respondents raising livestock</t></si><si><t>44.7% (Source: YEM10)</t></si><si><t>If the survey is representative and has no quotas, write the proportion of rural households raising livestock at country level, or if the survey follows a previous round with identical sample design, just report the percentage from the previous round. If you are using quotas, calculate the ratio of the quota over the minimum sample size at the level where the quota is implemented (so if you have a minimum sample size of 110 but a quota of 100 livestock producers, then it's 100/110 = 91% (the maximum you should write is 100%)</t></si><si><t xml:space="preserve">إذا كان المسح تمثيليًا وليس له حصص نسبية ، فاكتب نسبة الأسر الريفية التي تربي الماشية على المستوى الوطني ، أو إذا كان المسح يتبع جولة سابقة بتصميم عينة متطابق ، فما عليك سوى الإبلاغ عن النسبة المئوية من الجولة السابقة. إذا كنت تستخدم نظام الحصص النسبية ، فاحسب نسبة الحصة إلى الحد الأدنى لحجم العينة على المستوى الذي يتم فيه تنفيذ الحصة (لذلك إذا كان لديك حد أدنى لحجم العينة لكل طبقة 110 مع حصة 100 مربي الماشية ، فسيكون 100 / 110 = 91٪ (الحد الأقصى الذي يجب أن تكتبه هو 100٪). </t></si><si><t>Expected percentage of respondents involved in fishery</t></si><si><t>2% (Source: YEM10)</t></si><si><t>If the survey is representative and has no quotas, write the proportion of rural households involved in fisheries or aquaculture, otherwise if you are using quotas, calculate the ratio of the quota over the sample size at the level where the quota is implemented. (so if you haven't set a quota, and you expect to have a representative proportion of fishermen, just write the percentage of fishermen in the population you are targeting, in the example to the right, 5%)</t></si><si><t xml:space="preserve">إذا كان المسح تمثيليًا وليس له حصص نسبية ، فاكتب نسبة الأسر الريفية العاملة في مصايد الأسماك أو تربية الأحياء المائية على المستوى الوطني. وإلا إذا كنت تستخدم الحصص النسبية ، فاحسب نسبة الحصة إلى حجم العينة على المستوى الذي يتم فيه تنفيذ الحصة. (لذلك إذا لم تحدد حصة ، وكنت تتوقع أن يكون لديك نسبة تمثيلية من الصيادين ، فاكتب فقط النسبة المئوية للصيادين من السكان الذين تستهدفهم ، في المثال على اليمين ، 5٪). </t></si><si><t>adm2_name</t></si><si><t>adm2_name_local</t></si><si><t>adm2_pcode</t></si><si><t>adm1_name</t></si><si><t>adm1_pcode</t></si><si><t>adm0_name</t></si><si><t>adm0_ISO3</t></si><si><t>Al Qafr</t></si><si><t>القفر</t></si><si><t>YE1101</t></si><si><t>Ibb</t></si><si><t>YE11</t></si><si><t>Yemen</t></si><si><t>YEM</t></si><si><t>Yarim</t></si><si><t>يريم</t></si><si><t>YE1102</t></si><si><t>Al Dhihar</t></si><si><t>الظهار</t></si><si><t>YE1119</t></si><si><t>إب</t></si><si><t>YE1120</t></si><si><t>Khur Maksar</t></si><si><t>خور مكسر</t></si><si><t>YE2408</t></si><si><t>Aden</t></si><si><t>YE24</t></si><si><t>Ar Radmah</t></si><si><t>الرضمة</t></si><si><t>YE1103</t></si><si><t>An Nadirah</t></si><si><t>النادرة</t></si><si><t>YE1104</t></si><si><t>Ash Sha'ir</t></si><si><t>الشعر</t></si><si><t>YE1105</t></si><si><t>Sibah</t></si><si><t>سباح</t></si><si><t>YE1205</t></si><si><t>Abyan</t></si><si><t>YE12</t></si><si><t>As Saddah</t></si><si><t>السدة</t></si><si><t>YE1106</t></si><si><t>Al Makhadir</t></si><si><t>المخادر</t></si><si><t>YE1107</t></si><si><t>Hubaysh</t></si><si><t>حبيش</t></si><si><t>YE1108</t></si><si><t>Hazm Al Udayn</t></si><si><t>حزم العدين</t></si><si><t>YE1109</t></si><si><t>Far Al Udayn</t></si><si><t>فرع العدين</t></si><si><t>YE1110</t></si><si><t>Al Udayn</t></si><si><t>العدين</t></si><si><t>YE1111</t></si><si><t>Jiblah</t></si><si><t>جبلة</t></si><si><t>YE1112</t></si><si><t>Ba'dan</t></si><si><t>بعدان</t></si><si><t>YE1113</t></si><si><t>As Sabrah</t></si><si><t>السبرة</t></si><si><t>YE1114</t></si><si><t>Zingibar</t></si><si><t>زنجبار</t></si><si><t>YE1210</t></si><si><t>Khanfir</t></si><si><t>خنفر</t></si><si><t>YE1211</t></si><si><t>As Sayyani</t></si><si><t>السياني</t></si><si><t>YE1115</t></si><si><t>Old City</t></si><si><t>صنعاء القديمة</t></si><si><t>YE1301</t></si><si><t>Sana'a City</t></si><si><t>YE13</t></si><si><t>Dhi As Sufal</t></si><si><t>ذي السفال</t></si><si><t>YE1116</t></si><si><t>Mudhaykhirah</t></si><si><t>مذيخرة</t></si><si><t>YE1117</t></si><si><t>Jihanah</t></si><si><t>جحانة</t></si><si><t>YE2316</t></si><si><t>Sana'a</t></si><si><t>YE23</t></si><si><t>Al Mashannah</t></si><si><t>المشنة</t></si><si><t>YE1118</t></si><si><t>Al Mahfad</t></si><si><t>المحفد</t></si><si><t>YE1201</t></si><si><t>Bidbadah</t></si><si><t>بدبده</t></si><si><t>YE2605</t></si><si><t>Ma'rib</t></si><si><t>YE26</t></si><si><t>Mudiyah</t></si><si><t>موديه</t></si><si><t>YE1202</t></si><si><t>Jayshan</t></si><si><t>جيشان</t></si><si><t>YE1203</t></si><si><t>Hamdan</t></si><si><t>همدان</t></si><si><t>YE2319</t></si><si><t>Lawdar</t></si><si><t>لودر</t></si><si><t>YE1204</t></si><si><t>Rasad</t></si><si><t>رصد</t></si><si><t>YE1206</t></si><si><t>At Taffah</t></si><si><t>الطفة</t></si><si><t>YE1407</t></si><si><t>Al Bayda</t></si><si><t>YE14</t></si><si><t>Sarar</t></si><si><t>سرار</t></si><si><t>YE1207</t></si><si><t>Al Wade'a</t></si><si><t>الوضيع</t></si><si><t>YE1208</t></si><si><t>Ahwar</t></si><si><t>احوار</t></si><si><t>YE1209</t></si><si><t>Shu'aub</t></si><si><t>شعوب</t></si><si><t>YE1302</t></si><si><t>As Sawadiyah</t></si><si><t>السوادية</t></si><si><t>YE1411</t></si><si><t>Az'zal</t></si><si><t>أزال</t></si><si><t>YE1303</t></si><si><t>Az Zahir</t></si><si><t>الزاهر</t></si><si><t>YE1405</t></si><si><t>Assafi'yah</t></si><si><t>الصافية</t></si><si><t>YE1304</t></si><si><t>Dhi Na'im</t></si><si><t>ذي ناعم</t></si><si><t>YE1406</t></si><si><t>Al Wahdah</t></si><si><t>الوحدة</t></si><si><t>YE1306</t></si><si><t>At Tahrir</t></si><si><t>التحرير</t></si><si><t>YE1307</t></si><si><t>Ma'ain</t></si><si><t>معين</t></si><si><t>YE1308</t></si><si><t>Ath'thaorah</t></si><si><t>الثورة</t></si><si><t>YE1309</t></si><si><t>Bani Al Harith</t></si><si><t>بني الحارث</t></si><si><t>YE1310</t></si><si><t>Radman Al Awad</t></si><si><t>ردمان</t></si><si><t>YE1412</t></si><si><t>Sanhan</t></si><si><t>سنحان وبني بهلول</t></si><si><t>YE2305</t></si><si><t>Na'man</t></si><si><t>نعمان</t></si><si><t>YE1401</t></si><si><t>Sabah</t></si><si><t>صباح</t></si><si><t>YE1417</t></si><si><t>Nati'</t></si><si><t>ناطع</t></si><si><t>YE1402</t></si><si><t>Maswarah</t></si><si><t>مسورة</t></si><si><t>YE1403</t></si><si><t>As Sawma'ah</t></si><si><t>الصومعة</t></si><si><t>YE1404</t></si><si><t>Mukayras</t></si><si><t>مكيراس</t></si><si><t>YE1408</t></si><si><t>Al Bayda City</t></si><si><t>مدينة البيضاء</t></si><si><t>YE1409</t></si><si><t>البيضاء</t></si><si><t>YE1410</t></si><si><t>Rada'</t></si><si><t>رداع</t></si><si><t>YE1413</t></si><si><t>Al Quraishyah</t></si><si><t>القريشية</t></si><si><t>YE1414</t></si><si><t>Wald Rabi'</t></si><si><t>ولد ربيع</t></si><si><t>YE1415</t></si><si><t>Al A'rsh</t></si><si><t>العرش</t></si><si><t>YE1416</t></si><si><t>Mawza</t></si><si><t>موزع</t></si><si><t>YE1507</t></si><si><t>Ta'iz</t></si><si><t>YE15</t></si><si><t>Ar Ryashyyah</t></si><si><t>الرياشية</t></si><si><t>YE1418</t></si><si><t>As Silw</t></si><si><t>الصلو</t></si><si><t>YE1513</t></si><si><t>Ash Sharyah</t></si><si><t>الشرية</t></si><si><t>YE1419</t></si><si><t>Al Malagim</t></si><si><t>الملاجم</t></si><si><t>YE1420</t></si><si><t>Mawiyah</t></si><si><t>ماوية</t></si><si><t>YE1501</t></si><si><t>Shara'b As Salam</t></si><si><t>شرعب السلام</t></si><si><t>YE1502</t></si><si><t>Shara'b Ar Rawnah</t></si><si><t>شرعب الرونة</t></si><si><t>YE1503</t></si><si><t>Maqbanah</t></si><si><t>مقبنة</t></si><si><t>YE1504</t></si><si><t>Al  Mukha</t></si><si><t>المخاء</t></si><si><t>YE1505</t></si><si><t>Dhubab</t></si><si><t>ذباب</t></si><si><t>YE1506</t></si><si><t>Jabal Habashy</t></si><si><t>جبل حبشي</t></si><si><t>YE1508</t></si><si><t>Mashra'a Wa Hadnan</t></si><si><t>مشرعة وحدنان</t></si><si><t>YE1509</t></si><si><t>Sabir Al Mawadim</t></si><si><t>صبر الموادم</t></si><si><t>YE1510</t></si><si><t>Al Misrakh</t></si><si><t>المسراخ</t></si><si><t>YE1511</t></si><si><t>Al Humaydat</t></si><si><t>الحميدات</t></si><si><t>YE1602</t></si><si><t>Al Jawf</t></si><si><t>YE16</t></si><si><t>Dimnat Khadir</t></si><si><t>دمنة خدير</t></si><si><t>YE1512</t></si><si><t>Ash Shamayatayn</t></si><si><t>الشمايتين</t></si><si><t>YE1514</t></si><si><t>Al Wazi'iyah</t></si><si><t>الوازعية</t></si><si><t>YE1515</t></si><si><t>Hayfan</t></si><si><t>حيفان</t></si><si><t>YE1516</t></si><si><t>Al Mudhaffar</t></si><si><t>المظفر</t></si><si><t>YE1517</t></si><si><t>Al Qahirah</t></si><si><t>القاهرة</t></si><si><t>YE1518</t></si><si><t>Salh</t></si><si><t>صالة</t></si><si><t>YE1519</t></si><si><t>At Ta'iziyah</t></si><si><t>التعزية</t></si><si><t>YE1520</t></si><si><t>Al Ma'afer</t></si><si><t>المعافر</t></si><si><t>YE1521</t></si><si><t>Merkhah Al Ulya</t></si><si><t>مرخه العليا</t></si><si><t>YE2108</t></si><si><t>Shabwah</t></si><si><t>YE21</t></si><si><t>Al Mawasit</t></si><si><t>المواسط</t></si><si><t>YE1522</t></si><si><t>Sama</t></si><si><t>سامع</t></si><si><t>YE1523</t></si><si><t>Khabb wa ash Sha'af</t></si><si><t>خب و الشعف</t></si><si><t>YE1601</t></si><si><t>Al Matammah</t></si><si><t>المطمه</t></si><si><t>YE1603</t></si><si><t>YE1604</t></si><si><t>Al Hazm</t></si><si><t>الحزم</t></si><si><t>YE1605</t></si><si><t>Al Maton</t></si><si><t>المتون</t></si><si><t>YE1606</t></si><si><t>Al Maslub</t></si><si><t>المصلوب</t></si><si><t>YE1607</t></si><si><t>Al Ghayl</t></si><si><t>الغيل</t></si><si><t>YE1608</t></si><si><t>Al Khalq</t></si><si><t>الخلق</t></si><si><t>YE1609</t></si><si><t>Bart Al Anan</t></si><si><t>برط العنان</t></si><si><t>YE1610</t></si><si><t>Rajuzah</t></si><si><t>رجوزه</t></si><si><t>YE1611</t></si><si><t>Kharab Al Marashi</t></si><si><t>خراب المراشى</t></si><si><t>YE1612</t></si><si><t>Bakil Al Mir</t></si><si><t>بكيل المير</t></si><si><t>YE1701</t></si><si><t>Hajjah</t></si><si><t>YE17</t></si><si><t>Haradh</t></si><si><t>حرض</t></si><si><t>YE1702</t></si><si><t>Midi</t></si><si><t>ميدي</t></si><si><t>YE1703</t></si><si><t>Abs</t></si><si><t>عبس</t></si><si><t>YE1704</t></si><si><t>Hayran</t></si><si><t>حيران</t></si><si><t>YE1705</t></si><si><t>Al Jamimah</t></si><si><t>الجميمة</t></si><si><t>YE1708</t></si><si><t>Mustaba</t></si><si><t>مستباء</t></si><si><t>YE1706</t></si><si><t>Kushar</t></si><si><t>كشر</t></si><si><t>YE1707</t></si><si><t>Kuhlan Ash Sharaf</t></si><si><t>كحلان الشرف</t></si><si><t>YE1709</t></si><si><t>Aflah Ash Shawm</t></si><si><t>افلح الشام</t></si><si><t>YE1710</t></si><si><t>Khayran Al Muharraq</t></si><si><t>خيران المحرق</t></si><si><t>YE1711</t></si><si><t>Aslem</t></si><si><t>اسلم</t></si><si><t>YE1712</t></si><si><t>Al Hajjaylah</t></si><si><t>الحجيلة</t></si><si><t>YE1811</t></si><si><t>Al Hodeidah</t></si><si><t>YE18</t></si><si><t>Qafl Shamer</t></si><si><t>قفل شمر</t></si><si><t>YE1713</t></si><si><t>Al Miftah</t></si><si><t>المفتاح</t></si><si><t>YE1716</t></si><si><t>Aflah Al Yaman</t></si><si><t>افلح اليمن</t></si><si><t>YE1714</t></si><si><t>Ash Shahil</t></si><si><t>الشاهل</t></si><si><t>YE1721</t></si><si><t>Ku'aydinah</t></si><si><t>كعيدنه</t></si><si><t>YE1722</t></si><si><t>Al Mahabishah</t></si><si><t>المحابشة</t></si><si><t>YE1715</t></si><si><t>Wadhrah</t></si><si><t>وضرة</t></si><si><t>YE1723</t></si><si><t>Al Maghrabah</t></si><si><t>المغربة</t></si><si><t>YE1717</t></si><si><t>Kuhlan Affar</t></si><si><t>كحلان عفار</t></si><si><t>YE1718</t></si><si><t>Najrah</t></si><si><t>نجرة</t></si><si><t>YE1726</t></si><si><t>Sharas</t></si><si><t>شرس</t></si><si><t>YE1719</t></si><si><t>Mabyan</t></si><si><t>مبين</t></si><si><t>YE1720</t></si><si><t>Bani Qa'is</t></si><si><t>بني قيس</t></si><si><t>YE1724</t></si><si><t>Ash Shaghadirah</t></si><si><t>الشغادرة</t></si><si><t>YE1725</t></si><si><t>Bani Al Awam</t></si><si><t>بني العوام</t></si><si><t>YE1727</t></si><si><t>Hays</t></si><si><t>حيس</t></si><si><t>YE1819</t></si><si><t>Al Khawkhah</t></si><si><t>الخوخه</t></si><si><t>YE1820</t></si><si><t>Hajjah City</t></si><si><t>مدينة حجة</t></si><si><t>YE1728</t></si><si><t>حجة</t></si><si><t>YE1729</t></si><si><t>Ash Shihr</t></si><si><t>الشحر</t></si><si><t>YE1915</t></si><si><t>Hadramawt</t></si><si><t>YE19</t></si><si><t>Ghayl Bin Yamin</t></si><si><t>غيل بن يمين</t></si><si><t>YE1916</t></si><si><t>Ghayl Ba Wazir</t></si><si><t>غيل باوزير</t></si><si><t>YE1917</t></si><si><t>Washhah</t></si><si><t>وشحة</t></si><si><t>YE1730</t></si><si><t>Az Zuhrah</t></si><si><t>الزهرة</t></si><si><t>YE1801</t></si><si><t>Alluheyah</t></si><si><t>اللحية</t></si><si><t>YE1802</t></si><si><t>Kamaran</t></si><si><t>كمران</t></si><si><t>YE1803</t></si><si><t>As Salif</t></si><si><t>الصليف</t></si><si><t>YE1804</t></si><si><t>Qarah</t></si><si><t>قارة</t></si><si><t>YE1731</t></si><si><t>Al Munirah</t></si><si><t>المنيرة</t></si><si><t>YE1805</t></si><si><t>As Said</t></si><si><t>الصعيد</t></si><si><t>YE2112</t></si><si><t>Al Qanawis</t></si><si><t>القناوص</t></si><si><t>YE1806</t></si><si><t>Al Mighlaf</t></si><si><t>المغلاف</t></si><si><t>YE1808</t></si><si><t>Az Zaydiyah</t></si><si><t>الزيدية</t></si><si><t>YE1807</t></si><si><t>Ad Dahi</t></si><si><t>الضحي</t></si><si><t>YE1809</t></si><si><t>Bajil</t></si><si><t>باجل</t></si><si><t>YE1810</t></si><si><t>Ataq</t></si><si><t>عتق</t></si><si><t>YE2113</t></si><si><t>Bura</t></si><si><t>براع</t></si><si><t>YE1812</t></si><si><t>Habban</t></si><si><t>حبان</t></si><si><t>YE2114</t></si><si><t>Al Marawi'ah</t></si><si><t>المراوعة</t></si><si><t>YE1813</t></si><si><t>Ad Durayhimi</t></si><si><t>الدريهمي</t></si><si><t>YE1814</t></si><si><t>As Sukhnah</t></si><si><t>السخنة</t></si><si><t>YE1815</t></si><si><t>Al Mansuriyah</t></si><si><t>المنصورية</t></si><si><t>YE1816</t></si><si><t>Bayt Al Faqiah</t></si><si><t>بيت الفقيه</t></si><si><t>YE1817</t></si><si><t>Jabal Ra's</t></si><si><t>جبل راس</t></si><si><t>YE1818</t></si><si><t>Qatabir</t></si><si><t>قطابر</t></si><si><t>YE2202</t></si><si><t>Sa'dah</t></si><si><t>YE22</t></si><si><t>Al Hawak</t></si><si><t>الحوك</t></si><si><t>YE1821</t></si><si><t>Al Mina</t></si><si><t>الميناء</t></si><si><t>YE1822</t></si><si><t>Monabbih</t></si><si><t>منبه</t></si><si><t>YE2203</t></si><si><t>Al Hali</t></si><si><t>الحالي</t></si><si><t>YE1823</t></si><si><t>Zabid</t></si><si><t>زبيد</t></si><si><t>YE1824</t></si><si><t>Al Garrahi</t></si><si><t>الجراحي</t></si><si><t>YE1825</t></si><si><t>At Tuhayat</t></si><si><t>التحيتا</t></si><si><t>YE1826</t></si><si><t>Rumah</t></si><si><t>رماه</t></si><si><t>YE1901</t></si><si><t>Thamud</t></si><si><t>ثمود</t></si><si><t>YE1902</t></si><si><t>Al Qaf</t></si><si><t>القف</t></si><si><t>YE1903</t></si><si><t>Zamakh wa Manwakh</t></si><si><t>زموخ ومنوخ</t></si><si><t>YE1904</t></si><si><t>Hagr As Sai'ar</t></si><si><t>حجر الصيعر</t></si><si><t>YE1905</t></si><si><t>Al Abr</t></si><si><t>العبر</t></si><si><t>YE1906</t></si><si><t>Al Qatn</t></si><si><t>YE1907</t></si><si><t>Shibam</t></si><si><t>شبام</t></si><si><t>YE1908</t></si><si><t>Sah</t></si><si><t>ساه</t></si><si><t>YE1909</t></si><si><t>Sayun</t></si><si><t>سيئون</t></si><si><t>YE1910</t></si><si><t>Huraidhah</t></si><si><t>حريضه</t></si><si><t>YE1928</t></si><si><t>Tarim</t></si><si><t>تريم</t></si><si><t>YE1911</t></si><si><t>As Sawm</t></si><si><t>السوم</t></si><si><t>YE1912</t></si><si><t>Ar Raydah Wa Qusayar</t></si><si><t>الريده وقصيعر</t></si><si><t>YE1913</t></si><si><t>Ad Dis</t></si><si><t>الديس</t></si><si><t>YE1914</t></si><si><t>Daw'an</t></si><si><t>دوعن</t></si><si><t>YE1918</t></si><si><t>Wadi Al Ayn</t></si><si><t>وادي العين وحوره</t></si><si><t>YE1919</t></si><si><t>Rakhyah</t></si><si><t>رخيه</t></si><si><t>YE1920</t></si><si><t>Amd</t></si><si><t>عمد</t></si><si><t>YE1921</t></si><si><t>Adh Dhlia'ah</t></si><si><t>الضليعه</t></si><si><t>YE1922</t></si><si><t>Yabuth</t></si><si><t>يبعث</t></si><si><t>YE1923</t></si><si><t>Ghamr</t></si><si><t>غمر</t></si><si><t>YE2204</t></si><si><t>Hajr</t></si><si><t>حجر</t></si><si><t>YE1924</t></si><si><t>Brom Mayfa</t></si><si><t>بروم ميفع</t></si><si><t>YE1925</t></si><si><t>Al Mukalla</t></si><si><t>المكلا</t></si><si><t>YE1926</t></si><si><t>Al Mukalla City</t></si><si><t>مدينة المكلا</t></si><si><t>YE1927</t></si><si><t>Al Hada</t></si><si><t>الحداء</t></si><si><t>YE2001</t></si><si><t>Dhamar</t></si><si><t>YE20</t></si><si><t>Mayfa'at Anss</t></si><si><t>ميفعة عنس</t></si><si><t>YE2009</t></si><si><t>Jahran</t></si><si><t>جهران</t></si><si><t>YE2002</t></si><si><t>Arma</t></si><si><t>عرماء</t></si><si><t>YE2104</t></si><si><t>Jabal Ash sharq</t></si><si><t>جبل الشرق</t></si><si><t>YE2003</t></si><si><t>Usaylan</t></si><si><t>عسيلان</t></si><si><t>YE2105</t></si><si><t>Maghirib Ans</t></si><si><t>مغرب عنس</t></si><si><t>YE2004</t></si><si><t>Utmah</t></si><si><t>عتمة</t></si><si><t>YE2005</t></si><si><t>Wusab Al Ali</t></si><si><t>وصاب العالي</t></si><si><t>YE2006</t></si><si><t>Wusab As Safil</t></si><si><t>وصاب السافل</t></si><si><t>YE2007</t></si><si><t>Dhamar City</t></si><si><t>مدينة ذمار</t></si><si><t>YE2008</t></si><si><t>Anss</t></si><si><t>عنس</t></si><si><t>YE2010</t></si><si><t>Dawran Aness</t></si><si><t>ضوران اًنس</t></si><si><t>YE2011</t></si><si><t>Al Manar</t></si><si><t>المنار</t></si><si><t>YE2012</t></si><si><t>Dhar</t></si><si><t>دهر</t></si><si><t>YE2101</t></si><si><t>Al Talh</t></si><si><t>الطلح</t></si><si><t>YE2102</t></si><si><t>Jardan</t></si><si><t>جردان</t></si><si><t>YE2103</t></si><si><t>Ain</t></si><si><t>عين</t></si><si><t>YE2106</t></si><si><t>Bayhan</t></si><si><t>بيحان</t></si><si><t>YE2107</t></si><si><t>Merkhah As Sufla</t></si><si><t>مرخه السفلى</t></si><si><t>YE2109</t></si><si><t>Nisab</t></si><si><t>نصاب</t></si><si><t>YE2110</t></si><si><t>Razih</t></si><si><t>رازح</t></si><si><t>YE2205</t></si><si><t>Hatib</t></si><si><t>حطيب</t></si><si><t>YE2111</t></si><si><t>Shada'a</t></si><si><t>شداء</t></si><si><t>YE2206</t></si><si><t>Ar Rawdah</t></si><si><t>الروضه</t></si><si><t>YE2115</t></si><si><t>Al Dhaher</t></si><si><t>الظاهر</t></si><si><t>YE2207</t></si><si><t>Mayfa'a</t></si><si><t>ميفعه</t></si><si><t>YE2116</t></si><si><t>Rudum</t></si><si><t>رضوم</t></si><si><t>YE2117</t></si><si><t>Baqim</t></si><si><t>باقم</t></si><si><t>YE2201</t></si><si><t>Arhab</t></si><si><t>ارحب</t></si><si><t>YE2302</t></si><si><t>Haydan</t></si><si><t>حيدان</t></si><si><t>YE2208</t></si><si><t>Nihm</t></si><si><t>نهم</t></si><si><t>YE2303</t></si><si><t>Bani Hushaysh</t></si><si><t>بني حشيش</t></si><si><t>YE2304</t></si><si><t>Saqayn</t></si><si><t>ساقين</t></si><si><t>YE2209</t></si><si><t>Bani Matar</t></si><si><t>بني مطر</t></si><si><t>YE2307</t></si><si><t>Raghwan</t></si><si><t>رغوان</t></si><si><t>YE2602</t></si><si><t>Majz</t></si><si><t>مجز</t></si><si><t>YE2210</t></si><si><t>Sahar</t></si><si><t>سحار</t></si><si><t>YE2211</t></si><si><t>As Safra</t></si><si><t>الصفراء</t></si><si><t>YE2212</t></si><si><t>Al Hashwah</t></si><si><t>الحشوه</t></si><si><t>YE2213</t></si><si><t>Kitaf wa Al Boqe'e</t></si><si><t>كتاف والبقع</t></si><si><t>YE2214</t></si><si><t>Sa'adah</t></si><si><t>صعدة</t></si><si><t>YE2215</t></si><si><t>Bilad Ar Rus</t></si><si><t>بلاد الروس</t></si><si><t>YE2306</t></si><si><t>Al Haymah Ad Dakhiliyah</t></si><si><t>الحيمة الداخلية</t></si><si><t>YE2308</t></si><si><t>Al Haymah Al Kharijiyah</t></si><si><t>الحيمة الخارجية</t></si><si><t>YE2309</t></si><si><t>Manakhah</t></si><si><t>مناخه</t></si><si><t>YE2310</t></si><si><t>Sa'fan</t></si><si><t>صعفان</t></si><si><t>YE2311</t></si><si><t>Khwlan</t></si><si><t>خولان</t></si><si><t>YE2312</t></si><si><t>Attyal</t></si><si><t>الطيال</t></si><si><t>YE2313</t></si><si><t>Bani Dhabyan</t></si><si><t>بني ضبيان</t></si><si><t>YE2314</t></si><si><t>Al Husn</t></si><si><t>الحصن</t></si><si><t>YE2315</t></si><si><t>Dar Sad</t></si><si><t>دار سعد</t></si><si><t>YE2401</t></si><si><t>Milhan</t></si><si><t>ملحان</t></si><si><t>YE2705</t></si><si><t>Al Mahwit</t></si><si><t>YE27</t></si><si><t>Ash Shaikh Outhman</t></si><si><t>الشيخ عثمان</t></si><si><t>YE2402</t></si><si><t>Yafa'a</t></si><si><t>يافع</t></si><si><t>YE2502</t></si><si><t>Lahj</t></si><si><t>YE25</t></si><si><t>Al Mualla</t></si><si><t>المعلا</t></si><si><t>YE2406</t></si><si><t>Al Mansura</t></si><si><t>المنصورة</t></si><si><t>YE2403</t></si><si><t>Al Buraiqeh</t></si><si><t>البريقه</t></si><si><t>YE2404</t></si><si><t>Attawahi</t></si><si><t>التواهي</t></si><si><t>YE2405</t></si><si><t>Craiter</t></si><si><t>كريتر</t></si><si><t>YE2407</t></si><si><t>Al Had</t></si><si><t>الحد</t></si><si><t>YE2501</t></si><si><t>Al Maflahy</t></si><si><t>المفلحي</t></si><si><t>YE2503</t></si><si><t>Yahr</t></si><si><t>يهر</t></si><si><t>YE2504</t></si><si><t>Al Milah</t></si><si><t>الملاح</t></si><si><t>YE2508</t></si><si><t>Tur Al Bahah</t></si><si><t>طور الباحة</t></si><si><t>YE2511</t></si><si><t>Habil Jabr</t></si><si><t>حبيل جبر</t></si><si><t>YE2505</t></si><si><t>Halimayn</t></si><si><t>حالمين</t></si><si><t>YE2506</t></si><si><t>Radfan</t></si><si><t>ردفان</t></si><si><t>YE2507</t></si><si><t>Hufash</t></si><si><t>حفاش</t></si><si><t>YE2706</t></si><si><t>Bani Sa'd</t></si><si><t>بني سعد</t></si><si><t>YE2707</t></si><si><t>Al Musaymir</t></si><si><t>المسيمير</t></si><si><t>YE2509</t></si><si><t>Al Mahwait City</t></si><si><t>مدينة المحويت</t></si><si><t>YE2708</t></si><si><t>Al Qabbaytah</t></si><si><t>القبيطه</t></si><si><t>YE2510</t></si><si><t>Tuban</t></si><si><t>تبن</t></si><si><t>YE2515</t></si><si><t>Majzar</t></si><si><t>مجزر</t></si><si><t>YE2601</t></si><si><t>Al Maqatirah</t></si><si><t>المقاطرة</t></si><si><t>YE2512</t></si><si><t>Al Madaribah Wa Al Arah</t></si><si><t>المضاربة و العاره</t></si><si><t>YE2513</t></si><si><t>Al  Hawtah</t></si><si><t>الحوطة</t></si><si><t>YE2514</t></si><si><t>Medghal</t></si><si><t>مدغل</t></si><si><t>YE2603</t></si><si><t>Harib Al Qaramish</t></si><si><t>حريب القرامش</t></si><si><t>YE2604</t></si><si><t>Sirwah</t></si><si><t>صرواح</t></si><si><t>YE2606</t></si><si><t>Al Jubah</t></si><si><t>الجوبة</t></si><si><t>YE2607</t></si><si><t>Rahabah</t></si><si><t>رحبه</t></si><si><t>YE2608</t></si><si><t>Jabal Iyal Yazid</t></si><si><t>جبل عيال يزيد</t></si><si><t>YE2912</t></si><si><t>Amran</t></si><si><t>YE29</t></si><si><t>Harib</t></si><si><t>حريب</t></si><si><t>YE2609</t></si><si><t>Mahliyah</t></si><si><t>ماهليه</t></si><si><t>YE2610</t></si><si><t>Al Abdiyah</t></si><si><t>العبدية</t></si><si><t>YE2611</t></si><si><t>Marib City</t></si><si><t>مدينة مأرب</t></si><si><t>YE2612</t></si><si><t>Hat</t></si><si><t>حات</t></si><si><t>YE2802</t></si><si><t>Al Maharah</t></si><si><t>YE28</t></si><si><t>Marib</t></si><si><t>مأرب</t></si><si><t>YE2613</t></si><si><t>Hawf</t></si><si><t>حوف</t></si><si><t>YE2803</t></si><si><t>Al Ghaydah</t></si><si><t>الغيظه</t></si><si><t>YE2804</t></si><si><t>Jabal Murad</t></si><si><t>جبل مراد</t></si><si><t>YE2614</t></si><si><t>Man'ar</t></si><si><t>منعر</t></si><si><t>YE2805</t></si><si><t>Al Masilah</t></si><si><t>المسيلة</t></si><si><t>YE2806</t></si><si><t>Shibam Kawkaban</t></si><si><t>شبام كوكبان</t></si><si><t>YE2701</t></si><si><t>Harf Sufyan</t></si><si><t>حرف سفيان</t></si><si><t>YE2901</t></si><si><t>At Tawilah</t></si><si><t>الطويلة</t></si><si><t>YE2702</t></si><si><t>Ar Rujum</t></si><si><t>الرجم</t></si><si><t>YE2703</t></si><si><t>Al Khabt</t></si><si><t>الخبت</t></si><si><t>YE2704</t></si><si><t>Huth</t></si><si><t>حوث</t></si><si><t>YE2902</t></si><si><t>Al Ashah</t></si><si><t>العشـــــه</t></si><si><t>YE2903</t></si><si><t>Al Qaflah</t></si><si><t>القفلة</t></si><si><t>YE2904</t></si><si><t>Al Mahwait</t></si><si><t>المحويت</t></si><si><t>YE2709</t></si><si><t>Shahan</t></si><si><t>شحن</t></si><si><t>YE2801</t></si><si><t>Shaharah</t></si><si><t>شهاره</t></si><si><t>YE2905</t></si><si><t>Sayhut</t></si><si><t>سيحوت</t></si><si><t>YE2807</t></si><si><t>Qishn</t></si><si><t>قشن</t></si><si><t>YE2808</t></si><si><t>Huswain</t></si><si><t>حصوين</t></si><si><t>YE2809</t></si><si><t>Al Madan</t></si><si><t>المــدان</t></si><si><t>YE2906</t></si><si><t>Kharif</t></si><si><t>خارف</t></si><si><t>YE2910</t></si><si><t>Suwayr</t></si><si><t>صـويــــر</t></si><si><t>YE2907</t></si><si><t>Habur Zulaymah</t></si><si><t>حبور ظليمة</t></si><si><t>YE2908</t></si><si><t>Dhi Bin</t></si><si><t>ذيبين</t></si><si><t>YE2909</t></si><si><t>Raydah</t></si><si><t>ريده</t></si><si><t>YE2911</t></si><si><t>As Sudah</t></si><si><t>السوده</t></si><si><t>YE2913</t></si><si><t>عمران</t></si><si><t>YE2915</t></si><si><t>As Sawd</t></si><si><t>السود</t></si><si><t>YE2914</t></si><si><t>Maswar</t></si><si><t>مسور</t></si><si><t>YE2916</t></si><si><t>Bani Suraim</t></si><si><t>بني صريم</t></si><si><t>YE2920</t></si><si><t>Juban</t></si><si><t>جبن</t></si><si><t>YE3001</t></si><si><t>Ad Dali'</t></si><si><t>YE30</t></si><si><t>Damt</t></si><si><t>دمت</t></si><si><t>YE3002</t></si><si><t>Qa'atabah</t></si><si><t>قعطبة</t></si><si><t>YE3003</t></si><si><t>Ash Shu'ayb</t></si><si><t>الشعيب</t></si><si><t>YE3004</t></si><si><t>Thula</t></si><si><t>ثلاء</t></si><si><t>YE2917</t></si><si><t>Iyal Surayh</t></si><si><t>عيال سريح</t></si><si><t>YE2918</t></si><si><t>Khamir</t></si><si><t>خمر</t></si><si><t>YE2919</t></si><si><t>Al Hussein</t></si><si><t>الحصين</t></si><si><t>YE3005</t></si><si><t>Ad Dhale'e</t></si><si><t>الضالع</t></si><si><t>YE3006</t></si><si><t>Jahaf</t></si><si><t>جحاف</t></si><si><t>YE3007</t></si><si><t>Al Azariq</t></si><si><t>الازارق</t></si><si><t>YE3008</t></si><si><t>Al Husha</t></si><si><t>الحشاء</t></si><si><t>YE3009</t></si><si><t>Bilad At Ta'am</t></si><si><t>بلاد الطعام</t></si><si><t>YE3101</t></si><si><t>Raymah</t></si><si><t>YE31</t></si><si><t>As Salafiyah</t></si><si><t>السلفية</t></si><si><t>YE3102</t></si><si><t>Al Jabin</t></si><si><t>الجبين</t></si><si><t>YE3103</t></si><si><t>Mazhar</t></si><si><t>مزهر</t></si><si><t>YE3104</t></si><si><t>Kusmah</t></si><si><t>كسمه</t></si><si><t>YE3105</t></si><si><t>Al Jafariyah</t></si><si><t>الجعفرية</t></si><si><t>YE3106</t></si><si><t>Hidaybu</t></si><si><t>حديبو</t></si><si><t>YE3201</t></si><si><t>Socotra</t></si><si><t>YE32</t></si><si><t>Qulensya Wa Abd Al Kuri</t></si><si><t>قلنسيه وعبدالكوري</t></si><si><t>YE3202</t></si><si><t>As Sabain</t></si><si><t>السبعين</t></si><si><t>YE1305</t></si><si><t>How often did this happen?
+
+[OPERATOR: SINGLE RESPONSE]
+
+1)Rarely [1-2 times in the past 30 days]
+2)Sometimes [3-10 times in the past 30 days]
+3)Often [more than 10 times in the last 30 days]
+4)DON'T KNOW
+5)ACCEPTED</t></si><si><t xml:space="preserve">fish_inputdif_
+
+1) fish_inputdif_bait_feed
+2)fish_inputdif_fingerling
+3) fish_inputdif_gear
+4) fish_inputdif_ice
+5) fish_inputdif_fuel
+6) fish_inputdif_repairs
+7) fish_inputdif_labour
+</t></si><si><t>list</t></si></sst>

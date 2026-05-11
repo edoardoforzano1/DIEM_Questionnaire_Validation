@@ -38,13 +38,55 @@ After that, with `diem-validation` active, you can run `documentation` from any 
 
 ## 3. Configure and Run Validation
 
-Edit `configuration/validation_config.yaml` to set the tool, language, reference mode, and file paths, then from the repository root:
+Edit `configuration/validation_config.yaml`, then from the repository root:
 
 ```powershell
 validate
 ```
 
-Output reports land in `batch_output/<run_name>/`.
+### Key settings to change each run
+
+| Setting | What it controls | Notes |
+|---|---|---|
+| `tool` | Which validator to run | `kobo` or `geopoll` |
+| `language` | Language code for label comparison | `en`, `fr`, `ar`, `es` |
+| `iso3` | Country code | Three-letter ISO code (e.g. `YEM`, `AFG`) |
+| `reference_mode` | Which baseline to compare against | `latest_template` or `previous_round` |
+| `working_dir` | Folder where your input questionnaire file lives | Set to the folder on your machine that contains the questionnaire |
+| `questionnaire_file` | Filename of the questionnaire to validate | Filename only — the file must be inside `working_dir` |
+| `previous_round_file` | Filename of the previous-round baseline | Only used when `reference_mode: previous_round` |
+
+### Path settings that are specific to each user
+
+These two paths differ for every user and must be set once on first setup:
+
+`templates_dir` — the folder containing all official template Excel files. This is a shared drive or local mirror of the templates repository. Set it to wherever those files are on your machine:
+
+```yaml
+templates_dir: "C:/Users/yourname/path/to/Questionnaire Templates"
+```
+
+`output_dir` — where reports are written. Each tool writes to its own subfolder:
+
+```yaml
+output_dir: "C:/Temp/questionnaire_validation"
+# reports land in:
+#   output_dir/geopoll_output/   (GeoPoll)
+#   output_dir/kobo_output/      (KoBo)
+```
+
+You can set this to any folder that exists on your machine.
+
+### Where to put the input file
+
+Place the questionnaire file you want to validate inside the folder set as `working_dir`, then set `questionnaire_file` to its filename:
+
+```yaml
+working_dir: "C:/Temp"
+questionnaire_file: "my_questionnaire_en_AFG_20260101.xlsx"
+```
+
+The validator reads the file from `working_dir/questionnaire_file`. If the file is not found at that path, the run will stop with an error.
 
 ## Environment Contents
 
