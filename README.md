@@ -51,16 +51,10 @@ documentation
 ## Run Validation
 
 1. Edit `configuration/validation_config.yaml`.
-2. Run:
+2. From the repository root:
 
 ```powershell
-python validate.py
-```
-
-or
-
-```powershell
-.\validate.bat
+validate
 ```
 
 ## Essential Workflow

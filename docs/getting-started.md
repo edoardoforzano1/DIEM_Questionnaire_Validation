@@ -38,16 +38,10 @@ After that, with `diem-validation` active, you can run `documentation` from any 
 
 ## 3. Configure and Run Validation
 
-Edit `configuration/validation_config.yaml` to set the tool, language, reference mode, and file paths, then run:
+Edit `configuration/validation_config.yaml` to set the tool, language, reference mode, and file paths, then from the repository root:
 
 ```powershell
-python validate.py
-```
-
-or:
-
-```powershell
-.\validate.bat
+validate
 ```
 
 Output reports land in `batch_output/<run_name>/`.

@@ -4,14 +4,14 @@ Internal documentation for the GeoPoll and KoBo questionnaire validation workflo
 
 ## What this system does
 
-Validates a questionnaire file against a reference (official template or previous round) and produces a structured Excel report. Every detected difference is classified by issue type and severity — HIGH blocks deployment, MEDIUM needs review, INFO is tracked for traceability.
+Validates a questionnaire file against a reference (official template or previous round) and produces a structured Excel report. Every detected difference is classified by issue type and severity — HIGH blocks round launch, MEDIUM needs review, INFO is tracked for traceability.
 
 ## How to get started
 
 1. Read `README.md` for environment setup and the launcher commands.
 2. Edit `configuration/validation_config.yaml` to point to your questionnaire file.
-3. Run `python validate.py` (or `.\validate.bat`).
-4. Open the report in `output_dir/geopoll_output/` or `output_dir/kobo_output/`.
+3. Run `validate` from the repository root.
+4. Open the report in `batch_output/<run_name>/`.
 
 For documentation: run `.\documentation` from the repo root to open this site at `http://127.0.0.1:8000/`.
 

@@ -4730,6 +4730,8 @@ def _extract_round_token(name: str) -> str:
     patterns = [
         r"(?i)(?:^|[_\-\s])R(\d{1,3})(?=$|[_\-\s\.])",
         r"(?i)(?:^|[_\-\s])ROUND[_\-\s]*(\d{1,3})(?=$|[_\-\s\.])",
+        # Fallback for suffix forms like "...copyr10.xlsx"
+        r"(?i)R(?:OUND)?[_\-\s]*([0-9]{1,3})(?=(?:\.[A-Za-z0-9]+)?$)",
     ]
     for pat in patterns:
         m = re.search(pat, txt)

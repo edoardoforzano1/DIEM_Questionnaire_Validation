@@ -21,5 +21,5 @@ This section provides technical documentation for script-level functions, includ
 To regenerate validator function pages after code changes:
 
 ```powershell
-conda run -n base python scripts/regenerate_function_docs.py
+conda run -n diem-validation python scripts/regenerate_function_docs.py
 ```

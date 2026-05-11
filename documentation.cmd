@@ -5,8 +5,8 @@ cd /d "%~dp0"
 where mkdocs >nul 2>nul
 if errorlevel 1 (
   echo [ERROR] mkdocs is not installed in the active environment.
-  echo         Install docs dependencies first:
-  echo         conda install -c conda-forge mkdocs mkdocs-material -y
+  echo         Set up the environment first:
+  echo         conda env create -f environment.yml ^&^& conda activate diem-validation
   exit /b 1
 )
 

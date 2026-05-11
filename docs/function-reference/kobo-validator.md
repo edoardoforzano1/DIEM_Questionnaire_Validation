@@ -6,7 +6,7 @@ This page covers the functions that matter for understanding, tracing, and modif
 
 To regenerate the full auto-documented spec after code changes:
 ```powershell
-conda run -n base python scripts/regenerate_function_docs.py
+conda run -n diem-validation python scripts/regenerate_function_docs.py
 ```
 
 ---
