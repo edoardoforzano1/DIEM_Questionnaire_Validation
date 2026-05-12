@@ -32,6 +32,39 @@ The run context block at the top of the sheet records which questionnaire and re
 
 Checks whether all required questions defined in `critical_sets.yaml` are present and have the correct mandatory behavior. A structurally incomplete questionnaire can pass all other checks and still produce broken indicators.
 
+### How rules are defined
+
+`critical_sets.yaml` defines three distinct rule types. `exact_sets` lists named questions individually — each can be marked required (`required: true`) or advisory (`required: false`). A required question that is absent or incorrectly flagged as mandatory triggers a HIGH; an advisory one triggers MEDIUM. `min_count_sets` works on prefixes rather than individual names: it requires a minimum number of questions matching a given prefix to be present, and reports against the `count` field when the threshold is not met. `crop_harvest` checks form composition — the questionnaire must contain either the minimal or the full crop/harvest question set; partial inclusion is a structural violation.
+
+```mermaid
+flowchart LR
+    Y(["critical_sets.yaml"]) --> E["exact_sets"]
+    Y --> M["min_count_sets"]
+    Y --> C["crop_harvest"]
+
+    E -- "required: true · absent" --> I1["missing_critical_question — HIGH"]
+    E -- "required: true · wrong mandatory" --> I2["critical_mandatory_mismatch — HIGH"]
+    E -- "required: false · absent" --> I3["advisory_question — MEDIUM"]
+
+    M -- "below threshold" --> I4["missing_critical_question — HIGH\n(field = count)"]
+
+    C -- "partial composition" --> I5["crop_harvest_violation — HIGH"]
+
+    style Y  fill:#009edb,stroke:#007eaf,color:#fff
+    style E  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
+    style M  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
+    style C  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
+    style I1 fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style I2 fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style I4 fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style I5 fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style I3 fill:#fff0de,stroke:#e08c00,color:#5a3200
+```
+
+**min_count_sets thresholds:** `hh_wealth_*` (or `o_hh_wealth_*`) ≥ 1 · `cs_stress_*` ≥ 4 · `cs_crisis_*` ≥ 3 · `cs_emergency_*` ≥ 3
+
+**crop_harvest sets:** Minimal = `crp_harv_change` only · Full = `crp_harv_change` + `crp_harv_vol` + `crp_harv_unit` + `crp_harv_unit_kg` + `crp_harv_lastyr`
+
 ### Issue types
 
 <div class="issue-block">
@@ -62,11 +95,11 @@ Checks whether all required questions defined in `critical_sets.yaml` are presen
   <div class="issue-card issue-card-medium">
     <span class="issue-card-name"><code>advisory_question</code></span>
     <span class="sev sev-medium">MEDIUM</span>
-    <span class="issue-card-body">A non-required advisory question (<code>required: false</code>) is absent. Not a blocker.</span>
+    <span class="issue-card-body">A question listed in <code>critical_sets.yaml</code> with <code>required: false</code> is absent. These questions are not mandatory for the round to proceed, but they are tracked because they contribute to indicator coverage or data quality. The validator flags them so the omission is a conscious decision, not an oversight.</span>
   </div>
   <div class="issue-action">
     <span class="issue-action-label">What to do</span>
-    Check whether omitting this question affects indicator coverage for this round. No action required if the omission is intentional and documented.
+    Check whether omitting this question affects indicator coverage or comparability for this round. If the omission is intentional, note it in the round documentation and move on — no fix required to proceed.
   </div>
 </div>
 
@@ -88,7 +121,51 @@ Checks whether all required questions defined in `critical_sets.yaml` are presen
 
 Validates skip routing logic, option-code references, and duplicate Q Names.
 
-### Skip pattern column priority
+### How checks are structured
+
+The sheet organizes its output into three independent check blocks. Skip routing is checked first because broken references can cascade silently across multiple questions in the field. Q type and duplicate checks are independent of routing and run in parallel.
+
+```mermaid
+flowchart TD
+    S(["Questionnaire Structure Sheet"])
+    S --> SP & QT & DQ
+
+    SP["Block 1 · Skip Pattern checks"]
+    QT["Block 2 · Q type integrity"]
+    DQ["Block 3 · Duplicate Q Names"]
+
+    style S  fill:#009edb,stroke:#007eaf,color:#fff
+    style SP fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
+    style QT fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
+    style DQ fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
+```
+
+### Block 1 · Skip Pattern checks
+
+GeoPoll uses a three-column priority system to determine the effective skip rule per question: `Specify skip pattern variable` overrides everything when filled, then `Skip Pattern`, then `Default skip patterns & conditional` as a fallback. The validator resolves this priority for both the current and reference questionnaire before comparing. Issues arise when the resolved rule targets a Q Name that doesn't exist, uses an incorrect category, or has drifted from the baseline without an obvious reason.
+
+```mermaid
+flowchart LR
+    SP["Block 1 · Skip Pattern checks"]
+    SP --> A["skip_pattern_empty — HIGH"]
+    SP --> B["skipPattern_invalid_qname — HIGH"]
+    SP --> C["skipPattern_invalid_qnameCategory — HIGH"]
+    SP --> D["skipPattern_range_invalid — HIGH"]
+    SP --> E["skipPattern_range_mismatch — INFO"]
+    SP --> F["default_skip_modified — INFO"]
+    SP --> G["skipPattern_changes — INFO"]
+
+    style SP fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
+    style A  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style B  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style C  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style D  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style E  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
+    style F  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
+    style G  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
+```
+
+#### Skip pattern column priority
 
 The validator resolves an **effective skip rule** per question using this column priority:
 
@@ -186,7 +263,22 @@ Both the current questionnaire and the reference use the same priority to determ
   </div>
 </div>
 
-### Q Type Integrity Issues
+### Block 2 · Q type integrity
+
+Question types are normalized before comparison to absorb cosmetic differences between rounds. The validator then classifies each transition: a change within compatible variants (e.g. minor formatting differences) is MEDIUM; an incompatible transition that alters how the platform collects or stores the answer (e.g. single-select to open text) is HIGH and must be resolved before launch.
+
+```mermaid
+flowchart LR
+    QT["Block 2 · Q type integrity"]
+    QT --> H["qtype_changed — HIGH"]
+    QT --> I["qtype_changed — MEDIUM"]
+
+    style QT fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
+    style H  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style I  fill:#fff0de,stroke:#e08c00,color:#5a3200
+```
+
+#### Issue types
 
 <div class="issue-block">
   <div class="issue-block-label"><code>qtype_changed</code> <span class="issue-dynamic-note">- severity is dynamic</span></div>
@@ -204,7 +296,20 @@ Both the current questionnaire and the reference use the same priority to determ
   </div>
 </div>
 
-### Duplicate Q Name Issues
+### Block 3 · Duplicate Q Names
+
+Q Names must be unique across the entire questionnaire because they serve as identifiers in skip routing expressions and in data joins across rounds. Two questions sharing the same name make routing ambiguous and produce duplicate columns in the export — both must be resolved before any deployment.
+
+```mermaid
+flowchart LR
+    DQ["Block 3 · Duplicate Q Names"]
+    DQ --> J["duplicate_qname — HIGH"]
+
+    style DQ fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
+    style J  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+```
+
+#### Issue types
 
 <div class="issue-block">
   <div class="issue-card issue-card-high">
@@ -223,6 +328,29 @@ Both the current questionnaire and the reference use the same priority to determ
 ## 4 - Replacement Issues Sheet
 
 Validates placeholder token coverage. Unresolved placeholders appear as literal `$...$` tokens to the enumerator and invalidate downstream label interpretation.
+
+### How checks are structured
+
+The replacement check runs in two stages. First it loads replacement keys from the Additional Information sheet — if this step fails, `replacement_additional_info_missing` is the root cause and all other replacement issues in this run may be side effects of it. Second, every `$token$` placeholder in the questionnaire text is matched against the loaded keys. Crop placeholder resolution is treated as structurally critical (HIGH) because crop rows are generated from the crop list and a failed substitution affects multiple questions simultaneously. Non-crop tokens that survive to the output file are MEDIUM.
+
+```mermaid
+flowchart LR
+    R(["Replacement Issues Sheet"])
+    R --> A["replacement_additional_info_missing — HIGH"]
+    R --> B["replacement_missing_key — HIGH"]
+    R --> C["replacement_unresolved_placeholder — HIGH / MEDIUM"]
+    R --> D["replacement_crop_selection_mismatch — MEDIUM"]
+    R --> E["replacement_malformed_placeholder — MEDIUM"]
+    R --> F["replacement_crop_round_delta — INFO"]
+
+    style R fill:#009edb,stroke:#007eaf,color:#fff
+    style A fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style B fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style C fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style D fill:#fff0de,stroke:#e08c00,color:#5a3200
+    style E fill:#fff0de,stroke:#e08c00,color:#5a3200
+    style F fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
+```
 
 ### Issue types
 
@@ -312,6 +440,27 @@ Compares the current questionnaire against the reference question by question. T
 
 *Report block: "QUESTION CHANGES (CORE) — Presence, mandatory, Q type, labels"*
 
+Presence and mandatory status comparisons run across all questions in the reference. A missing mandatory question is flagged HIGH immediately, before any field-level checks. `mandatory_source_missing` is a data quality gate — if the Mandatory column is largely blank in either file, all mandatory-based results below it should be treated with caution. Label comparisons use inline word-diff highlighting in the report: changed words appear underlined or colored in the Current value and Reference columns.
+
+```mermaid
+flowchart LR
+    QC(["Question Changes — Core"])
+    QC --> A["mandatory_source_missing — HIGH"]
+    QC --> B["removed_question — HIGH / INFO"]
+    QC --> C["added_question — INFO"]
+    QC --> D["mandatory_to_optional — HIGH"]
+    QC --> E["mandatory_column_mismatch — HIGH"]
+    QC --> F["question_label_mismatch — MEDIUM"]
+
+    style QC fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
+    style A  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style B  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style C  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
+    style D  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style E  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style F  fill:#fff0de,stroke:#e08c00,color:#5a3200
+```
+
 <div class="issue-block">
   <div class="issue-card issue-card-high">
     <span class="issue-card-name"><code>mandatory_source_missing</code></span>
@@ -392,6 +541,23 @@ Compares the current questionnaire against the reference question by question. T
 
 *Report block: "QUESTION CHANGES (OPERATIONAL FIELDS)"*
 
+Operational field changes are tracked for traceability only — all rows in this block are INFO. These columns (Randomize, Conditional, Programming Instructions, Core questions only) control execution behavior rather than question content, so drift here does not affect data comparability but may affect how the survey runs or how indicator outputs are scoped.
+
+```mermaid
+flowchart LR
+    QO(["Question Changes — Operational"])
+    QO --> A["randomize_changed — INFO"]
+    QO --> B["conditional_changed — INFO"]
+    QO --> C["programming_instructions_changed — INFO"]
+    QO --> D["core_questions_only_changed — INFO"]
+
+    style QO fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
+    style A  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
+    style B  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
+    style C  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
+    style D  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
+```
+
 <div class="issue-block">
   <div class="issue-card issue-card-info">
     <span class="issue-card-name"><code>randomize_changed</code></span>
@@ -449,12 +615,44 @@ Compares answer sets at the option level. Answer-set drift changes respondent me
 !!! warning "Read Question Changes and Option Changes together"
     If a question is removed, its options typically won't appear as standalone option removals.
 
-### Issue types
+### How checks are structured
+
+For each shared question, the validator compares option lists using both position number and label text. When a Codes column is present, code values are compared in parallel and get their own issue types (`codes_col_*`). Removed options carry the highest data risk — respondents can no longer select a previously available answer, and any skip patterns that referenced the removed code need to be updated. Label changes are tracked independently of identity: an option can keep the same code while its displayed text changes.
+
+```mermaid
+flowchart TD
+    O(["Option Changes Sheet"])
+    O --> OL["Option label checks"]
+    O --> CC["Codes column checks"]
+
+    style O  fill:#009edb,stroke:#007eaf,color:#fff
+    style OL fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
+    style CC fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
+```
+
+### Option label checks
+
+```mermaid
+flowchart LR
+    OL["Option label checks"]
+    OL --> A["removed_option — HIGH"]
+    OL --> B["added_option — MEDIUM"]
+    OL --> C["option_label_mismatch — MEDIUM"]
+    OL --> D["option_position_renumbered_same_label — HIGH"]
+
+    style OL fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
+    style A  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style B  fill:#fff0de,stroke:#e08c00,color:#5a3200
+    style C  fill:#fff0de,stroke:#e08c00,color:#5a3200
+    style D  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+```
+
+#### Issue types
 
 <div class="issue-block">
-  <div class="issue-card issue-card-medium">
+  <div class="issue-card issue-card-high">
     <span class="issue-card-name"><code>removed_option</code></span>
-    <span class="sev sev-medium">MEDIUM</span>
+    <span class="sev sev-high">HIGH</span>
     <span class="issue-card-body">A baseline option no longer exists in the current questionnaire.</span>
   </div>
   <div class="issue-action">
@@ -488,16 +686,35 @@ Compares answer sets at the option level. Answer-set drift changes respondent me
 </div>
 
 <div class="issue-block">
-  <div class="issue-card issue-card-info">
+  <div class="issue-card issue-card-high">
     <span class="issue-card-name"><code>option_position_renumbered_same_label</code></span>
-    <span class="sev sev-info">INFO</span>
-    <span class="issue-card-body">Option ordering changed with no label-text change. Labels are stable.</span>
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">Option ordering changed — the label is the same but the position number changed. Skip patterns referencing this option's code number are now misaligned.</span>
   </div>
   <div class="issue-action">
     <span class="issue-action-label">What to do</span>
     Labels are the same — this is a reordering only. Verify that any skip patterns referencing this option's code still use the correct updated code number after the reordering.
   </div>
 </div>
+
+### Codes column checks
+
+```mermaid
+flowchart LR
+    CC["Codes column checks"]
+    CC --> E["codes_col_removed — HIGH"]
+    CC --> F["codes_col_added — MEDIUM"]
+    CC --> G["codes_col_token_mismatch — HIGH"]
+    CC --> H["codes_col_renumbered_same_token — HIGH"]
+
+    style CC fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
+    style E  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style F  fill:#fff0de,stroke:#e08c00,color:#5a3200
+    style G  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style H  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+```
+
+#### Issue types
 
 <div class="issue-block">
   <div class="issue-card issue-card-high">
@@ -524,9 +741,9 @@ Compares answer sets at the option level. Answer-set drift changes respondent me
 </div>
 
 <div class="issue-block">
-  <div class="issue-card issue-card-medium">
+  <div class="issue-card issue-card-high">
     <span class="issue-card-name"><code>codes_col_token_mismatch</code></span>
-    <span class="sev sev-medium">MEDIUM</span>
+    <span class="sev sev-high">HIGH</span>
     <span class="issue-card-body">Code tokens differ for the same matched option - the option now maps to a different code.</span>
   </div>
   <div class="issue-action">
@@ -536,10 +753,10 @@ Compares answer sets at the option level. Answer-set drift changes respondent me
 </div>
 
 <div class="issue-block">
-  <div class="issue-card issue-card-info">
+  <div class="issue-card issue-card-high">
     <span class="issue-card-name"><code>codes_col_renumbered_same_token</code></span>
-    <span class="sev sev-info">INFO</span>
-    <span class="issue-card-body">Numeric code positions changed while token semantics stayed stable.</span>
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">Numeric code positions changed while token semantics stayed stable. Skip patterns that use the old code number to route conditional logic will now point to the wrong option.</span>
   </div>
   <div class="issue-action">
     <span class="issue-action-label">What to do</span>

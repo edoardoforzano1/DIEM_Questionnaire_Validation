@@ -89,7 +89,7 @@ A quick lookup: which sheet each issue family appears in and which tool produces
 | **Question Changes** | `mandatory_source_missing`  -  `removed_question`  -  `added_question`  -  `mandatory_to_optional`  -  `mandatory_column_mismatch`  -  `question_label_mismatch`  -  `randomize_changed`  -  `conditional_changed`  -  `programming_instructions_changed`  -  `core_questions_only_changed` | GeoPoll |
 | **Question Changes** | `removed_question`  -  `added_question`  -  `mandatory_to_optional`  -  `mandatory_column_mismatch`  -  `label_mismatch`  -  `required_modified`  -  `choice_filter_modified`  -  `appearance_modified`  -  `calculation_modified`  -  `constraint_modified`  -  `hint_changed`  -  `choices_list_changed` | KoBo |
 | **Option / Choice Changes** | `removed_option`  -  `added_option`  -  `option_label_mismatch`  -  `option_position_renumbered_same_label`  -  `codes_col_removed`  -  `codes_col_added`  -  `codes_col_token_mismatch`  -  `codes_col_renumbered_same_token` | GeoPoll |
-| **Choice Changes** | `removed_choice`  -  `added_choice`  -  `choice_label_mismatch` | KoBo |
+| **Choice Changes** | `removed_choice`  -  `added_choice`  -  `choice_label_mismatch`  -  `choice_name_renumbered_same_label` | KoBo |
 
 ---
 

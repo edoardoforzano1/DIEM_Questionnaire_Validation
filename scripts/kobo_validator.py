@@ -1513,6 +1513,90 @@ def compare_option_presence_single(current_opts, reference_opts, lang_scope="EN"
     )
     return added, removed
 
+
+def compare_option_name_renumber_single(current_opts, reference_opts, lang_scope="EN"):
+    """
+    Detect choice-name renumbering for the same normalized label within the same question.
+
+    Example:
+      reference: name=4, label="REFUSED"
+      current  : name=3, label="REFUSED"
+
+    We only emit when label->name mapping is 1:1 on both sides to avoid
+    ambiguous many-to-many matches.
+    """
+    cur = current_opts.with_columns([
+        pl.col("Q Name").cast(pl.Utf8).str.strip_chars().str.to_lowercase().alias("_qk"),
+        normalize_text_expr("option_label").alias("_lk"),
+        _canonical_option_key_expr("option_name").alias("_ok"),
+    ]).filter(
+        pl.col("_qk").is_not_null() & (pl.col("_qk") != "") &
+        pl.col("_lk").is_not_null() & (pl.col("_lk") != "") &
+        pl.col("_ok").is_not_null() & (pl.col("_ok") != "")
+    )
+    ref = reference_opts.with_columns([
+        pl.col("Q Name").cast(pl.Utf8).str.strip_chars().str.to_lowercase().alias("_qk"),
+        normalize_text_expr("option_label").alias("_lk"),
+        _canonical_option_key_expr("option_name").alias("_ok"),
+    ]).filter(
+        pl.col("_qk").is_not_null() & (pl.col("_qk") != "") &
+        pl.col("_lk").is_not_null() & (pl.col("_lk") != "") &
+        pl.col("_ok").is_not_null() & (pl.col("_ok") != "")
+    )
+
+    cur_map = (
+        cur
+        .group_by(["_qk", "_lk"])
+        .agg([
+            pl.col("Q Name").first().alias("Q Name"),
+            pl.col("list_name").first().alias("list_name"),
+            pl.col("_ok").n_unique().alias("cur_n_names"),
+            pl.col("_ok").first().alias("new_option_name_key"),
+            pl.col("option_name").first().alias("new_option_name"),
+            pl.col("option_label").first().alias("option_label"),
+        ])
+    )
+    ref_map = (
+        ref
+        .group_by(["_qk", "_lk"])
+        .agg([
+            pl.col("_ok").n_unique().alias("ref_n_names"),
+            pl.col("_ok").first().alias("old_option_name_key"),
+            pl.col("option_name").first().alias("old_option_name"),
+            pl.col("option_label").first().alias("option_label_ref"),
+        ])
+    )
+
+    return (
+        cur_map
+        .join(ref_map, on=["_qk", "_lk"], how="inner")
+        .filter(
+            (pl.col("cur_n_names") == 1)
+            & (pl.col("ref_n_names") == 1)
+            & (pl.col("new_option_name_key") != pl.col("old_option_name_key"))
+        )
+        .with_columns([
+            pl.lit("choice_name_renumbered_same_label").alias("issue_type"),
+            pl.concat_str([
+                pl.lit("name_"),
+                pl.col("old_option_name").cast(pl.Utf8),
+                pl.lit("_to_"),
+                pl.col("new_option_name").cast(pl.Utf8),
+            ]).alias("field"),
+            pl.col("new_option_name").cast(pl.Utf8).alias("option_name"),
+            pl.lit("high").alias("severity"),
+            pl.lit(None).cast(pl.Int64).alias("excel_row"),
+            pl.lit(lang_scope).alias("lang_scope"),
+        ])
+        .select([
+            "issue_type", "Q Name", "list_name", "option_name", "field",
+            "new_option_name", "old_option_name",
+            "option_label", "option_label_ref",
+            "severity", "excel_row", "lang_scope",
+        ])
+    )
+
+
 def compare_hint_changes(current: pl.DataFrame, reference: pl.DataFrame) -> pl.DataFrame:
     """Flag questions where the hint text differs from the template (medium severity)."""
     EMPTY = {
@@ -2151,10 +2235,25 @@ def make_option_presence_issues(added_opts, removed_opts):
     return pl.concat([added_i, removed_i], how="vertical")
 
 
+def make_option_name_renumber_issues(renumbered_opts):
+    return (
+        renumbered_opts
+        .with_columns([
+            pl.lit("").alias("set_name"),
+            pl.col("new_option_name").cast(pl.Utf8).alias("current"),
+            pl.col("old_option_name").cast(pl.Utf8).alias("reference"),
+            pl.lit("high").alias("severity"),
+            pl.lit(None).cast(pl.Int64).alias("excel_row"),
+        ])
+        .select(["issue_type", "set_name", "Q Name", "list_name", "option_name", "field", "current", "reference", "severity", "excel_row"])
+    )
+
+
 def collapse_cluster_ea_option_changes(
     option_label_issues: pl.DataFrame,
     option_presence_issues: pl.DataFrame,
-) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    option_renumber_issues: pl.DataFrame,
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     """
     Suppress noisy per-option diffs for KoBo cluster/ea lists and replace them
     with a single informational summary row.
@@ -2173,13 +2272,15 @@ def collapse_cluster_ea_option_changes(
     modified_n = option_label_issues.filter(ea_cluster_mask).height if option_label_issues.height else 0
     added_n = option_presence_issues.filter(ea_cluster_mask & (pl.col("issue_type") == "added_choice")).height if option_presence_issues.height else 0
     removed_n = option_presence_issues.filter(ea_cluster_mask & (pl.col("issue_type") == "removed_choice")).height if option_presence_issues.height else 0
+    renamed_n = option_renumber_issues.filter(ea_cluster_mask).height if option_renumber_issues.height else 0
 
     option_label_clean = option_label_issues.filter(~ea_cluster_mask) if option_label_issues.height else option_label_issues
     option_presence_clean = option_presence_issues.filter(~ea_cluster_mask) if option_presence_issues.height else option_presence_issues
+    option_renumber_clean = option_renumber_issues.filter(~ea_cluster_mask) if option_renumber_issues.height else option_renumber_issues
 
-    total = modified_n + added_n + removed_n
+    total = modified_n + added_n + removed_n + renamed_n
     if total == 0:
-        return option_label_clean, option_presence_clean, pl.DataFrame(schema=issue_schema)
+        return option_label_clean, option_presence_clean, option_renumber_clean, pl.DataFrame(schema=issue_schema)
 
     summary_row = pl.DataFrame([{
         "issue_type": "cluster_ea_choice_changes_summary",
@@ -2188,13 +2289,13 @@ def collapse_cluster_ea_option_changes(
         "list_name": "ea",
         "option_name": "",
         "field": "choices",
-        "current": f"added={added_n}; removed={removed_n}; modified={modified_n}",
+        "current": f"added={added_n}; removed={removed_n}; modified={modified_n}; renamed={renamed_n}",
         "reference": "Detailed cluster/ea per-option differences suppressed (expected round-to-round rotation)",
         "severity": "info",
         "excel_row": None,
     }], schema=issue_schema)
 
-    return option_label_clean, option_presence_clean, summary_row
+    return option_label_clean, option_presence_clean, option_renumber_clean, summary_row
 
 
 
@@ -2266,7 +2367,12 @@ ref_opts_cmp = (
 
 option_diff              = compare_option_labels_single(cur_opts_cmp, ref_opts_cmp)
 added_opts, removed_opts = compare_option_presence_single(cur_opts_cmp, ref_opts_cmp)
-print(f"Option label changes: {option_diff.height}  added: {added_opts.height}  removed: {removed_opts.height}")
+renumbered_opts          = compare_option_name_renumber_single(cur_opts_cmp, ref_opts_cmp)
+print(
+    f"Option label changes: {option_diff.height}  "
+    f"added: {added_opts.height}  removed: {removed_opts.height}  "
+    f"renumbered: {renumbered_opts.height}"
+)
 
 relevant_issues = validate_relevant(current_cmp_q, reference_cmp_q)
 print(f"Relevant issues: {relevant_issues.height}")
@@ -2290,12 +2396,14 @@ presence_issues     = make_presence_issues(added, removed, reference_survey)
 mandatory_issues    = make_mandatory_issues(mandatory_diff)
 option_label_issues = make_option_issues(option_diff)
 option_pres_issues  = make_option_presence_issues(added_opts, removed_opts)
+option_renumber_issues = make_option_name_renumber_issues(renumbered_opts)
 
 # Exclude option issues for questions not present in both files
 _excluded = set(added["Q Name"].to_list()) | set(removed["Q Name"].to_list())
 if _excluded:
     option_label_issues = option_label_issues.filter(~pl.col("Q Name").is_in(list(_excluded)))
     option_pres_issues  = option_pres_issues.filter(~pl.col("Q Name").is_in(list(_excluded)))
+    option_renumber_issues = option_renumber_issues.filter(~pl.col("Q Name").is_in(list(_excluded)))
 
 # Config-driven exclusions for operational fields (case/space-insensitive)
 _cfg_excluded = {
@@ -2307,10 +2415,11 @@ if _cfg_excluded:
     _q_norm = pl.col("Q Name").cast(pl.Utf8).str.strip_chars().str.to_lowercase()
     option_label_issues = option_label_issues.filter(~_q_norm.is_in(list(_cfg_excluded)))
     option_pres_issues  = option_pres_issues.filter(~_q_norm.is_in(list(_cfg_excluded)))
+    option_renumber_issues = option_renumber_issues.filter(~_q_norm.is_in(list(_cfg_excluded)))
 
 # Suppress noisy country-rotation diffs for cluster/ea and keep one info summary row.
-option_label_issues, option_pres_issues, cluster_ea_summary_issues = (
-    collapse_cluster_ea_option_changes(option_label_issues, option_pres_issues)
+option_label_issues, option_pres_issues, option_renumber_issues, cluster_ea_summary_issues = (
+    collapse_cluster_ea_option_changes(option_label_issues, option_pres_issues, option_renumber_issues)
 )
 if cluster_ea_summary_issues.height > 0:
     print(
@@ -2340,6 +2449,7 @@ all_issues = pl.concat(
      _with_choice_cols(hint_issues),
      _with_choice_cols(option_label_issues),
      _with_choice_cols(option_pres_issues),
+     _with_choice_cols(option_renumber_issues),
      _with_choice_cols(cluster_ea_summary_issues),
      _with_choice_cols(critical_issues),
      _with_choice_cols(count_issues),
@@ -2356,7 +2466,7 @@ if run.get("reference_mode") == "previous_round":
     _rp_types_q = [
         "label_mismatch", "constraint_modified", "hint_changed", "choices_list_changed",
     ]
-    _rp_types_opt = ["choice_label_mismatch", "added_choice", "removed_choice"]
+    _rp_types_opt = ["choice_label_mismatch", "added_choice", "removed_choice", "choice_name_renumbered_same_label"]
     _rp_qnames = sorted(set(_round_param_qnames) | set(_round_param_option_qnames))
     if _rp_qnames:
         _rp_mask_q = (
@@ -2532,6 +2642,7 @@ _ISSUE_LABELS = {
     "removed_choice"           : "Choice removed",
     "added_choice"             : "Choice added",
     "choice_label_mismatch"    : "Choice label changed",
+    "choice_name_renumbered_same_label": "Choice name renumbered (same label)",
     "cluster_ea_choice_changes_summary": "Cluster/EA choice changes summary",
     "placeholder_not_found"    : "Placeholder not in template/additional info",
     "placeholder_should_use_kobo_ref": "Placeholder looks like variable (use ${var})",
@@ -2585,6 +2696,7 @@ ISSUE_ACTION_MAP = {
     "removed_choice": "Review removed choice and downstream logic",
     "added_choice": "Review added choice and downstream logic",
     "choice_label_mismatch": "Review choice label mismatch",
+    "choice_name_renumbered_same_label": "Review renamed/renumbered choice name and coding continuity",
     "cluster_ea_choice_changes_summary": "Informational only: review aggregate cluster/ea choice turnover counts",
     "broken_relevant_reference": "Fix relevant expression to valid referenced variables",
     "relevant_inexact_reference": "Review relevant expression equivalence with reference",
@@ -3016,7 +3128,7 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
     _sect(ws, r, "CHOICE CHANGES  (questions present in both files)", 4); r += 1
     r = _grouped_table(ws, r,
                        all_issues.filter(pl.col("issue_type").is_in(
-                           ["removed_choice", "added_choice", "choice_label_mismatch", "cluster_ea_choice_changes_summary"])))
+                           ["removed_choice", "added_choice", "choice_label_mismatch", "choice_name_renumbered_same_label", "cluster_ea_choice_changes_summary"])))
 
 
 def write_critical_sets_sheet(wb, all_issues, found_info=None):
@@ -3141,12 +3253,12 @@ def write_option_changes_sheet(wb, all_issues):
     ws = wb.create_sheet("Choice Changes")
     ws.sheet_view.showGridLines = False
     df = all_issues.filter(pl.col("issue_type").is_in([
-        "removed_choice", "added_choice", "choice_label_mismatch", "cluster_ea_choice_changes_summary",
+        "removed_choice", "added_choice", "choice_label_mismatch", "choice_name_renumbered_same_label", "cluster_ea_choice_changes_summary",
     ]))
     col_map = [c for c in COL_MAP if c[0] != "set_name"]
     _sect(ws, 1, "CHOICE CHANGES  Answer choices for questions in both files", 8)
     _table(ws, 2, df, col_map=col_map)
-    _apply_inline_diff_for_issue(ws, 2, df, [(s, d) for s, d in col_map if s in df.columns], {"choice_label_mismatch"})
+    _apply_inline_diff_for_issue(ws, 2, df, [(s, d) for s, d in col_map if s in df.columns], {"choice_label_mismatch", "choice_name_renumbered_same_label"})
     _autofit(ws)
 
 

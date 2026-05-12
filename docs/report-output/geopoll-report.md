@@ -103,7 +103,7 @@ Checks whether all structurally required questions are present and correctly fla
 
 - Each row is one missing or misconfigured question, or a failed count check.
 - `Field = count` rows indicate a minimum-count threshold failure for a prefix group.
-- For `advisory_question` rows (MEDIUM): the question is recommended but not required.
+- For `advisory_question` rows (MEDIUM): the question is listed in `critical_sets.yaml` as advisory (`required: false`) — it contributes to indicator coverage but its absence is not a blocker. Review whether the omission is intentional.
 - `below_minimum_count` rows for a set are suppressed when that set already has `missing_critical_question` rows to avoid double-reporting.
 
 **Key columns:** Set, Q Name, Field, Reference / rule, Severity.

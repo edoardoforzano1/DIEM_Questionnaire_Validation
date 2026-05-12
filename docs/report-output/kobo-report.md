@@ -52,43 +52,33 @@ The Summary sheet is the entry point. It contains status tables, each covering a
 
 ### CRITICAL SETS STATUS
 
-<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-sum-critical-sets.png</code></div>
-
-![KoBo Summary - Critical Sets](../assets/images/reports/kobo-sum-critical-sets.png){: .sheet-placeholder }
+![KoBo Summary - Critical Sets](../assets/images/reports/kobo-sum-critical-sets.png)
 
 Shows whether all required critical questions are present and correctly flagged as mandatory. Any non-PASS opens the Critical Sets sheet.
 
 ### QUESTIONNAIRE STRUCTURE CHECKS
 
-<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-sum-structure.png</code></div>
-
-![KoBo Summary - Questionnaire Structure](../assets/images/reports/kobo-sum-structure.png){: .sheet-placeholder }
+![KoBo Summary - Questionnaire Structure](../assets/images/reports/kobo-sum-structure.png)
 
 Two rows: one for skip logic references (relevant), one for Q type integrity, duplicates, and KoBo `${var}` syntax. Any HIGH here must be resolved before launch.
 
 ### REPLACEMENT STATUS
 
-<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-sum-replacement.png</code></div>
-
-![KoBo Summary - Replacement Status](../assets/images/reports/kobo-sum-replacement.png){: .sheet-placeholder }
+![KoBo Summary - Replacement Status](../assets/images/reports/kobo-sum-replacement.png)
 
 Summarizes placeholder resolution. In the previous-round workflow, an `INFO` row here tracks Additional Information replacement deltas — not a blocker if the replacement content is correct.
 
 ### QUESTION CHANGES
 
-<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-sum-question-changes.png</code></div>
-
-![KoBo Summary - Question Changes](../assets/images/reports/kobo-sum-question-changes.png){: .sheet-placeholder }
+![KoBo Summary - Question Changes](../assets/images/reports/kobo-sum-question-changes.png)
 
 Covers presence changes (added/removed questions), mandatory status, label drift, and field-level metadata (required, constraint, calculation, etc.). HIGH here means a mandatory question is missing or has a structural change.
 
 ### CHOICE CHANGES
 
-<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-sum-choice-changes.png</code></div>
+![KoBo Summary - Choice Changes](../assets/images/reports/kobo-sum-choice-changes.png)
 
-![KoBo Summary - Choice Changes](../assets/images/reports/kobo-sum-choice-changes.png){: .sheet-placeholder }
-
-Shows answer-set drift counts. All choice change rows are MEDIUM severity — review for data comparability impact.
+Shows answer-set drift counts. Choice change severities can be HIGH, MEDIUM, or INFO depending on the issue type.
 
 ---
 
@@ -102,7 +92,7 @@ Checks whether all structurally required questions are present and correctly fla
 
 - Each row is one missing or misconfigured question, or a failed count check.
 - `Field = count` rows indicate a minimum-count threshold failure for a prefix group.
-- For `advisory_question` rows (MEDIUM): the question is recommended but not required.
+- For `advisory_question` rows (MEDIUM): the question is listed in `critical_sets.yaml` as advisory (`required: false`) — it contributes to indicator coverage but its absence is not a blocker. Review whether the omission is intentional.
 - For WEALTH checks: `o_hh_wealth_*` is accepted as an alternative to `hh_wealth_*`.
 
 **Key columns:** Set, Q Name, Field, Reference / rule, Severity.
@@ -117,9 +107,7 @@ Three sub-blocks: skip logic references (`relevant`), Q type integrity, and dupl
 
 ### Skip logic references (relevant)
 
-<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-structure-relevant.png</code></div>
-
-![KoBo Structure - Relevant](../assets/images/reports/kobo-structure-relevant.png){: .sheet-placeholder }
+![KoBo Structure - Relevant](../assets/images/reports/kobo-structure-relevant.png)
 
 Validates the `relevant` column for broken references, inexact matches, and drift from baseline.
 
@@ -129,17 +117,13 @@ Validates the `relevant` column for broken references, inexact matches, and drif
 
 ### Q TYPE INTEGRITY ISSUES
 
-<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-structure-qtype.png</code></div>
-
-![KoBo Structure - Q type](../assets/images/reports/kobo-structure-qtype.png){: .sheet-placeholder }
+![KoBo Structure - Q type](../assets/images/reports/kobo-structure-qtype.png)
 
 - `type_changed` HIGH: incompatible type transition — restore or confirm with the survey team before launch. MEDIUM: type changed within compatible variants.
 
 ### QUESTIONNAIRE STRUCTURE CHECKS - Duplicates and KoBo references
 
-<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-structure-duplicates.png</code></div>
-
-![KoBo Structure - Duplicates and KoBo references](../assets/images/reports/kobo-structure-duplicates.png){: .sheet-placeholder }
+![KoBo Structure - Duplicates and KoBo references](../assets/images/reports/kobo-structure-duplicates.png)
 
 - `duplicate_qname` HIGH: two questions share the same name — rename one before launch.
 - `duplicate_choice_name` HIGH: two choices in the same list share the same name — rename one.
@@ -158,18 +142,14 @@ Checks placeholder consistency between the template, the current questionnaire, 
 
 ### REPLACEMENT ISSUES - Placeholder and Additional information checks
 
-<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-replacement-placeholder-checks.png</code></div>
-
-![KoBo Replacement - Placeholder checks](../assets/images/reports/kobo-replacement-placeholder-checks.png){: .sheet-placeholder }
+![KoBo Replacement - Placeholder checks](../assets/images/reports/kobo-replacement-placeholder-checks.png)
 
 - `placeholder_not_found` HIGH: a token in survey text has no mapping in the Additional Information sheet. Add the missing entry or correct the token spelling.
 - `placeholder_should_use_kobo_ref` HIGH: a token matches a survey variable and should be written as `${variable}` instead. Replace the plain text reference.
 
 ### ADDITIONAL INFORMATION REPLACEMENT CHANGES (previous_round informational)
 
-<div class="img-note"><strong>Screenshot to add:</strong> <code>docs/assets/images/reports/kobo-replacement-ai-changes.png</code></div>
-
-![KoBo Replacement - AI changes](../assets/images/reports/kobo-replacement-ai-changes.png){: .sheet-placeholder }
+![KoBo Replacement - AI changes](../assets/images/reports/kobo-replacement-ai-changes.png)
 
 - `additional_information_replacement_change (...)` INFO: difference is replacement-driven — tracked here to avoid confusion in Question and Choice Changes. Review that the replacement content is correct for this round; no action needed otherwise.
 
@@ -198,7 +178,7 @@ Compares the current XLSForm against the reference question by question — pres
 
 ## 6 - Choice Changes Sheet
 
-Compares option additions, removals, and label drift for shared questions.
+Compares option additions, removals, label drift, and same-label choice-name renumbering for shared questions.
 
 ![KoBo Choice Changes](../assets/images/reports/kobo-choice-changes.png)
 
@@ -208,6 +188,7 @@ Compares option additions, removals, and label drift for shared questions.
 - `removed_choice` MEDIUM: a baseline option was removed — respondents can no longer select it. Check historical data coding impact.
 - `added_choice` MEDIUM: a new option exists only in the current form — verify coding scheme compatibility.
 - `choice_label_mismatch` MEDIUM: option label text changed while the option identity still matches. Check for meaning drift.
+- `choice_name_renumbered_same_label` HIGH: choice label stayed equivalent but its `name` value changed (for example `4` to `3`). Treat as coding-change risk.
 
 **Key columns:** Issue type, Q Name, Field (option name), Current value, Reference / rule, Severity.
 
