@@ -88,6 +88,7 @@ _STEP_TOTAL = 13
 # ======================================================================
 # --- CODE CELL 1 ---
 import re
+import unicodedata
 import polars as pl
 import openpyxl
 from pathlib import Path
@@ -334,6 +335,44 @@ def _find_label_col(headers: list, language: str) -> str | None:
     return next((h for h in headers if h.startswith("label::")), None)
 
 
+_INVISIBLE_TOKEN_CHARS = {
+    ord("\u200b"): None,  # zero-width space
+    ord("\u200c"): None,  # zero-width non-joiner
+    ord("\u200d"): None,  # zero-width joiner
+    ord("\u2060"): None,  # word joiner
+    ord("\ufeff"): None,  # BOM
+}
+
+
+def _normalize_list_token(value) -> str:
+    """
+    Canonical list token used to link survey select_one/select_multiple to choices.
+    Handles hidden unicode/spacing variants that are visually identical in Excel.
+    """
+    txt = unicodedata.normalize("NFKC", str(value or ""))
+    txt = txt.translate(_INVISIBLE_TOKEN_CHARS).replace("\u00a0", " ")
+    txt = re.sub(r"\s+", " ", txt).strip().lower()
+    return txt
+
+
+def _canonical_option_name_token(value) -> str:
+    """
+    Canonical choice name token:
+    - unicode-normalized
+    - hidden chars removed
+    - trimmed
+    - integer-like decimals normalized (1.0 -> 1)
+    """
+    txt = unicodedata.normalize("NFKC", str(value or ""))
+    txt = txt.translate(_INVISIBLE_TOKEN_CHARS).replace("\u00a0", " ").strip()
+    txt = re.sub(r"^([+-]?\d+)\.0+$", r"\1", txt)
+    return txt
+
+
+def _normalized_list_expr(col_name: str) -> pl.Expr:
+    return pl.col(col_name).map_elements(_normalize_list_token, return_dtype=pl.Utf8)
+
+
 def _normalize_mandatory(val) -> str:
     v = str(val or "").strip().lower()
     if v in ("yes", "true", "mandatory"):
@@ -456,14 +495,61 @@ def read_kobo_choices(path: str, language: str = "en", _wb=None) -> pl.DataFrame
 
 
 def build_question_options(survey_df: pl.DataFrame, choices_df: pl.DataFrame) -> pl.DataFrame:
-    return (
+    schema = {
+        "Q Name": pl.Utf8,
+        "Q Type": pl.Utf8,
+        "list_name": pl.Utf8,
+        "option_name": pl.Utf8,
+        "option_label": pl.Utf8,
+        "source_file": pl.Utf8,
+    }
+    if (
+        survey_df is None
+        or survey_df.height == 0
+        or choices_df is None
+        or choices_df.height == 0
+    ):
+        return pl.DataFrame(schema=schema)
+
+    survey_rows = (
         survey_df
         .filter(pl.col("Q Type").is_in(list(_SELECT_TYPES)))
         .filter(pl.col("list_name").is_not_null() & (pl.col("list_name") != ""))
         .select(["Q Name", "Q Type", "list_name", "source_file"])
-        .join(choices_df, on="list_name", how="left")
-        .select(["Q Name", "Q Type", "list_name", "option_name", "option_label", "source_file"])
+        .to_dicts()
     )
+    if not survey_rows:
+        return pl.DataFrame(schema=schema)
+
+    # Dictionary model (GeoPoll-style): canonical list token -> choices rows.
+    choices_by_list: dict[str, list[tuple[str, str]]] = {}
+    for row in choices_df.select(["list_name", "option_name", "option_label"]).iter_rows(named=True):
+        list_key = _normalize_list_token(row.get("list_name"))
+        option_name_raw = str(row.get("option_name") or "").strip()
+        if not list_key or _canonical_option_name_token(option_name_raw) == "":
+            continue
+        choices_by_list.setdefault(list_key, []).append((
+            option_name_raw,
+            str(row.get("option_label") or "").strip(),
+        ))
+
+    records = []
+    for qrow in survey_rows:
+        list_name_raw = str(qrow.get("list_name") or "")
+        list_key = _normalize_list_token(list_name_raw)
+        if not list_key:
+            continue
+        for option_name, option_label in choices_by_list.get(list_key, []):
+            records.append({
+                "Q Name": str(qrow.get("Q Name") or ""),
+                "Q Type": str(qrow.get("Q Type") or ""),
+                "list_name": list_name_raw,
+                "option_name": option_name,
+                "option_label": option_label,
+                "source_file": str(qrow.get("source_file") or ""),
+            })
+
+    return pl.DataFrame(records, schema=schema) if records else pl.DataFrame(schema=schema)
 
 
 
@@ -802,7 +888,11 @@ current_options_vanilla_cmp = current_options_vanilla
 
 _round_param_qnames = set()
 _round_param_option_qnames = set()
-_round_param_country_lists = set(cfg.get("kobo_options", {}).get("country_specific_list_names", []))
+_round_param_country_lists = {
+    _normalize_list_token(v)
+    for v in cfg.get("kobo_options", {}).get("country_specific_list_names", [])
+    if _normalize_list_token(v)
+}
 
 # Placeholder-affected question names from template map.
 for _c in _VANILLA_COLS_SURVEY:
@@ -847,7 +937,8 @@ if run.get("reference_mode") == "previous_round":
     if _round_param_country_lists:
         _country_qs = set(
             current_survey_cmp
-            .filter(pl.col("list_name").is_in(list(_round_param_country_lists)))["Q Name"]
+            .with_columns(_normalized_list_expr("list_name").alias("_list_norm"))
+            .filter(pl.col("_list_norm").is_in(list(_round_param_country_lists)))["Q Name"]
             .to_list()
         )
         _round_param_option_qnames |= _country_qs
@@ -953,7 +1044,11 @@ def compare_list_name_changes(current, reference):
     ref = reference.filter(pl.col("list_name").is_not_null()).select(["Q Name", "list_name"])
     result = (
         cur.join(ref, on="Q Name", how="inner", suffix="_ref")
-        .filter(pl.col("list_name") != pl.col("list_name_ref"))
+        .with_columns([
+            _normalized_list_expr("list_name").alias("_list_norm"),
+            _normalized_list_expr("list_name_ref").alias("_list_norm_ref"),
+        ])
+        .filter(pl.col("_list_norm") != pl.col("_list_norm_ref"))
         .with_columns([
             pl.lit("choices_list_changed").alias("issue_type"),
             pl.lit("").alias("set_name"),
@@ -962,6 +1057,7 @@ def compare_list_name_changes(current, reference):
             pl.col("list_name_ref").alias("reference"),
             pl.lit("medium").alias("severity"),
         ])
+        .drop(["_list_norm", "_list_norm_ref"])
         .select(["issue_type", "set_name", "Q Name", "field", "current", "reference", "severity", "excel_row"])
     )
     return result if result.height > 0 else pl.DataFrame(schema=EMPTY)
@@ -1425,12 +1521,7 @@ def compare_type_changes(
 
 def _canonical_option_key_expr(col_name: str) -> pl.Expr:
     """Canonical option key: strip spaces and treat integer-like decimals as same key (1 == 1.0)."""
-    return (
-        pl.col(col_name)
-        .cast(pl.Utf8)
-        .str.strip_chars()
-        .str.replace(r"^([+-]?\d+)\.0+$", "$1")
-    )
+    return pl.col(col_name).map_elements(_canonical_option_name_token, return_dtype=pl.Utf8)
 
 
 def compare_option_labels_single(current_opts, reference_opts, lang_scope="EN"):
@@ -2348,7 +2439,11 @@ print(f"Label: {label_issues.height}  Constraint: {constraint_issues.height}  Ty
 print(f"Required: {required_issues.height}  Choice filter: {choice_filter_issues.height}  Appearance: {appearance_issues.height}  Calculation: {calculation_issues.height}  Hint: {hint_issues.height}")
 
 # Options -- in previous_round mode, include country-specific lists so round updates are visible
-_country_lists  = set(cfg.get("kobo_options", {}).get("country_specific_list_names", []))
+_country_lists = {
+    _normalize_list_token(v)
+    for v in cfg.get("kobo_options", {}).get("country_specific_list_names", [])
+    if _normalize_list_token(v)
+}
 if run.get("reference_mode") == "previous_round":
     _country_lists = set()
 
@@ -2356,12 +2451,16 @@ _list_changed_q = set(list_name_issues["Q Name"].to_list())
 
 cur_opts_cmp = (
     current_options_vanilla_cmp
-    .filter(~pl.col("list_name").is_in(list(_country_lists)))
+    .with_columns(_normalized_list_expr("list_name").alias("_list_norm"))
+    .filter(~pl.col("_list_norm").is_in(list(_country_lists)))
+    .drop("_list_norm")
     .filter(~pl.col("Q Name").is_in(list(_list_changed_q)))
 )
 ref_opts_cmp = (
     reference_options
-    .filter(~pl.col("list_name").is_in(list(_country_lists)))
+    .with_columns(_normalized_list_expr("list_name").alias("_list_norm"))
+    .filter(~pl.col("_list_norm").is_in(list(_country_lists)))
+    .drop("_list_norm")
     .filter(~pl.col("Q Name").is_in(list(_list_changed_q)))
 )
 
@@ -2630,10 +2729,10 @@ _ISSUE_LABELS = {
     "mandatory_column_mismatch": "Mandatory flag changed",
     "type_changed"             : "Question type changed",
     "label_mismatch"           : "Label text changed",
-    "required_changed"         : "Required changed",
+    "required_modified"        : "Required changed",
     "choice_filter_modified"   : "Choice filter changed",
-    "appearance_changed"       : "Appearance changed",
-    "calculation_changed"      : "Calculation changed",
+    "appearance_modified"      : "Appearance changed",
+    "calculation_modified"     : "Calculation changed",
     "constraint_modified"      : "Constraint changed",
     "hint_changed"             : "Hint text changed",
     "crop_harvest_violation"   : "Crop harvest rule violation",
@@ -2687,10 +2786,10 @@ ISSUE_ACTION_MAP = {
     "choices_list_changed": "Review list_name change and downstream skip/relevance",
     "label_mismatch": "Review question label mismatch",
     "constraint_modified": "Review constraint change and respondent impact",
-    "required_changed": "Review required flag change",
+    "required_modified": "Review required flag change",
     "choice_filter_modified": "Review choice_filter change and dependent list filtering",
-    "appearance_changed": "Review appearance change",
-    "calculation_changed": "Review calculation change",
+    "appearance_modified": "Review appearance change",
+    "calculation_modified": "Review calculation change",
     "type_changed": "Review question type change",
     "hint_changed": "Review hint text change",
     "removed_choice": "Review removed choice and downstream logic",
@@ -2868,7 +2967,7 @@ REPLACEMENT_ISSUE_TYPES = {
 QUESTION_CHANGE_TYPES = {
     "mandatory_column_mismatch", "added_question", "removed_question", "mandatory_to_optional",
     "choices_list_changed", "label_mismatch", "constraint_modified",
-    "required_changed", "choice_filter_modified", "appearance_changed", "calculation_changed",
+    "required_modified", "choice_filter_modified", "appearance_modified", "calculation_modified",
     "hint_changed",
 }
 

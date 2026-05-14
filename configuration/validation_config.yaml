@@ -22,21 +22,21 @@ tool: "kobo"
 working_dir: "C:/Temp"
 
 # Current questionnaire filename (resolved under working_dir).
-questionnaire_file: "Final_questionnaire_kobo_en_AFG_20250826013333_R11_copy_TEST.xlsx"
+questionnaire_file: "TCD_kobo_R10_fr_questionnaire_draft.xlsx"
 
 # Language code: en | fr | ar | es
-language: "EN"
+language: "fr"
 
 # ISO3 country code
-iso3: "AFG"
+iso3: "TCD"
 
 # Reference mode:
 #   latest_template -> auto-detect newest matching file in templates_dir
 #   previous_round  -> compare against previous_round_file in working_dir
-reference_mode: "previous_round"
+reference_mode: "latest_template"
 
 # Only used when reference_mode = previous_round
-previous_round_file: "AFG validated_questionnaire_kobo_en_AFG_20250120195700_R10_copy.xlsx"
+previous_round_file: "validated_questionnaire_kobo_ar_PSE_20250623155613.xlsx"
 
 # Folder containing all template Excel files
 templates_dir: "c:/Users/edoar/WORK/FAO/repo/questionnaire_validation_revision/Questionnaires/Questionnaire Templates"
