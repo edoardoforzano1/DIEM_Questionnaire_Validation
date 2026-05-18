@@ -294,6 +294,8 @@ def _reference_descriptor_kobo() -> str:
 def _language_scope_descriptor_kobo() -> str:
     lang = str(run.get("language", "") or "").lower()
     label_col = LANG_LABEL_COL.get(lang, f"label::{lang}")
+    if lang and lang != "en":
+        return f"EN + {lang.upper()} labels ({LANG_LABEL_COL.get('en', 'label::English (en)')} + {label_col})"
     return f"{lang.upper()} labels ({label_col})"
 
 
@@ -563,10 +565,19 @@ reference_wb = openpyxl.load_workbook(run["reference_path"],     data_only=True,
 
 current_survey    = read_kobo_survey(run["questionnaire_path"],  run["language"], _wb=current_wb)
 current_choices   = read_kobo_choices(run["questionnaire_path"], run["language"], _wb=current_wb)
+_kobo_dual_lang = str(run.get("language", "") or "").strip().lower() != "en"
+current_choices_en = (
+    read_kobo_choices(run["questionnaire_path"], "en", _wb=current_wb)
+    if _kobo_dual_lang else current_choices
+)
 current_wb.close()
 
 reference_survey  = read_kobo_survey(run["reference_path"],  run["language"], _wb=reference_wb)
 reference_choices = read_kobo_choices(run["reference_path"], run["language"], _wb=reference_wb)
+reference_choices_en = (
+    read_kobo_choices(run["reference_path"], "en", _wb=reference_wb)
+    if _kobo_dual_lang else reference_choices
+)
 reference_wb.close()
 
 # Template is needed as placeholder map in previous_round mode.
@@ -574,14 +585,22 @@ if run.get("reference_mode") == "previous_round":
     template_wb = openpyxl.load_workbook(run["template_path"], data_only=True, read_only=True)
     template_survey  = read_kobo_survey(run["template_path"],  run["language"], _wb=template_wb)
     template_choices = read_kobo_choices(run["template_path"], run["language"], _wb=template_wb)
+    template_choices_en = (
+        read_kobo_choices(run["template_path"], "en", _wb=template_wb)
+        if _kobo_dual_lang else template_choices
+    )
     template_wb.close()
 else:
     template_survey  = reference_survey
     template_choices = reference_choices
+    template_choices_en = reference_choices_en
 
 current_options   = build_question_options(current_survey,   current_choices)
 reference_options = build_question_options(reference_survey, reference_choices)
 template_options  = build_question_options(template_survey,  template_choices)
+current_options_en   = build_question_options(current_survey,   current_choices_en)
+reference_options_en = build_question_options(reference_survey, reference_choices_en)
+template_options_en  = build_question_options(template_survey,  template_choices_en)
 
 print(f"Current  : {current_survey.height} questions, {current_choices.height} choice rows")
 print(f"Reference: {reference_survey.height} questions, {reference_choices.height} choice rows")
@@ -856,6 +875,7 @@ for k, v in replacement_pairs.items():
 # Template is always the placeholder map for restoration in previous_round mode.
 _vanilla_ref_survey  = template_survey
 _vanilla_ref_options = template_options
+_vanilla_ref_options_en = template_options_en
 
 # Restore: where template has #placeholder#, copy template value -> current
 current_survey_vanilla  = restore_to_vanilla(
@@ -863,6 +883,10 @@ current_survey_vanilla  = restore_to_vanilla(
 )
 current_options_vanilla = restore_to_vanilla(
     current_options, _vanilla_ref_options, _VANILLA_COLS_OPTIONS,
+    key_cols=["Q Name", "option_name"],
+)
+current_options_en_vanilla = restore_to_vanilla(
+    current_options_en, _vanilla_ref_options_en, _VANILLA_COLS_OPTIONS,
     key_cols=["Q Name", "option_name"],
 )
 
@@ -885,6 +909,7 @@ print(f"\nVanilla restoration map (from template): {_n_survey} survey cell(s), {
 current_survey_cmp         = current_survey
 current_survey_vanilla_cmp = current_survey_vanilla
 current_options_vanilla_cmp = current_options_vanilla
+current_options_en_vanilla_cmp = current_options_en_vanilla
 
 _round_param_qnames = set()
 _round_param_option_qnames = set()
@@ -932,6 +957,16 @@ if run.get("reference_mode") == "previous_round":
 
     current_survey_vanilla_cmp = current_survey_cmp
     current_options_vanilla_cmp = current_options_cmp
+
+    if _kobo_dual_lang:
+        _crop_rows_en = read_crop_choice_rows_for_compare(run["questionnaire_path"], "en")
+        _country_rows_en = {**_crop_rows_en, **_admin_rows}
+        current_choices_cmp_en = replace_choice_lists_for_compare(current_choices_en, _country_rows_en)
+        current_options_cmp_en = build_question_options(current_survey_cmp, current_choices_cmp_en)
+        current_options_en_vanilla_cmp = restore_to_vanilla(
+            current_options_cmp_en, _vanilla_ref_options_en, _VANILLA_COLS_OPTIONS,
+            key_cols=["Q Name", "option_name"],
+        )
 
     # Country-specific option questions (crop/admin etc) are round-parameter-change candidates.
     if _round_param_country_lists:
@@ -1597,7 +1632,7 @@ def compare_option_presence_single(current_opts, reference_opts, lang_scope="EN"
         .with_columns([
             pl.lit("added_choice").alias("issue_type"),
             pl.concat_str([pl.lit("option_"), pl.col("option_name")]).alias("field"),
-            pl.lit("medium").alias("severity"),
+            pl.lit("high").alias("severity"),
             pl.lit(lang_scope).alias("lang_scope"),
         ])
         .select(["issue_type", "Q Name", "list_name", "option_name", "field", "option_label", "severity", "lang_scope"])
@@ -1667,7 +1702,7 @@ def compare_option_name_renumber_single(current_opts, reference_opts, lang_scope
             & (pl.col("new_option_name_key") != pl.col("old_option_name_key"))
         )
         .with_columns([
-            pl.lit("choice_name_renumbered_same_label").alias("issue_type"),
+            pl.lit("option_index_drift").alias("issue_type"),
             pl.concat_str([
                 pl.lit("name_"),
                 pl.col("old_option_name").cast(pl.Utf8),
@@ -2311,7 +2346,7 @@ def make_option_presence_issues(added_opts, removed_opts):
         pl.lit("").alias("set_name"),
         pl.col("option_label").alias("current"),
         pl.lit(_not_in_reference_text()).alias("reference"),
-        pl.lit("medium").alias("severity"),
+        pl.lit("high").alias("severity"),
         pl.lit(None).cast(pl.Int64).alias("excel_row"),
     ]).select(["issue_type", "set_name", "Q Name", "list_name", "option_name", "field", "current", "reference", "severity", "excel_row"])
 
@@ -2338,6 +2373,431 @@ def make_option_name_renumber_issues(renumbered_opts):
         ])
         .select(["issue_type", "set_name", "Q Name", "list_name", "option_name", "field", "current", "reference", "severity", "excel_row"])
     )
+
+
+def merge_option_issue_views_en_target(
+    en_df: pl.DataFrame,
+    tgt_df: pl.DataFrame,
+    target_lang: str,
+) -> pl.DataFrame:
+    """
+    For non-EN runs, keep EN in current/reference and add target-language
+    columns as current_lang/reference_lang.
+    """
+    if str(target_lang or "").strip().lower() == "en":
+        return en_df
+    if en_df.height == 0 and tgt_df.height == 0:
+        return en_df
+
+    keys = [k for k in ["issue_type", "set_name", "Q Name", "list_name", "option_name", "field"] if k in en_df.columns and k in tgt_df.columns]
+
+    en_view = en_df.rename({
+        "current": "current_en",
+        "reference": "reference_en",
+        "severity": "severity_en",
+        "excel_row": "excel_row_en",
+    })
+    tgt_view = tgt_df.rename({
+        "current": "current_tgt",
+        "reference": "reference_tgt",
+        "severity": "severity_tgt",
+        "excel_row": "excel_row_tgt",
+    })
+
+    out = en_view.join(tgt_view, on=keys, how="full", suffix="_t")
+
+    return (
+        out
+        .with_columns([
+            pl.coalesce([pl.col("issue_type"), pl.col("issue_type_t")]).alias("issue_type"),
+            pl.coalesce([pl.col("set_name"), pl.col("set_name_t"), pl.lit("")]).alias("set_name"),
+            pl.coalesce([pl.col("Q Name"), pl.col("Q Name_t"), pl.lit("")]).alias("Q Name"),
+            pl.coalesce([pl.col("list_name"), pl.col("list_name_t"), pl.lit("")]).alias("list_name"),
+            pl.coalesce([pl.col("option_name"), pl.col("option_name_t"), pl.lit("")]).alias("option_name"),
+            pl.coalesce([pl.col("field"), pl.col("field_t"), pl.lit("")]).alias("field"),
+            pl.coalesce([pl.col("current_en"), pl.lit("")]).alias("current"),
+            pl.coalesce([pl.col("reference_en"), pl.lit("")]).alias("reference"),
+            pl.coalesce([pl.col("current_tgt"), pl.lit("")]).alias("current_lang"),
+            pl.coalesce([pl.col("reference_tgt"), pl.lit("")]).alias("reference_lang"),
+            pl.when(pl.col("severity_tgt") == "high").then(pl.lit("high"))
+            .when(pl.col("severity_en") == "high").then(pl.lit("high"))
+            .when(pl.col("severity_tgt") == "medium").then(pl.lit("medium"))
+            .when(pl.col("severity_en") == "medium").then(pl.lit("medium"))
+            .otherwise(pl.lit("info")).alias("severity"),
+            pl.coalesce([pl.col("excel_row_tgt"), pl.col("excel_row_en")]).alias("excel_row"),
+        ])
+        .select([
+            "issue_type", "set_name", "Q Name", "list_name", "option_name", "field",
+            "current", "reference", "current_lang", "reference_lang", "severity", "excel_row",
+        ])
+    )
+
+
+def classify_choice_name_root_causes(
+    current_opts: pl.DataFrame,
+    reference_opts: pl.DataFrame,
+    option_presence_issues: pl.DataFrame,
+    option_renumber_issues: pl.DataFrame,
+    current_opts_en: pl.DataFrame | None = None,
+    reference_opts_en: pl.DataFrame | None = None,
+    target_lang: str = "en",
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """
+    Label-first classifier for choice name issues.
+    Emits one primary root-cause row per (Q Name, list_name):
+      - option_name_dictionary_replaced
+      - removed_option_causes_index_drift
+    and suppresses redundant subordinate rows to avoid double-reporting.
+    """
+    dual_lang = (
+        str(target_lang or "").strip().lower() != "en"
+        and current_opts_en is not None
+        and reference_opts_en is not None
+    )
+
+    issue_schema = {
+        "issue_type": pl.Utf8, "set_name": pl.Utf8, "Q Name": pl.Utf8,
+        "list_name": pl.Utf8, "option_name": pl.Utf8, "field": pl.Utf8,
+        "current": pl.Utf8, "reference": pl.Utf8, "severity": pl.Utf8,
+        "excel_row": pl.Int64,
+    }
+    if dual_lang:
+        issue_schema["current_lang"] = pl.Utf8
+        issue_schema["reference_lang"] = pl.Utf8
+    empty_df = pl.DataFrame(schema=issue_schema)
+    if option_presence_issues.height == 0 or option_renumber_issues.height == 0:
+        return option_presence_issues, option_renumber_issues, empty_df
+
+    presence_keys = (
+        option_presence_issues
+        .filter(pl.col("issue_type").is_in(["removed_choice", "added_choice"]))
+        .select(["Q Name", "list_name"])
+        .unique()
+    )
+    renumber_keys = option_renumber_issues.select(["Q Name", "list_name"]).unique()
+    candidate_keys = presence_keys.join(renumber_keys, on=["Q Name", "list_name"], how="inner")
+    if candidate_keys.height == 0:
+        return option_presence_issues, option_renumber_issues, empty_df
+
+    cur_norm = (
+        current_opts
+        .with_columns([
+            pl.col("Q Name").cast(pl.Utf8).fill_null("").str.strip_chars().str.to_lowercase().alias("_qk"),
+            _normalized_list_expr("list_name").alias("_lkst"),
+            normalize_text_expr("option_label").alias("_lblk"),
+            _canonical_option_key_expr("option_name").alias("_namek"),
+            pl.col("option_name").cast(pl.Utf8).fill_null("").str.strip_chars().alias("_name_raw"),
+            pl.col("option_label").cast(pl.Utf8).fill_null("").str.strip_chars().alias("_label_raw"),
+        ])
+        .filter(
+            (pl.col("_qk") != "")
+            & (pl.col("_lkst") != "")
+            & (pl.col("_lblk") != "")
+            & (pl.col("_namek") != "")
+        )
+        .select(["_qk", "_lkst", "_lblk", "_namek", "_name_raw", "_label_raw"])
+    )
+    ref_norm = (
+        reference_opts
+        .with_columns([
+            pl.col("Q Name").cast(pl.Utf8).fill_null("").str.strip_chars().str.to_lowercase().alias("_qk"),
+            _normalized_list_expr("list_name").alias("_lkst"),
+            normalize_text_expr("option_label").alias("_lblk"),
+            _canonical_option_key_expr("option_name").alias("_namek"),
+            pl.col("option_name").cast(pl.Utf8).fill_null("").str.strip_chars().alias("_name_raw"),
+            pl.col("option_label").cast(pl.Utf8).fill_null("").str.strip_chars().alias("_label_raw"),
+        ])
+        .filter(
+            (pl.col("_qk") != "")
+            & (pl.col("_lkst") != "")
+            & (pl.col("_lblk") != "")
+            & (pl.col("_namek") != "")
+        )
+        .select(["_qk", "_lkst", "_lblk", "_namek", "_name_raw", "_label_raw"])
+    )
+
+    cur_norm_en = None
+    ref_norm_en = None
+    if dual_lang:
+        cur_norm_en = (
+            current_opts_en
+            .with_columns([
+                pl.col("Q Name").cast(pl.Utf8).fill_null("").str.strip_chars().str.to_lowercase().alias("_qk"),
+                _normalized_list_expr("list_name").alias("_lkst"),
+                normalize_text_expr("option_label").alias("_lblk"),
+                _canonical_option_key_expr("option_name").alias("_namek"),
+                pl.col("option_name").cast(pl.Utf8).fill_null("").str.strip_chars().alias("_name_raw"),
+                pl.col("option_label").cast(pl.Utf8).fill_null("").str.strip_chars().alias("_label_raw"),
+            ])
+            .filter(
+                (pl.col("_qk") != "")
+                & (pl.col("_lkst") != "")
+                & (pl.col("_lblk") != "")
+                & (pl.col("_namek") != "")
+            )
+            .select(["_qk", "_lkst", "_lblk", "_namek", "_name_raw", "_label_raw"])
+        )
+        ref_norm_en = (
+            reference_opts_en
+            .with_columns([
+                pl.col("Q Name").cast(pl.Utf8).fill_null("").str.strip_chars().str.to_lowercase().alias("_qk"),
+                _normalized_list_expr("list_name").alias("_lkst"),
+                normalize_text_expr("option_label").alias("_lblk"),
+                _canonical_option_key_expr("option_name").alias("_namek"),
+                pl.col("option_name").cast(pl.Utf8).fill_null("").str.strip_chars().alias("_name_raw"),
+                pl.col("option_label").cast(pl.Utf8).fill_null("").str.strip_chars().alias("_label_raw"),
+            ])
+            .filter(
+                (pl.col("_qk") != "")
+                & (pl.col("_lkst") != "")
+                & (pl.col("_lblk") != "")
+                & (pl.col("_namek") != "")
+            )
+            .select(["_qk", "_lkst", "_lblk", "_namek", "_name_raw", "_label_raw"])
+        )
+
+    def _is_numeric_name(token) -> bool:
+        return bool(re.fullmatch(r"\d+(?:\.0+)?", str(token or "").strip()))
+
+    def _name_sort_key(token: str):
+        txt = str(token or "").strip()
+        if re.fullmatch(r"\d+(?:\.0+)?", txt):
+            return (0, float(txt))
+        return (1, txt.lower())
+
+    def _uniq(seq):
+        seen = set()
+        out = []
+        for raw in seq:
+            token = str(raw or "").strip()
+            if not token or token in seen:
+                continue
+            seen.add(token)
+            out.append(token)
+        return out
+
+    def _join_limited(items, limit=12):
+        if not items:
+            return "(none)"
+        vals = _uniq(items)
+        if len(vals) <= limit:
+            return ", ".join(vals)
+        return ", ".join(vals[:limit]) + f", ... (+{len(vals) - limit} more)"
+
+    def _format_choice_list(rows: list[dict]) -> str:
+        ordered = sorted(rows, key=lambda r: _name_sort_key(r.get("_name_raw")))
+        lines = []
+        for r in ordered:
+            nm = str(r.get("_name_raw") or "").strip()
+            lb = str(r.get("_label_raw") or "").strip()
+            if not nm and not lb:
+                continue
+            lines.append(f"{nm} | {lb}" if lb else nm)
+        return "\n".join(lines) if lines else "(none)"
+
+    classified = []
+    root_rows = []
+    for key in candidate_keys.to_dicts():
+        q_name = str(key.get("Q Name") or "")
+        list_name = str(key.get("list_name") or "")
+        qk = q_name.strip().lower()
+        lkst = _normalize_list_token(list_name)
+        if not qk or not lkst:
+            continue
+
+        cur_rows = cur_norm.filter((pl.col("_qk") == qk) & (pl.col("_lkst") == lkst)).to_dicts()
+        ref_rows = ref_norm.filter((pl.col("_qk") == qk) & (pl.col("_lkst") == lkst)).to_dicts()
+        if not cur_rows or not ref_rows:
+            continue
+
+        cur_by_label = {}
+        ref_by_label = {}
+        cur_label_counts = {}
+        ref_label_counts = {}
+
+        for r in cur_rows:
+            lbl = r.get("_lblk")
+            if not lbl:
+                continue
+            cur_label_counts[lbl] = cur_label_counts.get(lbl, 0) + 1
+            cur_by_label.setdefault(lbl, r)
+        for r in ref_rows:
+            lbl = r.get("_lblk")
+            if not lbl:
+                continue
+            ref_label_counts[lbl] = ref_label_counts.get(lbl, 0) + 1
+            ref_by_label.setdefault(lbl, r)
+
+        cur_labels = set(cur_by_label.keys())
+        ref_labels = set(ref_by_label.keys())
+        common_labels = sorted(cur_labels & ref_labels)
+        missing_entries = [
+            {
+                "label_raw": ref_by_label[lbl].get("_label_raw"),
+                "name_raw": str(ref_by_label[lbl].get("_name_raw") or "").strip(),
+                "name_key": str(ref_by_label[lbl].get("_namek") or "").strip(),
+            }
+            for lbl in sorted(ref_labels - cur_labels)
+        ]
+        missing_labels = [e.get("label_raw") for e in missing_entries]
+        added_entries = [
+            {
+                "label_raw": cur_by_label[lbl].get("_label_raw"),
+                "name_raw": str(cur_by_label[lbl].get("_name_raw") or "").strip(),
+                "name_key": str(cur_by_label[lbl].get("_namek") or "").strip(),
+            }
+            for lbl in sorted(cur_labels - ref_labels)
+        ]
+        added_labels = [e.get("label_raw") for e in added_entries]
+
+        mapped_pairs = []
+        changed_pairs = []
+        for lbl in common_labels:
+            if cur_label_counts.get(lbl, 0) != 1 or ref_label_counts.get(lbl, 0) != 1:
+                continue
+            old_raw = str(ref_by_label[lbl].get("_name_raw") or "").strip()
+            new_raw = str(cur_by_label[lbl].get("_name_raw") or "").strip()
+            old_key = str(ref_by_label[lbl].get("_namek") or "").strip()
+            new_key = str(cur_by_label[lbl].get("_namek") or "").strip()
+            label_raw = str(ref_by_label[lbl].get("_label_raw") or cur_by_label[lbl].get("_label_raw") or "").strip()
+            if not old_key or not new_key:
+                continue
+            pair = {"label": label_raw, "old_raw": old_raw, "new_raw": new_raw, "old_key": old_key, "new_key": new_key}
+            mapped_pairs.append(pair)
+            if old_key != new_key:
+                changed_pairs.append(pair)
+
+        mapped_n = len(mapped_pairs)
+        changed_n = len(changed_pairs)
+        missing_n = len(_uniq(missing_labels))
+        added_n = len(_uniq(added_labels))
+        changed_ratio = (changed_n / mapped_n) if mapped_n else 0.0
+
+        old_num_share = (sum(1 for p in mapped_pairs if _is_numeric_name(p["old_raw"])) / mapped_n) if mapped_n else 0.0
+        new_num_share = (sum(1 for p in mapped_pairs if _is_numeric_name(p["new_raw"])) / mapped_n) if mapped_n else 0.0
+
+        is_dictionary = (
+            (missing_n == 0)
+            and (added_n == 0)
+            and (mapped_n >= 3)
+            and (changed_n >= 3)
+            and (changed_ratio >= 0.8)
+            and (old_num_share <= 0.5)
+            and (new_num_share >= 0.8)
+        )
+        is_removed_cascade = (
+            (missing_n >= 1)
+            and (changed_n >= 1)
+            and (mapped_n >= 2)
+            and (not is_dictionary)
+        )
+
+        if not (is_dictionary or is_removed_cascade):
+            continue
+
+        cls = "option_name_dictionary_replaced" if is_dictionary else "removed_option_causes_index_drift"
+        suppress_added = bool(is_dictionary or (is_removed_cascade and added_n == 0))
+        classified.append({
+            "Q Name": q_name,
+            "list_name": list_name,
+            "_root_issue": cls,
+            "_suppress_added": suppress_added,
+        })
+
+        if dual_lang:
+            cur_rows_en = cur_norm_en.filter((pl.col("_qk") == qk) & (pl.col("_lkst") == lkst)).to_dicts()
+            ref_rows_en = ref_norm_en.filter((pl.col("_qk") == qk) & (pl.col("_lkst") == lkst)).to_dicts()
+            ref_en_by_name = {}
+            for rr in ref_rows_en:
+                nk = str(rr.get("_namek") or "").strip()
+                if nk and nk not in ref_en_by_name:
+                    ref_en_by_name[nk] = str(rr.get("_label_raw") or "").strip()
+        else:
+            cur_rows_en = cur_rows
+            ref_rows_en = ref_rows
+            ref_en_by_name = {}
+
+        current_list_tgt = _format_choice_list(cur_rows)
+        reference_list_tgt = _format_choice_list(ref_rows)
+        current_list_en = _format_choice_list(cur_rows_en)
+        reference_list_en = _format_choice_list(ref_rows_en)
+
+        if is_dictionary:
+            row = {
+                "issue_type": cls,
+                "set_name": "",
+                "Q Name": q_name,
+                "list_name": list_name,
+                "option_name": "",
+                "field": f"option names replaced ({changed_n}/{mapped_n} changed)",
+                "current": "Current list (name | label):\n" + current_list_en,
+                "reference": "Reference list (name | label):\n" + reference_list_en,
+                "severity": "high",
+                "excel_row": None,
+            }
+            if dual_lang:
+                row["current_lang"] = "Current list (name | label):\n" + current_list_tgt
+                row["reference_lang"] = "Reference list (name | label):\n" + reference_list_tgt
+            root_rows.append(row)
+        else:
+            removed_desc_tgt = _join_limited([
+                f"{e.get('name_raw') or '?'} | {e.get('label_raw') or ''}"
+                for e in missing_entries
+            ], limit=6)
+            removed_desc_en = _join_limited([
+                f"{e.get('name_raw') or '?'} | {ref_en_by_name.get(e.get('name_key')) or e.get('label_raw') or ''}"
+                for e in missing_entries
+            ], limit=6) if dual_lang else removed_desc_tgt
+
+            row = {
+                "issue_type": cls,
+                "set_name": "",
+                "Q Name": q_name,
+                "list_name": list_name,
+                "option_name": "",
+                "field": f"removed option(s) causing drift: {removed_desc_en}",
+                "current": "Current list (name | label):\n" + current_list_en,
+                "reference": "Reference list (name | label):\n" + reference_list_en,
+                "severity": "high",
+                "excel_row": None,
+            }
+            if dual_lang:
+                row["current_lang"] = "Current list (name | label):\n" + current_list_tgt
+                row["reference_lang"] = "Reference list (name | label):\n" + reference_list_tgt
+            root_rows.append(row)
+
+    if not root_rows:
+        return option_presence_issues, option_renumber_issues, empty_df
+
+    cls_df = (
+        pl.DataFrame(classified)
+        .sort(["Q Name", "list_name"])
+        .unique(subset=["Q Name", "list_name"], keep="last")
+    )
+    presence_clean = (
+        option_presence_issues
+        .join(cls_df, on=["Q Name", "list_name"], how="left")
+        .filter(
+            ~(
+                ((pl.col("_root_issue") == "option_name_dictionary_replaced") & pl.col("issue_type").is_in(["removed_choice", "added_choice"]))
+                | ((pl.col("_root_issue") == "removed_option_causes_index_drift") & (pl.col("issue_type") == "removed_choice"))
+                | (
+                    (pl.col("_root_issue") == "removed_option_causes_index_drift")
+                    & (pl.col("_suppress_added") == True)
+                    & (pl.col("issue_type") == "added_choice")
+                )
+            )
+        )
+        .drop(["_root_issue", "_suppress_added"])
+    )
+    renumber_clean = (
+        option_renumber_issues
+        .join(cls_df, on=["Q Name", "list_name"], how="left")
+        .filter(pl.col("_root_issue").is_null())
+        .drop(["_root_issue", "_suppress_added"])
+    )
+
+    return presence_clean, renumber_clean, pl.DataFrame(root_rows, schema=issue_schema)
 
 
 def collapse_cluster_ea_option_changes(
@@ -2463,10 +2923,31 @@ ref_opts_cmp = (
     .drop("_list_norm")
     .filter(~pl.col("Q Name").is_in(list(_list_changed_q)))
 )
+if _kobo_dual_lang:
+    cur_opts_cmp_en = (
+        current_options_en_vanilla_cmp
+        .with_columns(_normalized_list_expr("list_name").alias("_list_norm"))
+        .filter(~pl.col("_list_norm").is_in(list(_country_lists)))
+        .drop("_list_norm")
+        .filter(~pl.col("Q Name").is_in(list(_list_changed_q)))
+    )
+    ref_opts_cmp_en = (
+        reference_options_en
+        .with_columns(_normalized_list_expr("list_name").alias("_list_norm"))
+        .filter(~pl.col("_list_norm").is_in(list(_country_lists)))
+        .drop("_list_norm")
+        .filter(~pl.col("Q Name").is_in(list(_list_changed_q)))
+    )
+else:
+    cur_opts_cmp_en = cur_opts_cmp
+    ref_opts_cmp_en = ref_opts_cmp
 
 option_diff              = compare_option_labels_single(cur_opts_cmp, ref_opts_cmp)
 added_opts, removed_opts = compare_option_presence_single(cur_opts_cmp, ref_opts_cmp)
 renumbered_opts          = compare_option_name_renumber_single(cur_opts_cmp, ref_opts_cmp)
+option_diff_en              = compare_option_labels_single(cur_opts_cmp_en, ref_opts_cmp_en)
+added_opts_en, removed_opts_en = compare_option_presence_single(cur_opts_cmp_en, ref_opts_cmp_en)
+renumbered_opts_en          = compare_option_name_renumber_single(cur_opts_cmp_en, ref_opts_cmp_en)
 print(
     f"Option label changes: {option_diff.height}  "
     f"added: {added_opts.height}  removed: {removed_opts.height}  "
@@ -2493,9 +2974,20 @@ print(f"Critical set issues: {critical_issues.height}  Count issues: {count_issu
 # -- Assemble all issues -------------------------------------------------------
 presence_issues     = make_presence_issues(added, removed, reference_survey)
 mandatory_issues    = make_mandatory_issues(mandatory_diff)
-option_label_issues = make_option_issues(option_diff)
-option_pres_issues  = make_option_presence_issues(added_opts, removed_opts)
-option_renumber_issues = make_option_name_renumber_issues(renumbered_opts)
+option_label_issues_tgt = make_option_issues(option_diff)
+option_pres_issues_tgt  = make_option_presence_issues(added_opts, removed_opts)
+option_renumber_issues_tgt = make_option_name_renumber_issues(renumbered_opts)
+if _kobo_dual_lang:
+    option_label_issues_en = make_option_issues(option_diff_en)
+    option_pres_issues_en = make_option_presence_issues(added_opts_en, removed_opts_en)
+    option_renumber_issues_en = make_option_name_renumber_issues(renumbered_opts_en)
+    option_label_issues = merge_option_issue_views_en_target(option_label_issues_en, option_label_issues_tgt, run["language"])
+    option_pres_issues = merge_option_issue_views_en_target(option_pres_issues_en, option_pres_issues_tgt, run["language"])
+    option_renumber_issues = merge_option_issue_views_en_target(option_renumber_issues_en, option_renumber_issues_tgt, run["language"])
+else:
+    option_label_issues = option_label_issues_tgt
+    option_pres_issues = option_pres_issues_tgt
+    option_renumber_issues = option_renumber_issues_tgt
 
 # Exclude option issues for questions not present in both files
 _excluded = set(added["Q Name"].to_list()) | set(removed["Q Name"].to_list())
@@ -2526,6 +3018,42 @@ if cluster_ea_summary_issues.height > 0:
         + str(cluster_ea_summary_issues.select("current").item())
     )
 
+option_pres_issues, option_renumber_issues, option_root_cause_issues = (
+    classify_choice_name_root_causes(
+        cur_opts_cmp,
+        ref_opts_cmp,
+        option_pres_issues,
+        option_renumber_issues,
+        current_opts_en=cur_opts_cmp_en,
+        reference_opts_en=ref_opts_cmp_en,
+        target_lang=run["language"],
+    )
+)
+if option_root_cause_issues.height > 0:
+    print(f"Choice label-based root causes classified: {option_root_cause_issues.height}")
+
+# Suppress label-mismatch rows that are only downstream effects
+# of root-cause drift/dictionary replacement issues.
+_noise_keys_root = (
+    option_root_cause_issues
+    .filter(pl.col("issue_type").is_in(["removed_option_causes_index_drift", "option_name_dictionary_replaced"]))
+    .select(["Q Name", "list_name"])
+    .unique()
+)
+_noise_keys_drift = (
+    option_renumber_issues
+    .filter(pl.col("issue_type") == "option_index_drift")
+    .select(["Q Name", "list_name"])
+    .unique()
+)
+_noise_keys = pl.concat([_noise_keys_root, _noise_keys_drift], how="vertical").unique()
+if option_label_issues.height > 0 and _noise_keys.height > 0:
+    option_label_issues = option_label_issues.join(
+        _noise_keys,
+        on=["Q Name", "list_name"],
+        how="anti",
+    )
+
 def _with_choice_cols(df: pl.DataFrame) -> pl.DataFrame:
     out = df
     if "list_name" not in out.columns:
@@ -2549,6 +3077,7 @@ all_issues = pl.concat(
      _with_choice_cols(option_label_issues),
      _with_choice_cols(option_pres_issues),
      _with_choice_cols(option_renumber_issues),
+     _with_choice_cols(option_root_cause_issues),
      _with_choice_cols(cluster_ea_summary_issues),
      _with_choice_cols(critical_issues),
      _with_choice_cols(count_issues),
@@ -2565,7 +3094,14 @@ if run.get("reference_mode") == "previous_round":
     _rp_types_q = [
         "label_mismatch", "constraint_modified", "hint_changed", "choices_list_changed",
     ]
-    _rp_types_opt = ["choice_label_mismatch", "added_choice", "removed_choice", "choice_name_renumbered_same_label"]
+    _rp_types_opt = [
+        "choice_label_mismatch",
+        "added_choice",
+        "removed_choice",
+        "option_index_drift",
+        "option_name_dictionary_replaced",
+        "removed_option_causes_index_drift",
+    ]
     _rp_qnames = sorted(set(_round_param_qnames) | set(_round_param_option_qnames))
     if _rp_qnames:
         _rp_mask_q = (
@@ -2741,7 +3277,9 @@ _ISSUE_LABELS = {
     "removed_choice"           : "Choice removed",
     "added_choice"             : "Choice added",
     "choice_label_mismatch"    : "Choice label changed",
-    "choice_name_renumbered_same_label": "Choice name renumbered (same label)",
+    "option_index_drift": "Option index drift (same labels)",
+    "option_name_dictionary_replaced": "Option name dictionary replaced",
+    "removed_option_causes_index_drift": "Removed option caused index drift",
     "cluster_ea_choice_changes_summary": "Cluster/EA choice changes summary",
     "placeholder_not_found"    : "Placeholder not in template/additional info",
     "placeholder_should_use_kobo_ref": "Placeholder looks like variable (use ${var})",
@@ -2795,7 +3333,9 @@ ISSUE_ACTION_MAP = {
     "removed_choice": "Review removed choice and downstream logic",
     "added_choice": "Review added choice and downstream logic",
     "choice_label_mismatch": "Review choice label mismatch",
-    "choice_name_renumbered_same_label": "Review renamed/renumbered choice name and coding continuity",
+    "option_index_drift": "Review option index drift and coding continuity",
+    "option_name_dictionary_replaced": "Restore original option-name dictionary from template/reference",
+    "removed_option_causes_index_drift": "Restore missing option or reconcile deliberate removal with downstream coding",
     "cluster_ea_choice_changes_summary": "Informational only: review aggregate cluster/ea choice turnover counts",
     "broken_relevant_reference": "Fix relevant expression to valid referenced variables",
     "relevant_inexact_reference": "Review relevant expression equivalence with reference",
@@ -2820,6 +3360,9 @@ def _action_for_issue_type(issue_type: str) -> str:
     return ISSUE_ACTION_MAP.get(key, "Review issue details")
 
 
+_kobo_report_lang = str(run.get("language", "") or "").upper().strip()
+_kobo_report_lang_label = _kobo_report_lang if (_kobo_report_lang and _kobo_report_lang != "EN") else "Language"
+
 COL_MAP = [
     ("issue_type",    "Issue type"),
     ("mandatory_cat", "Type"),
@@ -2830,6 +3373,8 @@ COL_MAP = [
     ("field",         "Field"),
     ("current",       "Current value"),
     ("reference",     "Reference / rule"),
+    ("current_lang",  f"Current value ({_kobo_report_lang_label})"),
+    ("reference_lang", f"Reference / rule ({_kobo_report_lang_label})"),
     ("action",        "Action"),
     ("severity",      "Severity"),
     ("excel_row",     "Excel row"),
@@ -2843,7 +3388,22 @@ def _table(ws, start_row, df, apply_view=True, col_map=None):
             .alias("action")
         )
     cmap = col_map or COL_MAP
-    cols = [(s, d) for s, d in cmap if s in df.columns]
+    cols = []
+    for s, d in cmap:
+        if s not in df.columns:
+            continue
+        if s in {"current_lang", "reference_lang"} and df.height > 0:
+            has_vals = (
+                df.select(
+                    (
+                        pl.col(s).cast(pl.Utf8).fill_null("").str.strip_chars() != ""
+                    ).any().alias("_has")
+                )
+                .item()
+            )
+            if not has_vals:
+                continue
+        cols.append((s, d))
     _hdr(ws, start_row, [d for _, d in cols])
     r = start_row + 1
     if df.height == 0:
@@ -3227,7 +3787,7 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
     _sect(ws, r, "CHOICE CHANGES  (questions present in both files)", 4); r += 1
     r = _grouped_table(ws, r,
                        all_issues.filter(pl.col("issue_type").is_in(
-                           ["removed_choice", "added_choice", "choice_label_mismatch", "choice_name_renumbered_same_label", "cluster_ea_choice_changes_summary"])))
+                           ["removed_choice", "added_choice", "choice_label_mismatch", "option_index_drift", "option_name_dictionary_replaced", "removed_option_causes_index_drift", "cluster_ea_choice_changes_summary"])))
 
 
 def write_critical_sets_sheet(wb, all_issues, found_info=None):
@@ -3352,12 +3912,18 @@ def write_option_changes_sheet(wb, all_issues):
     ws = wb.create_sheet("Choice Changes")
     ws.sheet_view.showGridLines = False
     df = all_issues.filter(pl.col("issue_type").is_in([
-        "removed_choice", "added_choice", "choice_label_mismatch", "choice_name_renumbered_same_label", "cluster_ea_choice_changes_summary",
+        "removed_choice", "added_choice", "choice_label_mismatch", "option_index_drift", "option_name_dictionary_replaced", "removed_option_causes_index_drift", "cluster_ea_choice_changes_summary",
     ]))
     col_map = [c for c in COL_MAP if c[0] != "set_name"]
     _sect(ws, 1, "CHOICE CHANGES  Answer choices for questions in both files", 8)
     _table(ws, 2, df, col_map=col_map)
-    _apply_inline_diff_for_issue(ws, 2, df, [(s, d) for s, d in col_map if s in df.columns], {"choice_label_mismatch", "choice_name_renumbered_same_label"})
+    _apply_inline_diff_for_issue(
+        ws,
+        2,
+        df,
+        [(s, d) for s, d in col_map if s in df.columns],
+        {"choice_label_mismatch", "option_index_drift", "option_name_dictionary_replaced", "removed_option_causes_index_drift"},
+    )
     _autofit(ws)
 
 

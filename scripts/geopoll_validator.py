@@ -2858,6 +2858,125 @@ def build_option_changes_view(
     )
 
 
+def collapse_removed_option_with_cascading_drift(option_changes_view: pl.DataFrame) -> pl.DataFrame:
+    """
+    Condense noisy "removed_option + many position-renumber rows" into one
+    causal row per question, while preserving pure renumber-only situations.
+    """
+    if option_changes_view.height == 0:
+        return option_changes_view
+    if not {"issue_type", "Q Name", "field", "current", "reference"}.issubset(set(option_changes_view.columns)):
+        return option_changes_view
+
+    removed_q = (
+        option_changes_view
+        .filter(pl.col("issue_type") == "removed_option")
+        .select("Q Name")
+        .unique()
+    )
+    renumber_q = (
+        option_changes_view
+        .filter(pl.col("issue_type") == "option_position_renumbered_same_label")
+        .select("Q Name")
+        .unique()
+    )
+    affected_q = removed_q.join(renumber_q, on="Q Name", how="inner")
+    if affected_q.height == 0:
+        return option_changes_view
+
+    def _uniq(seq):
+        seen = set()
+        out = []
+        for raw in seq:
+            token = str(raw or "").strip()
+            if not token or token in seen:
+                continue
+            seen.add(token)
+            out.append(token)
+        return out
+
+    has_lang_cols = "current_lang" in option_changes_view.columns and "reference_lang" in option_changes_view.columns
+    combined_rows = []
+    for q_name in affected_q.get_column("Q Name").to_list():
+        removed_rows = (
+            option_changes_view
+            .filter((pl.col("Q Name") == q_name) & (pl.col("issue_type") == "removed_option"))
+            .select([c for c in ["field", "current", "reference", "current_lang", "reference_lang"] if c in option_changes_view.columns])
+            .to_dicts()
+        )
+        renumber_rows = (
+            option_changes_view
+            .filter((pl.col("Q Name") == q_name) & (pl.col("issue_type") == "option_position_renumbered_same_label"))
+            .select([c for c in ["field", "current", "reference", "current_lang", "reference_lang"] if c in option_changes_view.columns])
+            .to_dicts()
+        )
+
+        removed_positions = _uniq([
+            str(r.get("field") or "").replace("option_", "")
+            for r in removed_rows
+        ])
+        removed_labels_en = _uniq([r.get("reference") for r in removed_rows])
+        renumber_map_en = _uniq([
+            f"{str(r.get('reference') or '').strip()}->{str(r.get('current') or '').strip()}"
+            for r in renumber_rows
+            if str(r.get("reference") or "").strip() and str(r.get("current") or "").strip()
+        ])
+        renumber_current_en = _uniq([r.get("current") for r in renumber_rows])
+
+        row = {
+            "issue_type": "removed_option_with_cascading_drift",
+            "set_name": "",
+            "Q Name": q_name,
+            "field": "removed_and_cascading_renumber",
+            "current": (
+                f"removed in current: {', '.join(removed_positions) if removed_positions else '(unknown)'}; "
+                f"cascading positions now: {', '.join(renumber_current_en) if renumber_current_en else '(none)'}"
+            ),
+            "reference": (
+                f"removed labels in reference: {', '.join(removed_labels_en) if removed_labels_en else '(none)'}; "
+                f"position map reference->current: {', '.join(renumber_map_en) if renumber_map_en else '(none)'}"
+            ),
+            "severity": "high",
+            "excel_row": None,
+        }
+
+        if has_lang_cols:
+            removed_labels_lang = _uniq([r.get("reference_lang") for r in removed_rows])
+            renumber_map_lang = _uniq([
+                f"{str(r.get('reference_lang') or '').strip()}->{str(r.get('current_lang') or '').strip()}"
+                for r in renumber_rows
+                if str(r.get("reference_lang") or "").strip() and str(r.get("current_lang") or "").strip()
+            ])
+            renumber_current_lang = _uniq([r.get("current_lang") for r in renumber_rows])
+            row["current_lang"] = (
+                f"removed in current: {', '.join(removed_positions) if removed_positions else '(unknown)'}; "
+                f"cascading positions now: {', '.join(renumber_current_lang) if renumber_current_lang else '(none)'}"
+            )
+            row["reference_lang"] = (
+                f"removed labels in reference: {', '.join(removed_labels_lang) if removed_labels_lang else '(none)'}; "
+                f"position map reference->current: {', '.join(renumber_map_lang) if renumber_map_lang else '(none)'}"
+            )
+
+        combined_rows.append(row)
+
+    clean = option_changes_view.filter(
+        ~(
+            pl.col("Q Name").is_in(affected_q.get_column("Q Name"))
+            & pl.col("issue_type").is_in(["removed_option", "option_position_renumbered_same_label"])
+        )
+    )
+    if not combined_rows:
+        return clean
+
+    combined_df = pl.DataFrame(combined_rows)
+    for col in clean.columns:
+        if col not in combined_df.columns:
+            combined_df = combined_df.with_columns(pl.lit(None).alias(col))
+    combined_df = combined_df.select(clean.columns)
+
+    return pl.concat([clean, combined_df], how="vertical")
+
+
 
 
 # ======================================================================
@@ -4224,6 +4343,7 @@ option_changes_view = build_option_changes_view(
     tgt_option_diff, tgt_added_opts, tgt_removed_opts, tgt_code_renumber,
     target_lang,
 )
+option_changes_view = collapse_removed_option_with_cascading_drift(option_changes_view)
 codes_changes_view = build_codes_changes_view(
     codes_token_diff,
     codes_added,
@@ -4415,6 +4535,7 @@ print(f"Question label changes: {question_issues.filter(pl.col('issue_type') == 
 print(f"Option label changes  : {option_issues.filter(pl.col('issue_type') == 'option_label_mismatch').height}")
 print(f"Option positions changed: {option_issues.filter(pl.col('issue_type') == 'option_position_renumbered_same_label').height}")
 print(f"Options removed       : {option_issues.filter(pl.col('issue_type') == 'removed_option').height}")
+print(f"Removed+drift cascades: {option_issues.filter(pl.col('issue_type') == 'removed_option_with_cascading_drift').height}")
 print(f"Options added         : {option_issues.filter(pl.col('issue_type') == 'added_option').height}")
 print(f"Codes token mismatch  : {option_issues.filter(pl.col('issue_type') == 'codes_col_token_mismatch').height}")
 print(f"Codes removed         : {option_issues.filter(pl.col('issue_type') == 'codes_col_removed').height}")
@@ -4557,6 +4678,7 @@ ISSUE_ACTION_MAP = {
     "removed_option": "Review removed option and downstream logic",
     "option_label_mismatch": "Review option label mismatch",
     "option_position_renumbered_same_label": "Verify option reordering and skip/code alignment",
+    "removed_option_with_cascading_drift": "Review removed option causing cascading renumber and coding continuity risks",
     "codes_col_token_mismatch": "Review code token mismatch in Codes column",
     "codes_col_added": "Review added code token and routing",
     "codes_col_removed": "Review removed code token and routing",
@@ -5087,6 +5209,7 @@ def write_summary_sheet(wb, all_issues, rules, replacement_status=None):
     _header_row(ws, r, ["Category", "Total", "Mandatory", "M-Panel", "Non-mand.", "Optional", "Severity"]); r += 1
     for label, itype, disp_sev in [
         ("Options removed",                 "removed_option",                     "high"),
+        ("Removed + cascading drift",       "removed_option_with_cascading_drift","high"),
         ("Options added",                   "added_option",                       "medium"),
         ("Option labels changed",           "option_label_mismatch",              "medium"),
         ("Option positions changed",   "option_position_renumbered_same_label",  "high"),
