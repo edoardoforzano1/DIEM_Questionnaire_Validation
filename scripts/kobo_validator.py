@@ -3159,6 +3159,483 @@ def collapse_cluster_ea_option_changes(
     return option_label_clean, option_presence_clean, option_renumber_clean, summary_row
 
 
+def _join_tokens_limited(tokens: list[str], limit: int = 16) -> str:
+    seen = set()
+    vals: list[str] = []
+    for raw in tokens:
+        t = str(raw or "").strip()
+        if not t or t in seen:
+            continue
+        seen.add(t)
+        vals.append(t)
+    if not vals:
+        return "(none)"
+    if len(vals) <= limit:
+        return ", ".join(vals)
+    return ", ".join(vals[:limit]) + f", ... (+{len(vals) - limit} more)"
+
+
+def _format_collapsed_choice_side(
+    rows: list[dict],
+    value_key: str,
+    header: str,
+    empty_label: str = "(empty)",
+) -> str:
+    entries: list[tuple[str, str]] = []
+    for r in rows or []:
+        entries.append((
+            str(r.get("option_name") or "").strip(),
+            str(r.get(value_key) or "").strip(),
+        ))
+    return _format_choice_entries(entries, header, empty_label=empty_label)
+
+
+def _format_choice_entries(
+    entries: list[tuple[str, str]],
+    header: str,
+    empty_label: str = "(empty)",
+) -> str:
+    if not entries:
+        return f"{header}:\n{empty_label}"
+
+    out_lines: list[str] = []
+    seen: set[tuple[str, str]] = set()
+    idx = 0
+    for opt_raw, val_raw in entries:
+        opt = str(opt_raw or "").strip()
+        val = str(val_raw or "").strip()
+        if not opt and not val:
+            continue
+        key = (opt, val)
+        if key in seen:
+            continue
+        seen.add(key)
+        idx += 1
+        if opt:
+            out_lines.append(f"{idx} | {opt} | {val or '(blank)'}")
+        else:
+            out_lines.append(f"{idx} | {val}")
+    if not out_lines:
+        return f"{header}:\n{empty_label}"
+    return f"{header}:\n" + "\n".join(out_lines)
+
+
+def _build_choice_lookup(options_df: pl.DataFrame | None) -> dict[tuple[str, str], list[tuple[str, str]]]:
+    out: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    if options_df is None or options_df.height == 0:
+        return out
+    if not {"Q Name", "list_name", "option_name", "option_label"}.issubset(set(options_df.columns)):
+        return out
+
+    seen_per_key: dict[tuple[str, str], set[str]] = {}
+    for row in options_df.select(["Q Name", "list_name", "option_name", "option_label"]).iter_rows(named=True):
+        qn_raw = str(row.get("Q Name") or "").strip()
+        ln_raw = str(row.get("list_name") or "").strip()
+        if not qn_raw or not ln_raw:
+            continue
+        key = (qn_raw.lower(), _normalize_list_token(ln_raw))
+        if not key[1]:
+            continue
+        name_raw = str(row.get("option_name") or "").strip()
+        label_raw = str(row.get("option_label") or "").strip()
+        ckey = _canonical_option_name_token(name_raw)
+        if not ckey:
+            continue
+        seen = seen_per_key.setdefault(key, set())
+        if ckey in seen:
+            continue
+        seen.add(ckey)
+        out.setdefault(key, []).append((name_raw, label_raw))
+    return out
+
+
+def _collapsed_choice_detail(
+    issue_type: str,
+    n_rows: int,
+    current_total: int | None = None,
+    reference_total: int | None = None,
+) -> str:
+    issue_map = {
+        "added_choice": f"{n_rows} option(s) added vs reference",
+        "removed_choice": f"{n_rows} option(s) removed vs reference",
+        "choice_label_mismatch": f"{n_rows} option label(s) changed",
+        "option_index_drift": f"{n_rows} option code/index drift case(s)",
+    }
+    head = issue_map.get(str(issue_type or "").strip(), f"{n_rows} choice change row(s)")
+    if current_total is not None and reference_total is not None:
+        return f"{head}; current total={current_total}, reference total={reference_total}"
+    return f"{head}; grouped in one row for this question/list"
+
+
+def _ordered_unique_names(rows: list[dict], field_name: str = "option_name") -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for r in rows:
+        raw = str(r.get(field_name) or "").strip()
+        key = _canonical_option_name_token(raw)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(raw)
+    return out
+
+
+def _ordered_added_removed_names(
+    current_entries: list[tuple[str, str]],
+    reference_entries: list[tuple[str, str]],
+) -> tuple[list[str], list[str]]:
+    cur_norm_order: list[str] = []
+    cur_name_raw: dict[str, str] = {}
+    for nm, _lb in current_entries or []:
+        raw = str(nm or "").strip()
+        key = _canonical_option_name_token(raw)
+        if not key or key in cur_name_raw:
+            continue
+        cur_name_raw[key] = raw
+        cur_norm_order.append(key)
+
+    ref_norm_order: list[str] = []
+    ref_name_raw: dict[str, str] = {}
+    for nm, _lb in reference_entries or []:
+        raw = str(nm or "").strip()
+        key = _canonical_option_name_token(raw)
+        if not key or key in ref_name_raw:
+            continue
+        ref_name_raw[key] = raw
+        ref_norm_order.append(key)
+
+    ref_set = set(ref_norm_order)
+    cur_set = set(cur_norm_order)
+
+    added = [cur_name_raw[k] for k in cur_norm_order if k not in ref_set]
+    removed = [ref_name_raw[k] for k in ref_norm_order if k not in cur_set]
+    return added, removed
+
+
+def merge_added_removed_choice_rows(
+    option_presence_issues: pl.DataFrame,
+    current_lookup: dict[tuple[str, str], list[tuple[str, str]]] | None = None,
+    reference_lookup: dict[tuple[str, str], list[tuple[str, str]]] | None = None,
+    current_lang_lookup: dict[tuple[str, str], list[tuple[str, str]]] | None = None,
+    reference_lang_lookup: dict[tuple[str, str], list[tuple[str, str]]] | None = None,
+) -> pl.DataFrame:
+    """
+    If a (Q Name, list_name) has both added_choice and removed_choice rows,
+    replace them with one general consolidated row.
+    """
+    df = option_presence_issues
+    if df is None or df.height == 0:
+        return df
+    if not {"issue_type", "Q Name", "list_name"}.issubset(set(df.columns)):
+        return df
+
+    target = df.filter(pl.col("issue_type").is_in(["added_choice", "removed_choice"]))
+    if target.height == 0:
+        return df
+
+    keys = (
+        target
+        .group_by(["Q Name", "list_name"])
+        .agg([
+            (pl.col("issue_type") == "added_choice").any().alias("_has_added"),
+            (pl.col("issue_type") == "removed_choice").any().alias("_has_removed"),
+        ])
+        .filter(pl.col("_has_added") & pl.col("_has_removed"))
+        .select(["Q Name", "list_name"])
+    )
+    if keys.height == 0:
+        return df
+
+    has_cur_lang = "current_lang" in df.columns
+    has_ref_lang = "reference_lang" in df.columns
+    key_rows = keys.to_dicts()
+    merged_rows: list[dict] = []
+    for k in key_rows:
+        qn = str(k.get("Q Name") or "")
+        ln = str(k.get("list_name") or "")
+        if not qn or not ln:
+            continue
+        key_norm = (qn.strip().lower(), _normalize_list_token(ln))
+
+        sub = target.filter((pl.col("Q Name") == qn) & (pl.col("list_name") == ln))
+        added_rows = sub.filter(pl.col("issue_type") == "added_choice").to_dicts()
+        removed_rows = sub.filter(pl.col("issue_type") == "removed_choice").to_dicts()
+        if not added_rows or not removed_rows:
+            continue
+
+        cur_entries = (current_lookup or {}).get(key_norm, [])
+        ref_entries = (reference_lookup or {}).get(key_norm, [])
+        cur_lang_entries = (current_lang_lookup or {}).get(key_norm, [])
+        ref_lang_entries = (reference_lang_lookup or {}).get(key_norm, [])
+
+        if cur_entries or ref_entries:
+            added_names, removed_names = _ordered_added_removed_names(cur_entries, ref_entries)
+        else:
+            added_names = _ordered_unique_names(added_rows)
+            removed_names = _ordered_unique_names(removed_rows)
+
+        added_n = len(added_names)
+        removed_n = len(removed_names)
+        cur_total = len(cur_entries) if cur_entries else added_n + max(len(_ordered_unique_names(removed_rows)), 0)
+        ref_total = len(ref_entries) if ref_entries else removed_n + max(len(_ordered_unique_names(added_rows)), 0)
+
+        added_txt = _join_tokens_limited(added_names, limit=24)
+        removed_txt = _join_tokens_limited(removed_names, limit=24)
+        detail = (
+            f"both added and removed options: added={added_n}, removed={removed_n}; "
+            f"current total={cur_total}, reference total={ref_total} "
+            f"(added: {added_txt}; removed: {removed_txt})"
+        )
+
+        severities = [str(r.get("severity") or "").strip().lower() for r in (added_rows + removed_rows)]
+        sev = "info"
+        if "high" in severities:
+            sev = "high"
+        elif "medium" in severities:
+            sev = "medium"
+
+        excel_rows = [r.get("excel_row") for r in (added_rows + removed_rows) if r.get("excel_row") is not None]
+
+        merged = {
+            "issue_type": "choice_changes_general",
+            "set_name": "",
+            "Q Name": qn,
+            "list_name": ln,
+            "option_name": f"added[{added_txt}] | removed[{removed_txt}]",
+            "field": detail,
+            "current": _format_choice_entries(cur_entries, "Current list (name | label)")
+            if cur_entries else _format_collapsed_choice_side(added_rows + removed_rows, "current", "Current list (name | label)"),
+            "reference": _format_choice_entries(ref_entries, "Reference list (name | label)")
+            if ref_entries else _format_collapsed_choice_side(added_rows + removed_rows, "reference", "Reference list (name | label)"),
+            "severity": sev,
+            "excel_row": min(excel_rows) if excel_rows else None,
+        }
+        if has_cur_lang:
+            merged["current_lang"] = (
+                _format_choice_entries(cur_lang_entries, "Current list (name | label)")
+                if cur_lang_entries
+                else ""
+            )
+        if has_ref_lang:
+            merged["reference_lang"] = (
+                _format_choice_entries(ref_lang_entries, "Reference list (name | label)")
+                if ref_lang_entries
+                else ""
+            )
+        merged_rows.append(merged)
+
+    if not merged_rows:
+        return df
+
+    merged_df = pl.DataFrame(merged_rows)
+    for col in df.columns:
+        if col not in merged_df.columns:
+            merged_df = merged_df.with_columns(pl.lit(None).alias(col))
+    merged_df = merged_df.select(df.columns)
+
+    df_no_pairs = df.join(keys, on=["Q Name", "list_name"], how="anti")
+    return pl.concat([df_no_pairs, merged_df], how="vertical")
+
+
+def collapse_choice_issue_rows_by_key(
+    df: pl.DataFrame,
+    issue_types: list[str],
+    current_lookup: dict[tuple[str, str], list[tuple[str, str]]] | None = None,
+    reference_lookup: dict[tuple[str, str], list[tuple[str, str]]] | None = None,
+    current_lang_lookup: dict[tuple[str, str], list[tuple[str, str]]] | None = None,
+    reference_lang_lookup: dict[tuple[str, str], list[tuple[str, str]]] | None = None,
+) -> pl.DataFrame:
+    """
+    Reduce per-option noise by collapsing rows into one row per
+    (issue_type, Q Name, list_name), preserving issue semantics.
+    """
+    if df.height == 0:
+        return df
+    if not {"issue_type", "Q Name", "list_name"}.issubset(set(df.columns)):
+        return df
+
+    target = set(issue_types or [])
+    if not target:
+        return df
+
+    mask = pl.col("issue_type").is_in(list(target))
+    keep_df = df.filter(~mask)
+    noisy_df = df.filter(mask)
+    if noisy_df.height == 0:
+        return df
+
+    has_cur_lang = "current_lang" in noisy_df.columns
+    has_ref_lang = "reference_lang" in noisy_df.columns
+
+    grouped_rows: list[dict] = []
+    for grp in noisy_df.group_by(["issue_type", "Q Name", "list_name"]).agg(pl.len().alias("_n")).to_dicts():
+        it = str(grp.get("issue_type") or "")
+        qn = str(grp.get("Q Name") or "")
+        ln = str(grp.get("list_name") or "")
+        key_norm = (qn.strip().lower(), _normalize_list_token(ln))
+        sub = noisy_df.filter(
+            (pl.col("issue_type") == it)
+            & (pl.col("Q Name") == qn)
+            & (pl.col("list_name") == ln)
+        )
+        rows = sub.to_dicts()
+        n = len(rows)
+
+        opt_names = [r.get("option_name") for r in rows]
+        currents = [r.get("current") for r in rows]
+        refs = [r.get("reference") for r in rows]
+        severities = [str(r.get("severity") or "").strip().lower() for r in rows]
+        excel_rows = [r.get("excel_row") for r in rows if r.get("excel_row") is not None]
+
+        cur_lang_vals = [r.get("current_lang") for r in rows] if has_cur_lang else []
+        ref_lang_vals = [r.get("reference_lang") for r in rows] if has_ref_lang else []
+
+        sev = "info"
+        if "high" in severities:
+            sev = "high"
+        elif "medium" in severities:
+            sev = "medium"
+
+        cur_entries = (current_lookup or {}).get(key_norm, [])
+        ref_entries = (reference_lookup or {}).get(key_norm, [])
+        cur_lang_entries = (current_lang_lookup or {}).get(key_norm, [])
+        ref_lang_entries = (reference_lang_lookup or {}).get(key_norm, [])
+        cur_total = len(cur_entries) if cur_entries else None
+        ref_total = len(ref_entries) if ref_entries else None
+
+        cur_txt = (
+            _format_choice_entries(cur_entries, "Current list (name | label)")
+            if cur_entries or ref_entries
+            else _format_collapsed_choice_side(rows, "current", "Current list (name | label)")
+        )
+        ref_txt = (
+            _format_choice_entries(ref_entries, "Reference list (name | label)")
+            if cur_entries or ref_entries
+            else _format_collapsed_choice_side(rows, "reference", "Reference list (name | label)")
+        )
+
+        row = {
+            "issue_type": it,
+            "set_name": "",
+            "Q Name": qn,
+            "list_name": ln,
+            "option_name": _join_tokens_limited(opt_names, limit=20),
+            "field": _collapsed_choice_detail(it, n, current_total=cur_total, reference_total=ref_total),
+            "current": cur_txt,
+            "reference": ref_txt,
+            "severity": sev,
+            "excel_row": min(excel_rows) if excel_rows else None,
+        }
+        if has_cur_lang:
+            row["current_lang"] = (
+                _format_choice_entries(cur_lang_entries, "Current list (name | label)")
+                if (cur_lang_entries or ref_lang_entries)
+                else (
+                    _format_collapsed_choice_side(rows, "current_lang", "Current list (name | label)")
+                    if any(str(v or "").strip() for v in cur_lang_vals)
+                    else ""
+                )
+            )
+        if has_ref_lang:
+            row["reference_lang"] = (
+                _format_choice_entries(ref_lang_entries, "Reference list (name | label)")
+                if (cur_lang_entries or ref_lang_entries)
+                else (
+                    _format_collapsed_choice_side(rows, "reference_lang", "Reference list (name | label)")
+                    if any(str(v or "").strip() for v in ref_lang_vals)
+                    else ""
+                )
+            )
+        grouped_rows.append(row)
+
+    collapsed_df = pl.DataFrame(grouped_rows) if grouped_rows else pl.DataFrame(schema=noisy_df.schema)
+    for col in noisy_df.columns:
+        if col not in collapsed_df.columns:
+            collapsed_df = collapsed_df.with_columns(pl.lit(None).alias(col))
+    collapsed_df = collapsed_df.select(noisy_df.columns)
+    return pl.concat([keep_df, collapsed_df], how="vertical")
+
+
+def suppress_enumerator_option_details(
+    option_label_issues: pl.DataFrame,
+    option_presence_issues: pl.DataFrame,
+    option_renumber_issues: pl.DataFrame,
+    option_root_cause_issues: pl.DataFrame,
+    option_complete_replace_issues: pl.DataFrame,
+    current_options_source: pl.DataFrame | None = None,
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """
+    Suppress enumerator per-option change rows and return one informational summary row.
+    """
+    issue_schema = {
+        "issue_type": pl.Utf8, "set_name": pl.Utf8, "Q Name": pl.Utf8,
+        "list_name": pl.Utf8, "option_name": pl.Utf8, "field": pl.Utf8,
+        "current": pl.Utf8, "reference": pl.Utf8, "severity": pl.Utf8,
+        "excel_row": pl.Int64,
+    }
+
+    q_expr = pl.col("Q Name").cast(pl.Utf8).fill_null("").str.strip_chars().str.to_lowercase()
+    enum_mask = q_expr == "enumerator"
+
+    def _split(df: pl.DataFrame) -> tuple[pl.DataFrame, int]:
+        if df.height == 0:
+            return df, 0
+        n = df.filter(enum_mask).height
+        return df.filter(~enum_mask), n
+
+    option_label_clean, n_lbl = _split(option_label_issues)
+    option_presence_clean, n_pres = _split(option_presence_issues)
+    option_renumber_clean, n_ren = _split(option_renumber_issues)
+    option_root_clean, n_root = _split(option_root_cause_issues)
+    option_complete_clean, n_comp = _split(option_complete_replace_issues)
+
+    enum_count = 0
+    if current_options_source is not None and current_options_source.height > 0:
+        enum_rows = (
+            current_options_source
+            .filter(
+                pl.col("Q Name").cast(pl.Utf8).fill_null("").str.strip_chars().str.to_lowercase() == "enumerator"
+            )
+            .with_columns(_canonical_option_key_expr("option_name").alias("_ok"))
+            .filter(pl.col("_ok") != "")
+            .select(["_ok"])
+            .unique()
+        )
+        enum_count = enum_rows.height
+
+    suppressed_total = n_lbl + n_pres + n_ren + n_root + n_comp
+    if suppressed_total == 0 and enum_count == 0:
+        return (
+            option_label_clean,
+            option_presence_clean,
+            option_renumber_clean,
+            option_root_clean,
+            option_complete_clean,
+            pl.DataFrame(schema=issue_schema),
+        )
+
+    summary_row = pl.DataFrame([{
+        "issue_type": "enumerator_choice_changes_summary",
+        "set_name": "",
+        "Q Name": "enumerator",
+        "list_name": "enumerator",
+        "option_name": "",
+        "field": "choices",
+        "current": f"Enumerator choices present in current: {enum_count}",
+        "reference": f"Detailed enumerator option differences suppressed ({suppressed_total} row(s))",
+        "severity": "info",
+        "excel_row": None,
+    }], schema=issue_schema)
+
+    return (
+        option_label_clean,
+        option_presence_clean,
+        option_renumber_clean,
+        option_root_clean,
+        option_complete_clean,
+        summary_row,
+    )
+
 
 # ======================================================================
 # SECTION: ## Step 10 -- Run pipeline
@@ -3218,6 +3695,13 @@ if run.get("reference_mode") == "previous_round":
     _country_lists = set()
 
 _list_changed_q = set(list_name_issues["Q Name"].to_list())
+_cfg_excluded = {
+    str(q).strip().lower()
+    for q in cfg.get("kobo_options", {}).get("exclude_qnames_from_option_compare", [])
+    if q is not None and str(q).strip()
+}
+_cfg_excluded_for_compare = set(_cfg_excluded) - {"enumerator"}
+_q_norm_expr = pl.col("Q Name").cast(pl.Utf8).str.strip_chars().str.to_lowercase()
 
 cur_opts_cmp = (
     current_options_vanilla_cmp
@@ -3225,6 +3709,7 @@ cur_opts_cmp = (
     .filter(~pl.col("_list_norm").is_in(list(_country_lists)))
     .drop("_list_norm")
     .filter(~pl.col("Q Name").is_in(list(_list_changed_q)))
+    .filter(~_q_norm_expr.is_in(list(_cfg_excluded_for_compare)))
 )
 ref_opts_cmp = (
     reference_options
@@ -3232,6 +3717,7 @@ ref_opts_cmp = (
     .filter(~pl.col("_list_norm").is_in(list(_country_lists)))
     .drop("_list_norm")
     .filter(~pl.col("Q Name").is_in(list(_list_changed_q)))
+    .filter(~_q_norm_expr.is_in(list(_cfg_excluded_for_compare)))
 )
 if _kobo_dual_lang:
     cur_opts_cmp_en = (
@@ -3240,6 +3726,7 @@ if _kobo_dual_lang:
         .filter(~pl.col("_list_norm").is_in(list(_country_lists)))
         .drop("_list_norm")
         .filter(~pl.col("Q Name").is_in(list(_list_changed_q)))
+        .filter(~_q_norm_expr.is_in(list(_cfg_excluded_for_compare)))
     )
     ref_opts_cmp_en = (
         reference_options_en
@@ -3247,6 +3734,7 @@ if _kobo_dual_lang:
         .filter(~pl.col("_list_norm").is_in(list(_country_lists)))
         .drop("_list_norm")
         .filter(~pl.col("Q Name").is_in(list(_list_changed_q)))
+        .filter(~_q_norm_expr.is_in(list(_cfg_excluded_for_compare)))
     )
 else:
     cur_opts_cmp_en = cur_opts_cmp
@@ -3306,17 +3794,13 @@ if _excluded:
     option_pres_issues  = option_pres_issues.filter(~pl.col("Q Name").is_in(list(_excluded)))
     option_renumber_issues = option_renumber_issues.filter(~pl.col("Q Name").is_in(list(_excluded)))
 
-# Config-driven exclusions for operational fields (case/space-insensitive)
-_cfg_excluded = {
-    str(q).strip().lower()
-    for q in cfg.get("kobo_options", {}).get("exclude_qnames_from_option_compare", [])
-    if q is not None and str(q).strip()
-}
-if _cfg_excluded:
+# Config-driven exclusions for operational fields (case/space-insensitive).
+# Keep 'enumerator' for a dedicated summary row later in the pipeline.
+if _cfg_excluded_for_compare:
     _q_norm = pl.col("Q Name").cast(pl.Utf8).str.strip_chars().str.to_lowercase()
-    option_label_issues = option_label_issues.filter(~_q_norm.is_in(list(_cfg_excluded)))
-    option_pres_issues  = option_pres_issues.filter(~_q_norm.is_in(list(_cfg_excluded)))
-    option_renumber_issues = option_renumber_issues.filter(~_q_norm.is_in(list(_cfg_excluded)))
+    option_label_issues = option_label_issues.filter(~_q_norm.is_in(list(_cfg_excluded_for_compare)))
+    option_pres_issues  = option_pres_issues.filter(~_q_norm.is_in(list(_cfg_excluded_for_compare)))
+    option_renumber_issues = option_renumber_issues.filter(~_q_norm.is_in(list(_cfg_excluded_for_compare)))
 
 # Suppress noisy country-rotation diffs for cluster/ea and keep one info summary row.
 option_label_issues, option_pres_issues, option_renumber_issues, cluster_ea_summary_issues = (
@@ -3382,6 +3866,75 @@ if option_label_issues.height > 0 and _noise_keys.height > 0:
         how="anti",
     )
 
+# Apply operational exclusions consistently to root-cause/consolidated option rows.
+if _cfg_excluded_for_compare:
+    _q_norm = pl.col("Q Name").cast(pl.Utf8).str.strip_chars().str.to_lowercase()
+    option_root_cause_issues = option_root_cause_issues.filter(~_q_norm.is_in(list(_cfg_excluded_for_compare)))
+    option_complete_replace_issues = option_complete_replace_issues.filter(~_q_norm.is_in(list(_cfg_excluded_for_compare)))
+
+# Suppress enumerator row-level option diffs and replace with a single info row.
+(
+    option_label_issues,
+    option_pres_issues,
+    option_renumber_issues,
+    option_root_cause_issues,
+    option_complete_replace_issues,
+    enumerator_summary_issues,
+) = suppress_enumerator_option_details(
+    option_label_issues,
+    option_pres_issues,
+    option_renumber_issues,
+    option_root_cause_issues,
+    option_complete_replace_issues,
+    current_options_source=current_options_vanilla_cmp,
+)
+if enumerator_summary_issues.height > 0:
+    print(
+        "Enumerator option diffs suppressed: "
+        + str(enumerator_summary_issues.select("current").item())
+    )
+
+# Collapse repetitive per-option rows to one row per (issue_type, Q Name, list_name).
+_collapse_issue_types = ["added_choice", "removed_choice", "choice_label_mismatch", "option_index_drift"]
+_choice_lookup_cur_en = _build_choice_lookup(cur_opts_cmp_en)
+_choice_lookup_ref_en = _build_choice_lookup(ref_opts_cmp_en)
+_choice_lookup_cur_tgt = _build_choice_lookup(cur_opts_cmp)
+_choice_lookup_ref_tgt = _build_choice_lookup(ref_opts_cmp)
+
+# If both added and removed exist for the same question/list, merge into one general row.
+option_pres_issues = merge_added_removed_choice_rows(
+    option_pres_issues,
+    current_lookup=_choice_lookup_cur_en,
+    reference_lookup=_choice_lookup_ref_en,
+    current_lang_lookup=_choice_lookup_cur_tgt,
+    reference_lang_lookup=_choice_lookup_ref_tgt,
+)
+
+option_label_issues = collapse_choice_issue_rows_by_key(
+    option_label_issues,
+    _collapse_issue_types,
+    current_lookup=_choice_lookup_cur_en,
+    reference_lookup=_choice_lookup_ref_en,
+    current_lang_lookup=_choice_lookup_cur_tgt,
+    reference_lang_lookup=_choice_lookup_ref_tgt,
+)
+option_pres_issues = collapse_choice_issue_rows_by_key(
+    option_pres_issues,
+    _collapse_issue_types,
+    current_lookup=_choice_lookup_cur_en,
+    reference_lookup=_choice_lookup_ref_en,
+    current_lang_lookup=_choice_lookup_cur_tgt,
+    reference_lang_lookup=_choice_lookup_ref_tgt,
+)
+option_renumber_issues = collapse_choice_issue_rows_by_key(
+    option_renumber_issues,
+    _collapse_issue_types,
+    current_lookup=_choice_lookup_cur_en,
+    reference_lookup=_choice_lookup_ref_en,
+    current_lang_lookup=_choice_lookup_cur_tgt,
+    reference_lang_lookup=_choice_lookup_ref_tgt,
+)
+
 def _with_choice_cols(df: pl.DataFrame) -> pl.DataFrame:
     out = df
     if "list_name" not in out.columns:
@@ -3408,6 +3961,7 @@ all_issues = pl.concat(
      _with_choice_cols(option_root_cause_issues),
      _with_choice_cols(option_complete_replace_issues),
      _with_choice_cols(cluster_ea_summary_issues),
+     _with_choice_cols(enumerator_summary_issues),
      _with_choice_cols(critical_issues),
      _with_choice_cols(count_issues),
      _with_choice_cols(harvest_issues),
@@ -3427,6 +3981,7 @@ if run.get("reference_mode") == "previous_round":
         "choice_label_mismatch",
         "added_choice",
         "removed_choice",
+        "choice_changes_general",
         "option_index_drift",
         "option_name_dictionary_replaced",
         "removed_option_causes_index_drift",
@@ -3607,6 +4162,7 @@ _ISSUE_LABELS = {
     "additional_information_replacement_change": "Additional information replacement change",
     "removed_choice"           : "Choice removed",
     "added_choice"             : "Choice added",
+    "choice_changes_general"   : "Choice changes (added + removed)",
     "choice_label_mismatch"    : "Choice label changed",
     "option_index_drift": "Option index drift (same labels)",
     "option_name_dictionary_replaced": "Option name dictionary replaced",
@@ -3614,6 +4170,7 @@ _ISSUE_LABELS = {
     "added_option_causes_index_drift": "Added option caused index drift",
     "mandatory_choice_set_replaced": "Mandatory choice set fully replaced",
     "cluster_ea_choice_changes_summary": "Cluster/EA choice changes summary",
+    "enumerator_choice_changes_summary": "Enumerator choice changes summary",
     "replacement_crop_template_mismatch": "Crop list mismatch vs template baseline",
     "placeholder_not_found"    : "Placeholder not in template/additional info",
     "placeholder_should_use_kobo_ref": "Placeholder looks like variable (use ${var})",
@@ -3666,6 +4223,7 @@ ISSUE_ACTION_MAP = {
     "hint_changed": "Review hint text change",
     "removed_choice": "Review removed choice and downstream logic",
     "added_choice": "Review added choice and downstream logic",
+    "choice_changes_general": "Review combined added/removed choice changes and downstream logic",
     "choice_label_mismatch": "Review choice label mismatch",
     "option_index_drift": "Review option index drift and coding continuity",
     "option_name_dictionary_replaced": "Restore original option-name dictionary from template/reference",
@@ -3674,6 +4232,7 @@ ISSUE_ACTION_MAP = {
     "mandatory_choice_set_replaced": "Restore reference choice set or document approved redesign for mandatory question",
     "replacement_crop_template_mismatch": "Align final crop choices with template baseline (codes and labels)",
     "cluster_ea_choice_changes_summary": "Informational only: review aggregate cluster/ea choice turnover counts",
+    "enumerator_choice_changes_summary": "Informational only: enumerator list is operational and expected to change",
     "broken_relevant_reference": "Fix relevant expression to valid referenced variables",
     "relevant_inexact_reference": "Review relevant expression equivalence with reference",
     "relevant_modified": "Review relevant expression change",
@@ -3829,6 +4388,44 @@ def _set_rich_text(cell, full_text: str, parts):
     cell.value = CellRichText(*blocks)
 
 
+def _set_rich_text_with_bold_tokens(cell, full_text: str, tokens: list[str]):
+    if not _RICH_TEXT_AVAILABLE or not full_text:
+        cell.value = full_text
+        return
+    txt = str(full_text)
+    lower = txt.lower()
+    spans: list[tuple[int, int]] = []
+    for tok in tokens or []:
+        t = str(tok or "").strip().lower()
+        if not t:
+            continue
+        for m in re.finditer(re.escape(t), lower):
+            spans.append((m.start(), m.end()))
+    if not spans:
+        cell.value = full_text
+        return
+
+    spans.sort()
+    merged: list[tuple[int, int]] = []
+    for s, e in spans:
+        if not merged or s > merged[-1][1]:
+            merged.append((s, e))
+        else:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+
+    blocks = []
+    pos = 0
+    for s, e in merged:
+        if s > pos:
+            blocks.append(TextBlock(InlineFont(color="FF000000", b=False), txt[pos:s]))
+        blocks.append(TextBlock(InlineFont(color="FF000000", b=True), txt[s:e]))
+        pos = e
+    if pos < len(txt):
+        blocks.append(TextBlock(InlineFont(color="FF000000", b=False), txt[pos:]))
+
+    cell.value = CellRichText(*blocks) if blocks else full_text
+
+
 def _apply_inline_diff_for_issue(ws, start_row, df, cols, issue_types):
     if df.height == 0:
         return
@@ -3883,14 +4480,29 @@ def _apply_choice_detail_highlights(ws, start_row, df, cols):
         "removed_option_causes_index_drift": "removed option(s) causing drift: ",
         "added_option_causes_index_drift": "added option(s) causing drift: ",
     }
+    bold_tokens_map = {
+        "added_choice": ["added"],
+        "removed_choice": ["removed"],
+        "choice_changes_general": ["both added and removed", "added", "removed"],
+    }
 
     for offset, rd in enumerate(df.to_dicts(), start=1):
         issue_val = str(rd.get("issue_type") or "")
-        prefix = prefixes.get(issue_val)
-        if not prefix:
-            continue
         detail_txt = str(rd.get("field") or "")
         if not detail_txt:
+            continue
+
+        _bold_tokens = bold_tokens_map.get(issue_val)
+        if _bold_tokens:
+            _set_rich_text_with_bold_tokens(
+                ws.cell(row=start_row + offset, column=detail_col),
+                detail_txt,
+                _bold_tokens,
+            )
+            continue
+
+        prefix = prefixes.get(issue_val)
+        if not prefix:
             continue
 
         lower_txt = detail_txt.lower()
@@ -4217,7 +4829,7 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
     _sect(ws, r, "CHOICE CHANGES  (questions present in both files)", 4); r += 1
     r = _grouped_table(ws, r,
                        all_issues.filter(pl.col("issue_type").is_in(
-                           ["removed_choice", "added_choice", "choice_label_mismatch", "option_index_drift", "option_name_dictionary_replaced", "removed_option_causes_index_drift", "added_option_causes_index_drift", "mandatory_choice_set_replaced", "cluster_ea_choice_changes_summary"])))
+                           ["removed_choice", "added_choice", "choice_changes_general", "choice_label_mismatch", "option_index_drift", "option_name_dictionary_replaced", "removed_option_causes_index_drift", "added_option_causes_index_drift", "mandatory_choice_set_replaced", "cluster_ea_choice_changes_summary", "enumerator_choice_changes_summary"])))
 
 
 def write_critical_sets_sheet(wb, all_issues, found_info=None):
@@ -4342,7 +4954,7 @@ def write_option_changes_sheet(wb, all_issues):
     ws = wb.create_sheet("Choice Changes")
     ws.sheet_view.showGridLines = False
     df = all_issues.filter(pl.col("issue_type").is_in([
-        "removed_choice", "added_choice", "choice_label_mismatch", "option_index_drift", "option_name_dictionary_replaced", "removed_option_causes_index_drift", "added_option_causes_index_drift", "mandatory_choice_set_replaced", "cluster_ea_choice_changes_summary",
+        "removed_choice", "added_choice", "choice_changes_general", "choice_label_mismatch", "option_index_drift", "option_name_dictionary_replaced", "removed_option_causes_index_drift", "added_option_causes_index_drift", "mandatory_choice_set_replaced", "cluster_ea_choice_changes_summary", "enumerator_choice_changes_summary",
     ]))
     df = _with_lang_scope_tag(df, _kobo_report_lang)
     col_map = [c for c in COL_MAP if c[0] != "set_name"]
@@ -4353,7 +4965,7 @@ def write_option_changes_sheet(wb, all_issues):
         2,
         df,
         [(s, d) for s, d in col_map if s in df.columns],
-        {"choice_label_mismatch", "option_index_drift", "option_name_dictionary_replaced", "removed_option_causes_index_drift", "added_option_causes_index_drift", "mandatory_choice_set_replaced"},
+        {"added_choice", "removed_choice", "choice_changes_general", "choice_label_mismatch", "option_index_drift", "option_name_dictionary_replaced", "removed_option_causes_index_drift", "added_option_causes_index_drift", "mandatory_choice_set_replaced"},
     )
     _apply_choice_detail_highlights(ws, 2, df, [(s, d) for s, d in col_map if s in df.columns])
     _autofit(ws)
@@ -4423,7 +5035,25 @@ _CROP_SPECIALS = {
 }
 
 
-def _read_crop_choices(src_path: str, language: str) -> tuple[dict[str, list[tuple]], dict]:
+def _crop_label_idx(headers: list[str], language: str) -> int | None:
+    """Locate Crop list label column index for a language token (EN/FR/AR/...)."""
+    lu = str(language or "").strip().upper()
+    if not lu:
+        return None
+    for i, h in enumerate(headers):
+        hu = str(h or "").strip().upper()
+        if "LABEL" not in hu:
+            continue
+        if f"({lu})" in hu or hu.endswith(f" {lu}") or hu.endswith(lu):
+            return i
+    return None
+
+
+def _read_crop_choices(
+    src_path: str,
+    language: str,
+    strict_language: bool = False,
+) -> tuple[dict[str, list[tuple]], dict]:
     """
     Read 'Crop list' sheet -> {list_name: [(code, label), ...]} for crop/crop2/crop3.
     Also returns crop-selection diagnostics for reporting (expected exactly 10 selected).
@@ -4452,13 +5082,15 @@ def _read_crop_choices(src_path: str, language: str) -> tuple[dict[str, list[tup
     headers  = [str(h).strip() if h is not None else "" for h in rows[2]]
     sel_idx  = next((i for i, h in enumerate(headers) if "Select top" in h), None)
     code_idx = next((i for i, h in enumerate(headers) if "Dataset code" in h), None)
-    if language == "fr":
-        lbl_idx = next((i for i, h in enumerate(headers) if "Label" in h and "FR" in h), None)
-    else:
-        lbl_idx = next((i for i, h in enumerate(headers) if "Label" in h and "EN" in h), None)
+    req_lbl_idx = _crop_label_idx(headers, language)
+    en_lbl_idx = _crop_label_idx(headers, "en")
+    lbl_idx = req_lbl_idx if req_lbl_idx is not None else en_lbl_idx
 
     if code_idx is None or lbl_idx is None:
         status["message"] = "Crop list headers missing Dataset code / language label"
+        return {}, status
+    if strict_language and req_lbl_idx is None:
+        status["message"] = f"Crop list header missing label column for language '{language}'"
         return {}, status
 
     selected, unselected = [], []
@@ -4500,6 +5132,70 @@ def _read_crop_choices(src_path: str, language: str) -> tuple[dict[str, list[tup
     return ({name: combined + specials for name, specials in _CROP_SPECIALS.items()}, status)
 
 
+def _merge_crop_rows_for_multilang(
+    crop_rows_en: dict[str, list[tuple]],
+    crop_rows_target: dict[str, list[tuple]],
+    target_language: str,
+) -> dict[str, list[tuple]]:
+    """
+    Build crop rows as (code, label_en, label_target) per list for writing both label columns.
+    Falls back safely if one language view is missing.
+    """
+    out: dict[str, list[tuple]] = {}
+    tgt_lang = str(target_language or "").strip().lower()
+    for ln in _CROP_SPECIALS.keys():
+        en_entries = list(crop_rows_en.get(ln, []))
+        tgt_entries = list(crop_rows_target.get(ln, []))
+
+        en_by_code: dict[str, str] = {}
+        tgt_by_code: dict[str, str] = {}
+        first_code_seen: dict[str, str] = {}
+
+        for code, lbl in en_entries:
+            key = _normalize_choice_text_token(code)
+            if not key:
+                continue
+            first_code_seen.setdefault(key, str(code or "").strip())
+            en_by_code[key] = str(lbl or "").strip()
+        for code, lbl in tgt_entries:
+            key = _normalize_choice_text_token(code)
+            if not key:
+                continue
+            first_code_seen.setdefault(key, str(code or "").strip())
+            tgt_by_code[key] = str(lbl or "").strip()
+
+        # Prefer EN ordering when available; otherwise keep target ordering.
+        base_entries = en_entries if en_entries else tgt_entries
+        merged: list[tuple] = []
+        seen: set[str] = set()
+        for code, _ in base_entries:
+            key = _normalize_choice_text_token(code)
+            if not key or key in seen:
+                continue
+            code_txt = first_code_seen.get(key, str(code or "").strip())
+            en_txt = en_by_code.get(key, "")
+            if tgt_lang == "en":
+                tgt_txt = en_txt
+            else:
+                tgt_txt = tgt_by_code.get(key, "")
+            merged.append((code_txt, en_txt, tgt_txt))
+            seen.add(key)
+
+        # Defensive: include codes present in only one language map.
+        for key, code_txt in first_code_seen.items():
+            if key in seen:
+                continue
+            en_txt = en_by_code.get(key, "")
+            if tgt_lang == "en":
+                tgt_txt = en_txt
+            else:
+                tgt_txt = tgt_by_code.get(key, "")
+            merged.append((code_txt, en_txt, tgt_txt))
+
+        out[ln] = merged
+    return out
+
+
 def _fetch_admin_choices(iso3: str) -> dict[str, list[tuple]]:
     """
     Fetch adm1 and adm2 from public FAO AGOL REST service (no credentials needed).
@@ -4531,22 +5227,52 @@ def _fetch_admin_choices(iso3: str) -> dict[str, list[tuple]]:
     return {"admin1": adm1, "admin2": adm2}
 
 
-def _rebuild_choices_sheet(wb, country_rows: dict[str, list[tuple]]) -> None:
+def _rebuild_choices_sheet(
+    wb,
+    country_rows: dict[str, list[tuple]],
+    target_language: str = "en",
+) -> None:
     """
     Replace all rows belonging to country_rows list_names with fresh data.
     Non-country rows and empty separator rows are preserved in their original order.
     New country blocks are appended at the end, each preceded by an empty separator row.
     admin2 rows also populate col 5 (adm1_pcode) for choice_filter cascading.
     """
-    ws       = wb["choices"]
+    ws = wb["choices"]
     all_rows = list(ws.iter_rows(values_only=True))
-    n_cols   = max((len(r) for r in all_rows), default=5)
-    skip     = set(country_rows.keys())
+    if not all_rows:
+        return
+    n_cols = max((len(r) for r in all_rows), default=5)
+    headers = [str(h).strip() if h is not None else "" for h in all_rows[0]]
+    col_idx = {h: i for i, h in enumerate(headers)}
+    skip = set(country_rows.keys())
 
-    # Keep header + non-country rows + empty separator rows (r[0] is None)
+    list_col = col_idx.get("list_name", 0)
+    name_col = col_idx.get("name", 1)
+    en_label_col = col_idx.get(LANG_LABEL_COL.get("en", "label::English (en)"))
+    tgt_label_name = LANG_LABEL_COL.get(str(target_language or "").lower(), f"label::{target_language}")
+    tgt_label_col = col_idx.get(tgt_label_name)
+    fallback_label_name = _find_label_col(headers, str(target_language or "en"))
+    fallback_label_col = col_idx.get(fallback_label_name) if fallback_label_name else None
+
+    admin_filter_col = None
+    for c in ("my_filter_admin", "choice_filter", "filter"):
+        if c in col_idx:
+            admin_filter_col = col_idx[c]
+            break
+    if admin_filter_col is None and n_cols >= 5:
+        admin_filter_col = 4
+
+    def _cell(row, idx):
+        if row is None or idx is None or idx >= len(row):
+            return None
+        return row[idx]
+
+    # Keep header + non-country rows + empty separator rows.
     kept = [all_rows[0]] + [
-        r for r in all_rows[1:]
-        if r[0] is None or r[0] not in skip
+        r
+        for r in all_rows[1:]
+        if _cell(r, list_col) is None or str(_cell(r, list_col)).strip() not in skip
     ]
 
     # Build new country blocks, each preceded by an empty separator row
@@ -4554,12 +5280,27 @@ def _rebuild_choices_sheet(wb, country_rows: dict[str, list[tuple]]) -> None:
     for list_name, entries in country_rows.items():
         new_rows.append([None] * n_cols)   # blank separator between blocks
         for entry in entries:
-            row    = [None] * n_cols
-            row[0] = list_name
-            row[1] = entry[0]   # code / pcode
-            row[2] = entry[1]   # label / name
-            if len(entry) > 2 and n_cols >= 5:
-                row[4] = entry[2]   # adm1_pcode in col 5 (choice_filter)
+            row = [None] * n_cols
+            row[list_col] = list_name
+            row[name_col] = entry[0] if len(entry) > 0 else ""
+
+            if list_name in _CROP_SPECIALS:
+                en_lbl = str(entry[1] if len(entry) > 1 else "").strip()
+                tgt_lbl = str(entry[2] if len(entry) > 2 else en_lbl).strip()
+                if en_label_col is not None:
+                    row[en_label_col] = en_lbl
+                if tgt_label_col is not None:
+                    row[tgt_label_col] = tgt_lbl
+                if en_label_col is None and tgt_label_col is None and fallback_label_col is not None:
+                    row[fallback_label_col] = tgt_lbl
+            else:
+                admin_lbl = str(entry[1] if len(entry) > 1 else "").strip()
+                if fallback_label_col is not None:
+                    row[fallback_label_col] = admin_lbl
+                elif en_label_col is not None:
+                    row[en_label_col] = admin_lbl
+                if len(entry) > 2 and admin_filter_col is not None:
+                    row[admin_filter_col] = entry[2]
             new_rows.append(row)
 
     ws.delete_rows(1, ws.max_row)
@@ -4594,6 +5335,75 @@ def _count_choices_list_rows(wb, list_name: str) -> int:
         for r in ws.iter_rows(min_row=2, values_only=True)
         if str((r[0] if r and len(r) > 0 else "") or "").strip() == list_name
     )
+
+
+def _choices_header_index_map(wb) -> dict[str, int]:
+    if "choices" not in wb.sheetnames:
+        return {}
+    ws = wb["choices"]
+    row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), None)
+    if not row:
+        return {}
+    headers = [str(h).strip() if h is not None else "" for h in row]
+    return {h: i for i, h in enumerate(headers) if h}
+
+
+def _count_blank_labels_for_lists(wb, list_names: list[str], label_col: str) -> tuple[int, int]:
+    hdr = _choices_header_index_map(wb)
+    if not hdr:
+        return 0, 0
+    li = hdr.get("list_name", 0)
+    ci = hdr.get(label_col)
+    if ci is None:
+        return 0, 0
+    ws = wb["choices"]
+    wanted = {str(v).strip() for v in list_names}
+    total = 0
+    blank = 0
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        ln = str((row[li] if li < len(row) else "") or "").strip()
+        if ln not in wanted:
+            continue
+        total += 1
+        lbl = row[ci] if ci < len(row) else None
+        if lbl is None or str(lbl).strip() == "":
+            blank += 1
+    return total, blank
+
+
+def _choices_has_language_col(path: str, language: str) -> bool:
+    target = LANG_LABEL_COL.get(str(language or "").lower(), f"label::{language}")
+    try:
+        wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    except Exception:
+        return False
+    try:
+        if "choices" not in wb.sheetnames:
+            return False
+        row = next(wb["choices"].iter_rows(min_row=1, max_row=1, values_only=True), None)
+        if not row:
+            return False
+        headers = {str(h).strip() for h in row if h is not None}
+        return target in headers
+    finally:
+        wb.close()
+
+
+def _crop_list_has_language_col(path: str, language: str) -> bool:
+    try:
+        wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    except Exception:
+        return False
+    try:
+        if "Crop list" not in wb.sheetnames:
+            return False
+        rows = list(wb["Crop list"].iter_rows(min_row=3, max_row=3, values_only=True))
+        if not rows:
+            return False
+        headers = [str(h).strip() if h is not None else "" for h in rows[0]]
+        return _crop_label_idx(headers, language) is not None
+    finally:
+        wb.close()
 
 
 def _normalize_choice_text_token(value) -> str:
@@ -4633,6 +5443,32 @@ def _choice_pair_set_from_rows(rows_by_list: dict[str, list[tuple]], list_names:
     return out
 
 
+def _choice_code_set_by_list(df: pl.DataFrame, list_names: list[str]) -> dict[str, set[str]]:
+    out: dict[str, set[str]] = {ln: set() for ln in list_names}
+    if df is None or df.height == 0:
+        return out
+    for row in df.select(["list_name", "option_name"]).iter_rows(named=True):
+        ln = _normalize_list_token(row.get("list_name"))
+        if ln not in out:
+            continue
+        code = _normalize_choice_text_token(row.get("option_name"))
+        if code:
+            out[ln].add(code)
+    return out
+
+
+def _choice_code_set_from_rows(rows_by_list: dict[str, list[tuple]], list_names: list[str]) -> dict[str, set[str]]:
+    out: dict[str, set[str]] = {ln: set() for ln in list_names}
+    if not rows_by_list:
+        return out
+    for ln in list_names:
+        for entry in rows_by_list.get(ln, []):
+            code = _normalize_choice_text_token(entry[0] if len(entry) > 0 else "")
+            if code:
+                out[ln].add(code)
+    return out
+
+
 def _fmt_choice_pairs(items: set[tuple[str, str]], limit: int = 12) -> str:
     def _sort_key(code: str):
         t = str(code or "").strip()
@@ -4647,6 +5483,15 @@ def _fmt_choice_pairs(items: set[tuple[str, str]], limit: int = 12) -> str:
     if len(txts) <= limit:
         return ", ".join(txts)
     return ", ".join(txts[:limit]) + f", ... (+{len(txts) - limit} more)"
+
+
+def _fmt_choice_codes(items: set[str], limit: int = 12) -> str:
+    vals = sorted(items, key=lambda x: x.lower())
+    if not vals:
+        return "(none)"
+    if len(vals) <= limit:
+        return ", ".join(vals)
+    return ", ".join(vals[:limit]) + f", ... (+{len(vals) - limit} more)"
 
 
 
@@ -4721,8 +5566,13 @@ def produce_validated_questionnaire(
     _copy2(src, dest)
     wb = openpyxl.load_workbook(dest)
 
+    _crop_lists = ["crop", "crop2", "crop3"]
+
     # -- 2. Crop choices --------------------------------------------------------
-    crop_rows, crop_sel_status = _read_crop_choices(src, lang)
+    _, crop_sel_status = _read_crop_choices(src, lang)
+    crop_rows_target, _ = _read_crop_choices(src, lang, strict_language=True)
+    crop_rows_en, _ = _read_crop_choices(src, "en")
+    crop_rows = _merge_crop_rows_for_multilang(crop_rows_en, crop_rows_target, lang)
     print(f"  Crop selection: {crop_sel_status['message']}")
     if crop_sel_status["status"] == "PASS":
         _add_row("Crop selection (top 10)", "PASS", crop_sel_status["message"], "pass")
@@ -4755,10 +5605,10 @@ def produce_validated_questionnaire(
 
     country_rows = {**crop_rows, **admin_rows}
     if country_rows:
-        _rebuild_choices_sheet(wb, country_rows)
+        _rebuild_choices_sheet(wb, country_rows, target_language=lang)
 
     # Verify choices replacement counts in workbook
-    for list_name in ["crop", "crop2", "crop3"]:
+    for list_name in _crop_lists:
         expected = len(crop_rows.get(list_name, []))
         actual = _count_choices_list_rows(wb, list_name)
         if expected > 0 and actual == expected:
@@ -4820,10 +5670,55 @@ def produce_validated_questionnaire(
             _det += " | examples: " + " ; ".join(_ch_examples)
         _add_row("Placeholder replacement in choices", "FAIL", _det, "high")
 
+    # Crop label placement integrity across language columns.
+    _en_col = LANG_LABEL_COL.get("en", "label::English (en)")
+    _total_en, _blank_en = _count_blank_labels_for_lists(wb, _crop_lists, _en_col)
+    if _total_en == 0:
+        _add_row(
+            "Crop label placement (EN)",
+            "WARN",
+            f"Column '{_en_col}' not found or no crop rows present",
+            "medium",
+        )
+    elif _blank_en == 0:
+        _add_row("Crop label placement (EN)", "PASS", f"All {_total_en} crop rows have EN labels", "pass")
+    else:
+        _add_row(
+            "Crop label placement (EN)",
+            "FAIL",
+            f"{_blank_en}/{_total_en} crop rows have blank EN labels",
+            "high",
+        )
+
+    _lang_norm = str(lang or "").strip().lower()
+    if _lang_norm != "en":
+        _target_col = LANG_LABEL_COL.get(_lang_norm, f"label::{lang}")
+        _total_tgt, _blank_tgt = _count_blank_labels_for_lists(wb, _crop_lists, _target_col)
+        if _total_tgt == 0:
+            _add_row(
+                f"Crop label placement ({_lang_norm.upper()})",
+                "WARN",
+                f"Column '{_target_col}' not found or no crop rows present",
+                "medium",
+            )
+        elif _blank_tgt == 0:
+            _add_row(
+                f"Crop label placement ({_lang_norm.upper()})",
+                "PASS",
+                f"All {_total_tgt} crop rows have {_lang_norm.upper()} labels",
+                "pass",
+            )
+        else:
+            _add_row(
+                f"Crop label placement ({_lang_norm.upper()})",
+                "FAIL",
+                f"{_blank_tgt}/{_total_tgt} crop rows have blank {_lang_norm.upper()} labels",
+                "high",
+            )
+
     wb.save(dest)
 
     # -- 6. Crop parity vs template baseline -----------------------------------
-    _crop_lists = ["crop", "crop2", "crop3"]
     _tmpl_path = None
     if "run" in globals():
         _tmpl_path = run.get("template_path") or run.get("reference_path")
@@ -4843,43 +5738,100 @@ def produce_validated_questionnaire(
             )
     else:
         try:
-            # Use EN baseline for crop parity (stable crop-name reference regardless run language).
-            _actual_choices = read_kobo_choices(dest, "en")
-            _template_crop_rows, _template_crop_status = _read_crop_choices(str(_tmpl_path), "en")
-            if not _template_crop_rows:
-                raise ValueError(
-                    "Template Crop list baseline is unavailable "
-                    f"({_template_crop_status.get('message', 'unknown reason')})"
-                )
-            _actual_map = _choice_pair_set_by_list(_actual_choices, _crop_lists)
-            _template_map = _choice_pair_set_from_rows(_template_crop_rows, _crop_lists)
+            _lang_candidates = ["en"]
+            if _lang_norm and _lang_norm not in _lang_candidates:
+                _lang_candidates.append(_lang_norm)
+            _parity_langs = [
+                _lc
+                for _lc in _lang_candidates
+                if _choices_has_language_col(dest, _lc) and _crop_list_has_language_col(str(_tmpl_path), _lc)
+            ]
 
-            for _ln in _crop_lists:
-                _actual_set = _actual_map.get(_ln, set())
-                _template_set = _template_map.get(_ln, set())
-                _missing = _template_set - _actual_set
-                _extra = _actual_set - _template_set
-                if _missing or _extra:
-                    _det_parts = []
-                    if _missing:
-                        _det_parts.append(f"missing={len(_missing)} ({_fmt_choice_pairs(_missing, limit=8)})")
-                    if _extra:
-                        _det_parts.append(f"extra={len(_extra)} ({_fmt_choice_pairs(_extra, limit=8)})")
-                    _det = "; ".join(_det_parts)
-                    _add_row(f"Crop template parity: {_ln}", "FAIL", _det, "high")
-                    _add_issue(
-                        _ln,
-                        f"extra in current: {_fmt_choice_pairs(_extra, limit=12)}",
-                        f"missing vs template: {_fmt_choice_pairs(_missing, limit=12)}",
-                        "high",
+            if _parity_langs:
+                for _plang in _parity_langs:
+                    _actual_choices = read_kobo_choices(dest, _plang)
+                    _template_crop_rows, _template_crop_status = _read_crop_choices(
+                        str(_tmpl_path),
+                        _plang,
+                        strict_language=True,
                     )
-                else:
-                    _add_row(
-                        f"Crop template parity: {_ln}",
-                        "PASS",
-                        f"All {_ln} code+label pairs match template baseline (order ignored)",
-                        "pass",
+                    if not _template_crop_rows:
+                        raise ValueError(
+                            f"Template Crop list baseline is unavailable for language '{_plang}' "
+                            f"({_template_crop_status.get('message', 'unknown reason')})"
+                        )
+                    _actual_map = _choice_pair_set_by_list(_actual_choices, _crop_lists)
+                    _template_map = _choice_pair_set_from_rows(_template_crop_rows, _crop_lists)
+
+                    _tag = _plang.upper()
+                    for _ln in _crop_lists:
+                        _actual_set = _actual_map.get(_ln, set())
+                        _template_set = _template_map.get(_ln, set())
+                        _missing = _template_set - _actual_set
+                        _extra = _actual_set - _template_set
+                        if _missing or _extra:
+                            _det_parts = []
+                            if _missing:
+                                _det_parts.append(f"missing={len(_missing)} ({_fmt_choice_pairs(_missing, limit=8)})")
+                            if _extra:
+                                _det_parts.append(f"extra={len(_extra)} ({_fmt_choice_pairs(_extra, limit=8)})")
+                            _det = "; ".join(_det_parts)
+                            _add_row(f"Crop template parity ({_tag}): {_ln}", "FAIL", _det, "high")
+                            _add_issue(
+                                _ln,
+                                f"[{_tag}] extra in current: {_fmt_choice_pairs(_extra, limit=12)}",
+                                f"[{_tag}] missing vs template: {_fmt_choice_pairs(_missing, limit=12)}",
+                                "high",
+                            )
+                        else:
+                            _add_row(
+                                f"Crop template parity ({_tag}): {_ln}",
+                                "PASS",
+                                f"All {_ln} code+label pairs match template baseline (order ignored)",
+                                "pass",
+                            )
+            else:
+                _add_row(
+                    "Crop template parity language scope",
+                    "WARN",
+                    "No shared label column between choices and template Crop list; using code-only parity",
+                    "medium",
+                )
+                _actual_choices = read_kobo_choices(dest, "en")
+                _template_crop_rows, _template_crop_status = _read_crop_choices(str(_tmpl_path), "en")
+                if not _template_crop_rows:
+                    raise ValueError(
+                        "Template Crop list baseline is unavailable "
+                        f"({_template_crop_status.get('message', 'unknown reason')})"
                     )
+                _actual_codes = _choice_code_set_by_list(_actual_choices, _crop_lists)
+                _template_codes = _choice_code_set_from_rows(_template_crop_rows, _crop_lists)
+                for _ln in _crop_lists:
+                    _actual_set = _actual_codes.get(_ln, set())
+                    _template_set = _template_codes.get(_ln, set())
+                    _missing = _template_set - _actual_set
+                    _extra = _actual_set - _template_set
+                    if _missing or _extra:
+                        _det_parts = []
+                        if _missing:
+                            _det_parts.append(f"missing={len(_missing)} ({_fmt_choice_codes(_missing, limit=8)})")
+                        if _extra:
+                            _det_parts.append(f"extra={len(_extra)} ({_fmt_choice_codes(_extra, limit=8)})")
+                        _det = "; ".join(_det_parts)
+                        _add_row(f"Crop template parity (codes): {_ln}", "FAIL", _det, "high")
+                        _add_issue(
+                            _ln,
+                            f"extra codes in current: {_fmt_choice_codes(_extra, limit=12)}",
+                            f"missing codes vs template: {_fmt_choice_codes(_missing, limit=12)}",
+                            "high",
+                        )
+                    else:
+                        _add_row(
+                            f"Crop template parity (codes): {_ln}",
+                            "PASS",
+                            f"All {_ln} crop codes match template baseline",
+                            "pass",
+                        )
         except Exception as e:
             _add_row("Crop template parity", "FAIL", f"Comparison failed: {e}", "high")
             for _ln in _crop_lists:

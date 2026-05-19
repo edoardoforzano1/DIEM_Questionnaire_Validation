@@ -22,13 +22,13 @@ tool: "kobo"
 working_dir: "C:/Temp"
 
 # Current questionnaire filename (resolved under working_dir).
-questionnaire_file: "Questionnaire_kobo_PSE_ar_R2_13052026.xlsx"
+questionnaire_file: "TCD_R10_fr_kobo_questionnaire_draft_rev.xlsx"
 
 # Language code: en | fr | ar | es
-language: "ar"
+language: "fr"
 
 # ISO3 country code
-iso3: "PSE"
+iso3: "TCD"
 
 # Reference mode:
 #   latest_template -> auto-detect newest matching file in templates_dir
