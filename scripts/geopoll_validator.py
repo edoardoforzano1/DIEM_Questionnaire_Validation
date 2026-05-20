@@ -5057,6 +5057,14 @@ all_issues = (
     all_issues
     .join(_mand_lookup, on="Q Name", how="left")
     .with_columns(pl.col("mandatory_cat").fill_null(""))
+    .with_columns(
+        pl.when(
+            (pl.col("issue_type") == "added_question")
+            & pl.col("mandatory_cat").is_in(["mandatory", "mandatory-panel"])
+        ).then(pl.lit("high"))
+        .otherwise(pl.col("severity"))
+        .alias("severity")
+    )
 )
 
 option_changes_view = (
@@ -5069,6 +5077,14 @@ question_changes_view = (
     question_changes_view
     .join(_mand_lookup, on="Q Name", how="left")
     .with_columns(pl.col("mandatory_cat").fill_null(""))
+    .with_columns(
+        pl.when(
+            (pl.col("issue_type") == "added_question")
+            & pl.col("mandatory_cat").is_in(["mandatory", "mandatory-panel"])
+        ).then(pl.lit("high"))
+        .otherwise(pl.col("severity"))
+        .alias("severity")
+    )
 )
 _tick("mandatory_cat lookup join")
 
@@ -5840,7 +5856,8 @@ def write_summary_sheet(wb, all_issues, rules, replacement_status=None):
         ("Mandatory to optional",        "mandatory_to_optional", None, "high"),
         ("Questions removed (high)",     "removed_question", "high", "high"),
         ("Questions removed (info)",     "removed_question", "info", "info"),
-        ("Questions added",              "added_question", None, "info"),
+        ("Questions added (high)",       "added_question", "high", "high"),
+        ("Questions added (info)",       "added_question", "info", "info"),
         ("Question labels changed",      "question_label_mismatch", None, "medium"),
     ]:
         q = all_issues.filter(pl.col("issue_type") == itype)

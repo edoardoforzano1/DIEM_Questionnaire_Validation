@@ -3467,6 +3467,22 @@ def collapse_choice_issue_rows_by_key(
     has_cur_lang = "current_lang" in noisy_df.columns
     has_ref_lang = "reference_lang" in noisy_df.columns
 
+    def _filter_choice_entries_by_names(
+        entries: list[tuple[str, str]],
+        names_keep: set[str],
+    ) -> list[tuple[str, str]]:
+        if not entries or not names_keep:
+            return []
+        out: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for nm, lb in entries:
+            nk = _canonical_option_name_token(nm)
+            if not nk or nk in seen or nk not in names_keep:
+                continue
+            seen.add(nk)
+            out.append((str(nm or "").strip(), str(lb or "").strip()))
+        return out
+
     grouped_rows: list[dict] = []
     for grp in noisy_df.group_by(["issue_type", "Q Name", "list_name"]).agg(pl.len().alias("_n")).to_dicts():
         it = str(grp.get("issue_type") or "")
@@ -3502,17 +3518,33 @@ def collapse_choice_issue_rows_by_key(
         ref_lang_entries = (reference_lang_lookup or {}).get(key_norm, [])
         cur_total = len(cur_entries) if cur_entries else None
         ref_total = len(ref_entries) if ref_entries else None
+        cur_total_for_detail = cur_total
+        ref_total_for_detail = ref_total
 
-        cur_txt = (
-            _format_choice_entries(cur_entries, "Current list (name | label)")
-            if cur_entries or ref_entries
-            else _format_collapsed_choice_side(rows, "current", "Current list (name | label)")
-        )
-        ref_txt = (
-            _format_choice_entries(ref_entries, "Reference list (name | label)")
-            if cur_entries or ref_entries
-            else _format_collapsed_choice_side(rows, "reference", "Reference list (name | label)")
-        )
+        if it == "choice_label_mismatch" and (cur_entries or ref_entries):
+            mismatch_name_keys = {
+                _canonical_option_name_token(r.get("option_name"))
+                for r in rows
+            }
+            mismatch_name_keys = {k for k in mismatch_name_keys if k}
+            cur_entries_mm = _filter_choice_entries_by_names(cur_entries, mismatch_name_keys)
+            ref_entries_mm = _filter_choice_entries_by_names(ref_entries, mismatch_name_keys)
+            cur_total_for_detail = len(cur_entries_mm)
+            ref_total_for_detail = len(ref_entries_mm)
+
+            cur_txt = _format_choice_entries(cur_entries_mm, "Current list (name | label)")
+            ref_txt = _format_choice_entries(ref_entries_mm, "Reference list (name | label)")
+        else:
+            cur_txt = (
+                _format_choice_entries(cur_entries, "Current list (name | label)")
+                if cur_entries or ref_entries
+                else _format_collapsed_choice_side(rows, "current", "Current list (name | label)")
+            )
+            ref_txt = (
+                _format_choice_entries(ref_entries, "Reference list (name | label)")
+                if cur_entries or ref_entries
+                else _format_collapsed_choice_side(rows, "reference", "Reference list (name | label)")
+            )
 
         row = {
             "issue_type": it,
@@ -3520,32 +3552,54 @@ def collapse_choice_issue_rows_by_key(
             "Q Name": qn,
             "list_name": ln,
             "option_name": _join_tokens_limited(opt_names, limit=20),
-            "field": _collapsed_choice_detail(it, n, current_total=cur_total, reference_total=ref_total),
+            "field": _collapsed_choice_detail(it, n, current_total=cur_total_for_detail, reference_total=ref_total_for_detail),
             "current": cur_txt,
             "reference": ref_txt,
             "severity": sev,
             "excel_row": min(excel_rows) if excel_rows else None,
         }
         if has_cur_lang:
-            row["current_lang"] = (
-                _format_choice_entries(cur_lang_entries, "Current list (name | label)")
-                if (cur_lang_entries or ref_lang_entries)
-                else (
-                    _format_collapsed_choice_side(rows, "current_lang", "Current list (name | label)")
-                    if any(str(v or "").strip() for v in cur_lang_vals)
-                    else ""
+            if it == "choice_label_mismatch" and (cur_lang_entries or ref_lang_entries):
+                mismatch_name_keys = {
+                    _canonical_option_name_token(r.get("option_name"))
+                    for r in rows
+                }
+                mismatch_name_keys = {k for k in mismatch_name_keys if k}
+                row["current_lang"] = _format_choice_entries(
+                    _filter_choice_entries_by_names(cur_lang_entries, mismatch_name_keys),
+                    "Current list (name | label)",
                 )
-            )
+            else:
+                row["current_lang"] = (
+                    _format_choice_entries(cur_lang_entries, "Current list (name | label)")
+                    if (cur_lang_entries or ref_lang_entries)
+                    else (
+                        _format_collapsed_choice_side(rows, "current_lang", "Current list (name | label)")
+                        if any(str(v or "").strip() for v in cur_lang_vals)
+                        else ""
+                    )
+                )
         if has_ref_lang:
-            row["reference_lang"] = (
-                _format_choice_entries(ref_lang_entries, "Reference list (name | label)")
-                if (cur_lang_entries or ref_lang_entries)
-                else (
-                    _format_collapsed_choice_side(rows, "reference_lang", "Reference list (name | label)")
-                    if any(str(v or "").strip() for v in ref_lang_vals)
-                    else ""
+            if it == "choice_label_mismatch" and (cur_lang_entries or ref_lang_entries):
+                mismatch_name_keys = {
+                    _canonical_option_name_token(r.get("option_name"))
+                    for r in rows
+                }
+                mismatch_name_keys = {k for k in mismatch_name_keys if k}
+                row["reference_lang"] = _format_choice_entries(
+                    _filter_choice_entries_by_names(ref_lang_entries, mismatch_name_keys),
+                    "Reference list (name | label)",
                 )
-            )
+            else:
+                row["reference_lang"] = (
+                    _format_choice_entries(ref_lang_entries, "Reference list (name | label)")
+                    if (cur_lang_entries or ref_lang_entries)
+                    else (
+                        _format_collapsed_choice_side(rows, "reference_lang", "Reference list (name | label)")
+                        if any(str(v or "").strip() for v in ref_lang_vals)
+                        else ""
+                    )
+                )
         grouped_rows.append(row)
 
     collapsed_df = pl.DataFrame(grouped_rows) if grouped_rows else pl.DataFrame(schema=noisy_df.schema)
@@ -3635,6 +3689,123 @@ def suppress_enumerator_option_details(
         option_complete_clean,
         summary_row,
     )
+
+
+def suppress_structural_choice_label_noise(
+    option_label_issues: pl.DataFrame,
+    option_presence_issues: pl.DataFrame,
+    option_renumber_issues: pl.DataFrame,
+    current_lookup: dict[tuple[str, str], list[tuple[str, str]]] | None = None,
+    reference_lookup: dict[tuple[str, str], list[tuple[str, str]]] | None = None,
+) -> pl.DataFrame:
+    """
+    Remove only *derived* choice_label_mismatch rows caused by structural add/remove
+    or renumber drift, while keeping genuine label edits for unchanged names.
+    """
+    if option_label_issues is None or option_label_issues.height == 0:
+        return option_label_issues
+    if not {"issue_type", "Q Name", "list_name", "option_name"}.issubset(set(option_label_issues.columns)):
+        return option_label_issues
+
+    if option_presence_issues is None or option_presence_issues.height == 0:
+        return option_label_issues
+    if not {"issue_type", "Q Name", "list_name"}.issubset(set(option_presence_issues.columns)):
+        return option_label_issues
+
+    structural_keys_df = (
+        option_presence_issues
+        .filter(pl.col("issue_type").is_in(["added_choice", "removed_choice", "choice_changes_general"]))
+        .select(["Q Name", "list_name"])
+        .unique()
+    )
+    if structural_keys_df.height == 0:
+        return option_label_issues
+
+    structural_keys = {
+        (str(r.get("Q Name") or "").strip().lower(), _normalize_list_token(r.get("list_name")))
+        for r in structural_keys_df.to_dicts()
+    }
+
+    renumber_triples: set[tuple[str, str, str]] = set()
+    if (
+        option_renumber_issues is not None
+        and option_renumber_issues.height > 0
+        and {"Q Name", "list_name", "option_name"}.issubset(set(option_renumber_issues.columns))
+    ):
+        for r in option_renumber_issues.to_dicts():
+            qk = str(r.get("Q Name") or "").strip().lower()
+            lk = _normalize_list_token(r.get("list_name"))
+            nk = _canonical_option_name_token(r.get("option_name"))
+            if qk and lk and nk:
+                renumber_triples.add((qk, lk, nk))
+
+    def _norm_lbl(x: str) -> str:
+        return re.sub(r"\s+", " ", str(x or "").strip().lower())
+
+    def _name_to_label(entries: list[tuple[str, str]]) -> dict[str, str]:
+        out: dict[str, str] = {}
+        for nm, lb in entries or []:
+            nk = _canonical_option_name_token(nm)
+            if not nk or nk in out:
+                continue
+            out[nk] = _norm_lbl(lb)
+        return out
+
+    kept_rows: list[dict] = []
+    for row in option_label_issues.to_dicts():
+        if str(row.get("issue_type") or "") != "choice_label_mismatch":
+            kept_rows.append(row)
+            continue
+
+        qk = str(row.get("Q Name") or "").strip().lower()
+        lk = _normalize_list_token(row.get("list_name"))
+        nk = _canonical_option_name_token(row.get("option_name"))
+        key = (qk, lk)
+
+        # If this question/list has no structural add/remove, always keep.
+        if key not in structural_keys:
+            kept_rows.append(row)
+            continue
+
+        # Direct renumber for this option name => derived noise, suppress.
+        if qk and lk and nk and (qk, lk, nk) in renumber_triples:
+            continue
+
+        cur_map = _name_to_label((current_lookup or {}).get(key, []))
+        ref_map = _name_to_label((reference_lookup or {}).get(key, []))
+        if not nk or nk not in cur_map or nk not in ref_map:
+            # If we cannot prove drift for this row, keep it.
+            kept_rows.append(row)
+            continue
+
+        cur_lbl = cur_map.get(nk, "")
+        ref_lbl = ref_map.get(nk, "")
+        if not cur_lbl or not ref_lbl:
+            kept_rows.append(row)
+            continue
+
+        # Shift-like mismatch: this option appears to have inherited another option's label
+        # or vice versa after structural changes.
+        is_shift_like = False
+        common_names = set(cur_map.keys()) & set(ref_map.keys())
+        if nk in common_names:
+            common_names.remove(nk)
+        for ok in common_names:
+            if cur_lbl == ref_map.get(ok, "") or ref_lbl == cur_map.get(ok, ""):
+                is_shift_like = True
+                break
+
+        if is_shift_like:
+            continue
+        kept_rows.append(row)
+
+    if not kept_rows:
+        return pl.DataFrame(schema=option_label_issues.schema)
+    out = pl.DataFrame(kept_rows)
+    for col in option_label_issues.columns:
+        if col not in out.columns:
+            out = out.with_columns(pl.lit(None).alias(col))
+    return out.select(option_label_issues.columns)
 
 
 # ======================================================================
@@ -3844,28 +4015,6 @@ option_label_issues, option_pres_issues, option_renumber_issues, option_root_cau
 if option_complete_replace_issues.height > 0:
     print(f"Mandatory complete choice-set replacements detected: {option_complete_replace_issues.height}")
 
-# Suppress label-mismatch rows that are only downstream effects
-# of root-cause drift/dictionary replacement issues.
-_noise_keys_root = (
-    option_root_cause_issues
-    .filter(pl.col("issue_type").is_in(["removed_option_causes_index_drift", "added_option_causes_index_drift", "option_name_dictionary_replaced"]))
-    .select(["Q Name", "list_name"])
-    .unique()
-)
-_noise_keys_drift = (
-    option_renumber_issues
-    .filter(pl.col("issue_type") == "option_index_drift")
-    .select(["Q Name", "list_name"])
-    .unique()
-)
-_noise_keys = pl.concat([_noise_keys_root, _noise_keys_drift], how="vertical").unique()
-if option_label_issues.height > 0 and _noise_keys.height > 0:
-    option_label_issues = option_label_issues.join(
-        _noise_keys,
-        on=["Q Name", "list_name"],
-        how="anti",
-    )
-
 # Apply operational exclusions consistently to root-cause/consolidated option rows.
 if _cfg_excluded_for_compare:
     _q_norm = pl.col("Q Name").cast(pl.Utf8).str.strip_chars().str.to_lowercase()
@@ -3900,6 +4049,31 @@ _choice_lookup_cur_en = _build_choice_lookup(cur_opts_cmp_en)
 _choice_lookup_ref_en = _build_choice_lookup(ref_opts_cmp_en)
 _choice_lookup_cur_tgt = _build_choice_lookup(cur_opts_cmp)
 _choice_lookup_ref_tgt = _build_choice_lookup(ref_opts_cmp)
+
+# Suppress label-mismatch rows that are downstream effects of structural changes,
+# while preserving true label edits on unchanged option names.
+option_label_issues = suppress_structural_choice_label_noise(
+    option_label_issues,
+    option_pres_issues,
+    option_renumber_issues,
+    current_lookup=_choice_lookup_cur_en,
+    reference_lookup=_choice_lookup_ref_en,
+)
+
+# Keep previous behavior for explicit root-cause replacements/drift:
+# when a root-cause issue exists for a question/list, hide parallel label-noise rows.
+_noise_keys_root = (
+    option_root_cause_issues
+    .filter(pl.col("issue_type").is_in(["removed_option_causes_index_drift", "added_option_causes_index_drift", "option_name_dictionary_replaced"]))
+    .select(["Q Name", "list_name"])
+    .unique()
+)
+if option_label_issues.height > 0 and _noise_keys_root.height > 0:
+    option_label_issues = option_label_issues.join(
+        _noise_keys_root,
+        on=["Q Name", "list_name"],
+        how="anti",
+    )
 
 # If both added and removed exist for the same question/list, merge into one general row.
 option_pres_issues = merge_added_removed_choice_rows(
@@ -4047,6 +4221,14 @@ all_issues = (
     all_issues
     .join(_mand_lookup, on="Q Name", how="left")
     .with_columns(pl.col("mandatory_cat").fill_null(""))
+    .with_columns(
+        pl.when(
+            (pl.col("issue_type") == "added_question")
+            & pl.col("mandatory_cat").is_in(["mandatory", "mandatory-panel"])
+        ).then(pl.lit("high"))
+        .otherwise(pl.col("severity"))
+        .alias("severity")
+    )
 )
 
 # -- Final sort: high -> medium -> info (AFTER cs-downgrade + mandatory_cat) --
