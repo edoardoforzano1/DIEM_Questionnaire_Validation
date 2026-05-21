@@ -69,6 +69,12 @@ def _summary(all_issues=None, report_path=None, extra_paths=None) -> None:
             print("  No issues found — questionnaire passed all checks.")
     except Exception as _e:
         print(f"  (summary unavailable: {_e})")
+    _mod_ignore = str(globals().get("_module_ignore_scope_summary") or "").strip()
+    _mod_skip = str(globals().get("_module_skip_scope_summary") or "").strip()
+    if _mod_ignore and _mod_ignore != "(none)":
+        print(f"  {'IGNORED MOD':<10} {_mod_ignore}")
+    if _mod_skip and _mod_skip != "(none)":
+        print(f"  {'SKIPPED MOD':<10} {_mod_skip}")
     print()
     if report_path:
         print(f"  Report  : {report_path}")
@@ -329,6 +335,13 @@ _DATA_TYPES = {
     "geopoint", "geotrace", "geoshape", "date", "time", "datetime",
     "file", "image", "audio", "video", "barcode", "range", "calculate",
 }
+_GROUP_BEGIN_TYPES = {"begin_group", "begin_repeat"}
+_GROUP_END_TYPES = {"end_group", "end_repeat"}
+
+
+def _normalize_survey_type_token(value) -> str:
+    txt = str(value or "").strip().lower()
+    return re.sub(r"\s+", "_", txt)
 
 def _find_label_col(headers: list, language: str) -> str | None:
     target = LANG_LABEL_COL.get(language.lower(), f"label::{language}")
@@ -355,6 +368,38 @@ def _normalize_list_token(value) -> str:
     txt = txt.translate(_INVISIBLE_TOKEN_CHARS).replace("\u00a0", " ")
     txt = re.sub(r"\s+", " ", txt).strip().lower()
     return txt
+
+
+def _normalize_module_token(value) -> str:
+    txt = unicodedata.normalize("NFKC", str(value or ""))
+    txt = txt.translate(_INVISIBLE_TOKEN_CHARS).replace("\u00a0", " ")
+    txt = re.sub(r"\s+", " ", txt).strip().lower()
+    return txt
+
+
+def _extract_select_list_name_from_type(q_type_raw: str) -> str:
+    """
+    Extract list token from KoBo/XLSForm select type declarations.
+    Supports:
+      - "select_one list_name"
+      - "select_multiple list_name"
+      - "select_one_list_name" (legacy)
+      - "select_multiple_list_name" (legacy)
+    """
+    raw = str(q_type_raw or "").strip()
+    if not raw:
+        return ""
+
+    raw_norm = _normalize_survey_type_token(raw)
+    if raw_norm.startswith("select_one_"):
+        return raw[len("select_one_"):].strip()
+    if raw_norm.startswith("select_multiple_"):
+        return raw[len("select_multiple_"):].strip()
+
+    m = re.match(r"(?i)^\s*select[_\s]*(one|multiple)\s+(.+?)\s*$", raw)
+    if m:
+        return str(m.group(2) or "").strip()
+    return ""
 
 
 def _canonical_option_name_token(value) -> str:
@@ -389,6 +434,7 @@ def _normalize_mandatory(val) -> str:
 def read_kobo_survey(path: str, language: str = "en", _wb=None) -> pl.DataFrame:
     EMPTY = {
         "Q Name": pl.Utf8, "Q Type": pl.Utf8, "list_name": pl.Utf8,
+        "module_key": pl.Utf8, "module": pl.Utf8,
         "label": pl.Utf8, "required": pl.Utf8, "mandatory_category": pl.Utf8,
         "relevant": pl.Utf8, "constraint": pl.Utf8, "choice_filter": pl.Utf8,
         "appearance": pl.Utf8, "calculation": pl.Utf8, "hint": pl.Utf8,
@@ -409,17 +455,45 @@ def read_kobo_survey(path: str, language: str = "en", _wb=None) -> pl.DataFrame:
     headers   = [str(h).strip() if h is not None else "" for h in rows[0]]
     col_idx   = {h: i for i, h in enumerate(headers)}
     label_col = _find_label_col(headers, language)
+    label_col_en = _find_label_col(headers, "en")
     mand_col  = next((h for h in headers if h.strip() == "Mandatory"), None)
 
     def get(row, col):
         i = col_idx.get(col)
         return row[i] if i is not None and i < len(row) else None
 
+    module_stack: list[tuple[str, str]] = []
     records = []
     for excel_row, row in enumerate(rows[1:], start=2):
         q_type_raw = str(get(row, "type") or "").strip()
         q_name     = str(get(row, "name") or "").strip()
-        if not q_name or not q_type_raw or q_type_raw in _METADATA_TYPES:
+        if not q_type_raw:
+            continue
+
+        type_norm = _normalize_survey_type_token(q_type_raw)
+
+        # Track begin/end module boundaries without emitting them as questions.
+        if any(type_norm.startswith(t) for t in _GROUP_BEGIN_TYPES):
+            module_key = q_name
+            module_label = str(get(row, label_col) or "").strip() if label_col else ""
+            if not module_label and label_col_en:
+                module_label = str(get(row, label_col_en) or "").strip()
+            if not module_label:
+                module_label = module_key
+            if module_key:
+                module_stack.append((module_key, module_label))
+            continue
+
+        if any(type_norm.startswith(t) for t in _GROUP_END_TYPES):
+            if module_stack:
+                module_stack.pop()
+            continue
+
+        if not q_name:
+            continue
+
+        q_type_first = str(q_type_raw.split(None, 1)[0] if q_type_raw else "").strip().lower()
+        if _normalize_survey_type_token(q_type_first) in _METADATA_TYPES:
             continue
 
         parts     = q_type_raw.split(None, 1)
@@ -429,12 +503,22 @@ def read_kobo_survey(path: str, language: str = "en", _wb=None) -> pl.DataFrame:
         # Support legacy KoBo encoding where list name is embedded with underscore,
         # e.g. "select_one_debt" / "select_multiple_debt".
         if list_name is None:
-            if q_type_raw.startswith("select_one_"):
+            if _normalize_survey_type_token(q_type_raw).startswith("select_one_"):
                 q_type = "select_one"
                 list_name = q_type_raw[len("select_one_"):].strip() or None
-            elif q_type_raw.startswith("select_multiple_"):
+            elif _normalize_survey_type_token(q_type_raw).startswith("select_multiple_"):
                 q_type = "select_multiple"
                 list_name = q_type_raw[len("select_multiple_"):].strip() or None
+
+        # Normalize spaced declaration forms like "select one list_name".
+        list_name_from_type = _extract_select_list_name_from_type(q_type_raw)
+        if list_name is None and list_name_from_type:
+            list_name = list_name_from_type
+            q_type = "select_one" if "select_one" in _normalize_survey_type_token(q_type_raw) else "select_multiple"
+
+        q_type = _normalize_survey_type_token(q_type)
+        if q_type not in _SELECT_TYPES and list_name is None:
+            list_name = None
 
         mand_cat = _normalize_mandatory(get(row, mand_col))
         if not mand_cat and q_type in _DATA_TYPES:
@@ -442,10 +526,15 @@ def read_kobo_survey(path: str, language: str = "en", _wb=None) -> pl.DataFrame:
         if q_name.startswith("o_"):
             mand_cat = "optional"
 
+        module_key = module_stack[-1][0] if module_stack else ""
+        module_label = module_stack[-1][1] if module_stack else ""
+
         records.append({
             "Q Name"            : q_name,
             "Q Type"            : q_type,
             "list_name"         : list_name,
+            "module_key"        : module_key,
+            "module"            : module_label,
             "label"             : str(get(row, label_col) or "") if label_col else "",
             "required"          : str(get(row, "required")    or "").strip().lower(),
             "mandatory_category": mand_cat,
@@ -501,6 +590,8 @@ def build_question_options(survey_df: pl.DataFrame, choices_df: pl.DataFrame) ->
         "Q Name": pl.Utf8,
         "Q Type": pl.Utf8,
         "list_name": pl.Utf8,
+        "module_key": pl.Utf8,
+        "module": pl.Utf8,
         "option_name": pl.Utf8,
         "option_label": pl.Utf8,
         "source_file": pl.Utf8,
@@ -517,7 +608,7 @@ def build_question_options(survey_df: pl.DataFrame, choices_df: pl.DataFrame) ->
         survey_df
         .filter(pl.col("Q Type").is_in(list(_SELECT_TYPES)))
         .filter(pl.col("list_name").is_not_null() & (pl.col("list_name") != ""))
-        .select(["Q Name", "Q Type", "list_name", "source_file"])
+        .select(["Q Name", "Q Type", "list_name", "module_key", "module", "source_file"])
         .to_dicts()
     )
     if not survey_rows:
@@ -546,12 +637,153 @@ def build_question_options(survey_df: pl.DataFrame, choices_df: pl.DataFrame) ->
                 "Q Name": str(qrow.get("Q Name") or ""),
                 "Q Type": str(qrow.get("Q Type") or ""),
                 "list_name": list_name_raw,
+                "module_key": str(qrow.get("module_key") or ""),
+                "module": str(qrow.get("module") or ""),
                 "option_name": option_name,
                 "option_label": option_label,
                 "source_file": str(qrow.get("source_file") or ""),
             })
 
     return pl.DataFrame(records, schema=schema) if records else pl.DataFrame(schema=schema)
+
+
+def _normalized_module_expr(col_name: str) -> pl.Expr:
+    return pl.col(col_name).map_elements(_normalize_module_token, return_dtype=pl.Utf8)
+
+
+def _resolve_module_keys_from_tokens(
+    tokens: list[str],
+    survey_dfs: list[pl.DataFrame],
+) -> tuple[set[str], list[str]]:
+    """
+    Resolve user-provided module names/labels to normalized module keys.
+    Accepts either module key (group name) or module label text.
+    """
+    alias_to_key: dict[str, str] = {}
+    for df in survey_dfs:
+        if df is None or df.height == 0 or "module_key" not in df.columns:
+            continue
+        for row in df.select(["module_key", "module"]).iter_rows(named=True):
+            module_key_raw = str(row.get("module_key") or "").strip()
+            module_label_raw = str(row.get("module") or "").strip()
+            key_norm = _normalize_module_token(module_key_raw)
+            if not key_norm:
+                continue
+            alias_to_key.setdefault(key_norm, key_norm)
+            if module_key_raw:
+                alias_to_key.setdefault(_normalize_module_token(module_key_raw), key_norm)
+            if module_label_raw:
+                alias_to_key.setdefault(_normalize_module_token(module_label_raw), key_norm)
+
+    resolved: set[str] = set()
+    unresolved: list[str] = []
+    for tok in tokens or []:
+        t_norm = _normalize_module_token(tok)
+        if not t_norm:
+            continue
+        key = alias_to_key.get(t_norm)
+        if key:
+            resolved.add(key)
+        else:
+            unresolved.append(str(tok))
+    return resolved, unresolved
+
+
+def _filter_survey_by_module_keys(df: pl.DataFrame, excluded_module_keys: set[str]) -> pl.DataFrame:
+    if df is None or df.height == 0 or not excluded_module_keys or "module_key" not in df.columns:
+        return df
+    return (
+        df
+        .with_columns(_normalized_module_expr("module_key").alias("_module_key_norm"))
+        .filter(~pl.col("_module_key_norm").is_in(list(excluded_module_keys)))
+        .drop("_module_key_norm")
+    )
+
+
+def _module_display_map(*survey_dfs: pl.DataFrame) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for df in survey_dfs:
+        if df is None or df.height == 0 or "module_key" not in df.columns:
+            continue
+        for row in df.select(["module_key", "module"]).iter_rows(named=True):
+            key_norm = _normalize_module_token(row.get("module_key"))
+            if not key_norm:
+                continue
+            label = str(row.get("module") or "").strip()
+            if key_norm not in out or (not out[key_norm] and label):
+                out[key_norm] = label or str(row.get("module_key") or "").strip()
+    return out
+
+
+def _collect_skip_module_payload(
+    current_survey_df: pl.DataFrame,
+    skip_module_keys: set[str],
+) -> tuple[set[str], set[str]]:
+    """
+    Return (skip_qnames, removable_choice_list_names) derived from current survey.
+    Removable list names are those referenced only by skipped-module questions.
+    """
+    if (
+        current_survey_df is None
+        or current_survey_df.height == 0
+        or not skip_module_keys
+        or "module_key" not in current_survey_df.columns
+    ):
+        return set(), set()
+
+    df = current_survey_df.with_columns(_normalized_module_expr("module_key").alias("_module_key_norm"))
+    skip_df = df.filter(pl.col("_module_key_norm").is_in(list(skip_module_keys)))
+    keep_df = df.filter(~pl.col("_module_key_norm").is_in(list(skip_module_keys)))
+
+    skip_qnames = set(skip_df["Q Name"].to_list()) if "Q Name" in skip_df.columns else set()
+
+    skip_lists = set(
+        skip_df
+        .filter(pl.col("list_name").is_not_null() & (pl.col("list_name") != ""))
+        .get_column("list_name")
+        .to_list()
+    ) if "list_name" in skip_df.columns else set()
+
+    keep_lists = set(
+        keep_df
+        .filter(pl.col("list_name").is_not_null() & (pl.col("list_name") != ""))
+        .get_column("list_name")
+        .to_list()
+    ) if "list_name" in keep_df.columns else set()
+
+    removable_lists = skip_lists - keep_lists
+    return skip_qnames, removable_lists
+
+
+def _dedupe_keep_order(items: list[str]) -> list[str]:
+    seen = set()
+    out: list[str] = []
+    for raw in items or []:
+        txt = str(raw or "").strip()
+        if not txt:
+            continue
+        key = txt.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(txt)
+    return out
+
+
+def _format_module_scope_for_display(
+    configured_tokens: list[str],
+    resolved_keys: set[str],
+    module_names: dict[str, str],
+) -> str:
+    cfg = _dedupe_keep_order(configured_tokens or [])
+    resolved_parts = []
+    for key in sorted(resolved_keys or set()):
+        lbl = str(module_names.get(key, "") or "").strip()
+        resolved_parts.append(f"{lbl} [{key}]" if lbl else key)
+    cfg_txt = ", ".join(cfg) if cfg else "(none)"
+    if resolved_parts:
+        return f"{cfg_txt} -> {', '.join(resolved_parts)}"
+    return cfg_txt
 
 
 
@@ -594,6 +826,92 @@ else:
     template_survey  = reference_survey
     template_choices = reference_choices
     template_choices_en = reference_choices_en
+
+# Module controls:
+# - ignore_modules_from_comparison: exclude module content from difference checks
+# - skip_modules_from_validated_output: exclude module content entirely (comparison + validated output)
+_kobo_opt = cfg.get("kobo_options", {}) or {}
+_ignore_module_raw = (
+    cfg.get("ignore_modules_from_comparison")
+    if "ignore_modules_from_comparison" in cfg
+    else _kobo_opt.get("ignore_modules_from_comparison", [])
+)
+_skip_module_raw = (
+    cfg.get("skip_modules_from_validated_output")
+    if "skip_modules_from_validated_output" in cfg
+    else _kobo_opt.get("skip_modules_from_validated_output", [])
+)
+if isinstance(_ignore_module_raw, str):
+    _ignore_module_raw = [_ignore_module_raw]
+if isinstance(_skip_module_raw, str):
+    _skip_module_raw = [_skip_module_raw]
+_ignore_module_tokens = [str(v) for v in (_ignore_module_raw or []) if str(v or "").strip()]
+_skip_module_tokens = [str(v) for v in (_skip_module_raw or []) if str(v or "").strip()]
+
+_comparison_module_keys, _unresolved_ignore = _resolve_module_keys_from_tokens(
+    _ignore_module_tokens,
+    [current_survey, reference_survey, template_survey],
+)
+_skip_module_keys, _unresolved_skip = _resolve_module_keys_from_tokens(
+    _skip_module_tokens,
+    [current_survey, reference_survey, template_survey],
+)
+_excluded_module_keys_for_comparison = set(_comparison_module_keys) | set(_skip_module_keys)
+_module_names = _module_display_map(current_survey, reference_survey, template_survey)
+
+_module_ignore_scope_summary = _format_module_scope_for_display(
+    _ignore_module_tokens,
+    _comparison_module_keys,
+    _module_names,
+)
+_module_skip_scope_summary = _format_module_scope_for_display(
+    _skip_module_tokens,
+    _skip_module_keys,
+    _module_names,
+)
+_module_ignore_unresolved_summary = ", ".join(_dedupe_keep_order(_unresolved_ignore))
+_module_skip_unresolved_summary = ", ".join(_dedupe_keep_order(_unresolved_skip))
+
+if _ignore_module_tokens or _skip_module_tokens:
+    if _comparison_module_keys:
+        _labels = [f"{k} [{_module_names.get(k, k)}]" for k in sorted(_comparison_module_keys)]
+        print(f"Comparison module ignore: {', '.join(_labels)}")
+    if _skip_module_keys:
+        _labels = [f"{k} [{_module_names.get(k, k)}]" for k in sorted(_skip_module_keys)]
+        print(f"Validated-output module skip: {', '.join(_labels)}")
+    if _unresolved_ignore:
+        print(f"Warning: unresolved ignore_modules_from_comparison entries: {', '.join(_unresolved_ignore)}")
+    if _unresolved_skip:
+        print(f"Warning: unresolved skip_modules_from_validated_output entries: {', '.join(_unresolved_skip)}")
+    _info("Mod ignore", _module_ignore_scope_summary)
+    _info("Mod skip", _module_skip_scope_summary)
+    if _module_ignore_unresolved_summary:
+        _info("Mod warn", f"unresolved ignore: {_module_ignore_unresolved_summary}")
+    if _module_skip_unresolved_summary:
+        _info("Mod warn", f"unresolved skip: {_module_skip_unresolved_summary}")
+
+_skip_module_qnames_for_validated_output, _skip_module_choice_lists_for_validated_output = _collect_skip_module_payload(
+    current_survey,
+    _skip_module_keys,
+)
+if _skip_module_qnames_for_validated_output:
+    print(
+        f"Validated-output module skip scope: "
+        f"{len(_skip_module_qnames_for_validated_output)} question(s), "
+        f"{len(_skip_module_choice_lists_for_validated_output)} removable choice list(s)"
+    )
+    _info(
+        "Mod scope",
+        (
+            f"{len(_skip_module_qnames_for_validated_output)} question(s), "
+            f"{len(_skip_module_choice_lists_for_validated_output)} removable choice list(s)"
+        ),
+    )
+
+if _excluded_module_keys_for_comparison:
+    current_survey = _filter_survey_by_module_keys(current_survey, _excluded_module_keys_for_comparison)
+    reference_survey = _filter_survey_by_module_keys(reference_survey, _excluded_module_keys_for_comparison)
+    template_survey = _filter_survey_by_module_keys(template_survey, _excluded_module_keys_for_comparison)
 
 current_options   = build_question_options(current_survey,   current_choices)
 reference_options = build_question_options(reference_survey, reference_choices)
@@ -1766,6 +2084,42 @@ _HASH_TOKEN_RE = re.compile(r"#([^#]+)#")
 _LOOSE_DOLLAR_RE = re.compile(r"(?<!\{)\$[A-Za-z_][A-Za-z0-9_]*")
 
 
+def _has_broken_hash_placeholder_token(text: str) -> bool:
+    """
+    Detect malformed hash placeholders by stripping valid #...# tokens
+    and checking for leftover hash markers.
+
+    Examples caught:
+      - '#token' (missing closing #)
+      - 'token#' (dangling closing #)
+      - '##' (empty token)
+    """
+    txt = str(text or "")
+    if "#" not in txt:
+        return False
+    stripped = _HASH_TOKEN_RE.sub("", txt)
+    # Avoid false positives for common language names such as C# / F#.
+    stripped_compact = re.sub(r"\s+", "", stripped).lower()
+    if stripped_compact in {"c#", "f#"}:
+        return False
+    return "#" in stripped
+
+
+def _has_malformed_kobo_ref_token(text: str) -> bool:
+    """
+    Detect malformed KoBo reference syntax:
+      - '${var' (missing closing brace)
+      - '${}'   (empty reference)
+    """
+    txt = str(text or "")
+    if "${" not in txt:
+        return False
+    if re.search(r"\$\{\s*\}", txt):
+        return True
+    stripped = _KOBO_REF_RE.sub("", txt)
+    return "${" in stripped
+
+
 def validate_relevant(
     current_survey : pl.DataFrame,
     reference_survey: pl.DataFrame,
@@ -1858,8 +2212,10 @@ def validate_questionnaire_structure(
     Structural checks for token/placeholder integrity in survey text/formula fields.
     - duplicate Q Name in survey
     - duplicate (list_name, name) in choices/options
+    - malformed #...# placeholder syntax
     - #token# unresolved against template placeholders + Additional information
     - #token# that looks like a survey variable (likely ${var} expected)
+    - malformed ${...} KoBo reference syntax
     - loose $var syntax (likely ${var} expected)
     - ${var} missing from survey (outside relevant column checks)
     """
@@ -1957,6 +2313,19 @@ def validate_questionnaire_structure(
             if not txt:
                 continue
 
+            # 1) malformed #...# placeholders
+            if _has_broken_hash_placeholder_token(txt):
+                issues.append({
+                    "issue_type": "replacement_malformed_placeholder",
+                    "set_name": "questionnaire_structure",
+                    "Q Name": qname,
+                    "field": field,
+                    "current": txt[:220],
+                    "reference": "Malformed placeholder token; use balanced #token# syntax",
+                    "severity": "medium",
+                    "excel_row": excel_row,
+                })
+
             # 1) #token# checks
             for tok in _HASH_TOKEN_RE.findall(txt):
                 full = f"#{tok}#"
@@ -1985,7 +2354,20 @@ def validate_questionnaire_structure(
                         "excel_row": excel_row,
                     })
 
-            # 2) $var (missing braces) checks
+            # 2) malformed ${...} checks
+            if _has_malformed_kobo_ref_token(txt):
+                issues.append({
+                    "issue_type": "kobo_ref_malformed_syntax",
+                    "set_name": "questionnaire_structure",
+                    "Q Name": qname,
+                    "field": field,
+                    "current": txt[:220],
+                    "reference": "Malformed KoBo reference; use ${var} with non-empty, closed braces",
+                    "severity": "high",
+                    "excel_row": excel_row,
+                })
+
+            # 3) $var (missing braces) checks
             for m in _LOOSE_DOLLAR_RE.findall(txt):
                 var = m[1:]
                 if var in curr_qnames:
@@ -2005,8 +2387,12 @@ def validate_questionnaire_structure(
                     "excel_row": excel_row,
                 })
 
-            # 3) ${var} checks (outside relevant field)
+            # 4) ${var} checks (outside relevant field)
             for v in _KOBO_REF_RE.findall(txt):
+                v = str(v or "").strip()
+                if not v:
+                    # Empty ${} is handled as malformed syntax above.
+                    continue
                 if v not in curr_qnames:
                     issues.append({
                         "issue_type": "kobo_ref_missing_variable",
@@ -2024,6 +2410,170 @@ def validate_questionnaire_structure(
     return pl.DataFrame(issues).unique(
         subset=["issue_type", "Q Name", "field", "current", "reference"], keep="first"
     )
+
+
+def _module_rows_from_survey(survey_df: pl.DataFrame) -> pl.DataFrame:
+    schema = {
+        "module_key_norm": pl.Utf8,
+        "module_key": pl.Utf8,
+        "module": pl.Utf8,
+        "excel_row": pl.Int64,
+    }
+    if (
+        survey_df is None
+        or survey_df.height == 0
+        or "module_key" not in survey_df.columns
+        or "module" not in survey_df.columns
+    ):
+        return pl.DataFrame(schema=schema)
+
+    rows = (
+        survey_df
+        .with_columns(_normalized_module_expr("module_key").alias("module_key_norm"))
+        .filter(pl.col("module_key_norm") != "")
+        .with_columns(
+            pl.when(pl.col("module").cast(pl.Utf8).fill_null("").str.strip_chars() != "")
+            .then(pl.col("module").cast(pl.Utf8))
+            .otherwise(pl.col("module_key").cast(pl.Utf8))
+            .alias("module")
+        )
+        .select(["module_key_norm", "module_key", "module", "excel_row"])
+    )
+    if rows.height == 0:
+        return pl.DataFrame(schema=schema)
+
+    return (
+        rows
+        .sort(["module_key_norm", "excel_row"])
+        .group_by("module_key_norm")
+        .agg([
+            pl.col("module_key").first().alias("module_key"),
+            pl.col("module").first().alias("module"),
+            pl.col("excel_row").min().alias("excel_row"),
+        ])
+    )
+
+
+def validate_module_presence(
+    current_survey: pl.DataFrame,
+    reference_survey: pl.DataFrame,
+    template_survey: pl.DataFrame,
+) -> pl.DataFrame:
+    """
+    Module integrity checks:
+    - module_removed (high): template module missing in current (always enforced)
+    - module_added (info): current module absent from selected reference
+    """
+    schema = {
+        "issue_type": pl.Utf8, "set_name": pl.Utf8, "Q Name": pl.Utf8,
+        "module": pl.Utf8, "field": pl.Utf8, "current": pl.Utf8, "reference": pl.Utf8,
+        "severity": pl.Utf8, "excel_row": pl.Int64,
+    }
+
+    cur_mod = _module_rows_from_survey(current_survey)
+    ref_mod = _module_rows_from_survey(reference_survey)
+    tpl_mod = _module_rows_from_survey(template_survey)
+
+    cur_keys = set(cur_mod["module_key_norm"].to_list()) if cur_mod.height > 0 else set()
+    ref_keys = set(ref_mod["module_key_norm"].to_list()) if ref_mod.height > 0 else set()
+    tpl_keys = set(tpl_mod["module_key_norm"].to_list()) if tpl_mod.height > 0 else set()
+
+    cur_map = {r["module_key_norm"]: r for r in cur_mod.to_dicts()} if cur_mod.height > 0 else {}
+    ref_map = {r["module_key_norm"]: r for r in ref_mod.to_dicts()} if ref_mod.height > 0 else {}
+    tpl_map = {r["module_key_norm"]: r for r in tpl_mod.to_dicts()} if tpl_mod.height > 0 else {}
+
+    rows: list[dict] = []
+
+    for key in sorted(tpl_keys - cur_keys):
+        src = tpl_map.get(key, {})
+        module_label = str(src.get("module") or src.get("module_key") or key)
+        module_key = str(src.get("module_key") or key)
+        rows.append({
+            "issue_type": "module_removed",
+            "set_name": "questionnaire_structure",
+            "Q Name": "",
+            "module": module_label,
+            "field": "module",
+            "current": "missing_in_current",
+            "reference": f"Required by template: {module_key}",
+            "severity": "high",
+            "excel_row": src.get("excel_row"),
+        })
+
+    for key in sorted(cur_keys - ref_keys):
+        src = cur_map.get(key, {})
+        module_label = str(src.get("module") or src.get("module_key") or key)
+        module_key = str(src.get("module_key") or key)
+        rows.append({
+            "issue_type": "module_added",
+            "set_name": "questionnaire_structure",
+            "Q Name": "",
+            "module": module_label,
+            "field": "module",
+            "current": f"present: {module_key}",
+            "reference": "missing_in_reference",
+            "severity": "info",
+            "excel_row": src.get("excel_row"),
+        })
+
+    return pl.DataFrame(rows, schema=schema) if rows else pl.DataFrame(schema=schema)
+
+
+def _attach_module_column_to_issues(
+    issues_df: pl.DataFrame,
+    current_survey: pl.DataFrame,
+    reference_survey: pl.DataFrame,
+    template_survey: pl.DataFrame,
+) -> pl.DataFrame:
+    """
+    Populate per-row module label from question name lookup.
+    Existing non-empty module values (e.g. module-level issues) are preserved.
+    """
+    if issues_df is None or issues_df.height == 0:
+        if issues_df is None:
+            return pl.DataFrame(schema={"module": pl.Utf8})
+        if "module" not in issues_df.columns:
+            return issues_df.with_columns(pl.lit("").alias("module"))
+        return issues_df
+
+    def _lookup_part(df: pl.DataFrame, priority: int) -> pl.DataFrame:
+        if df is None or df.height == 0 or "Q Name" not in df.columns or "module" not in df.columns:
+            return pl.DataFrame(schema={"Q Name": pl.Utf8, "_module_from_qname": pl.Utf8, "_p": pl.Int64})
+        return (
+            df
+            .select(["Q Name", "module"])
+            .with_columns([
+                pl.col("Q Name").cast(pl.Utf8).fill_null("").str.strip_chars().alias("Q Name"),
+                pl.col("module").cast(pl.Utf8).fill_null("").str.strip_chars().alias("_module_from_qname"),
+                pl.lit(priority).alias("_p"),
+            ])
+            .filter((pl.col("Q Name") != "") & (pl.col("_module_from_qname") != ""))
+            .select(["Q Name", "_module_from_qname", "_p"])
+        )
+
+    module_lookup = (
+        pl.concat([
+            _lookup_part(current_survey, 2),
+            _lookup_part(reference_survey, 1),
+            _lookup_part(template_survey, 0),
+        ], how="vertical")
+        .sort(["Q Name", "_p"])
+        .group_by("Q Name")
+        .agg(pl.col("_module_from_qname").last().alias("_module_from_qname"))
+    )
+
+    out = issues_df
+    if "module" not in out.columns:
+        out = out.with_columns(pl.lit("").alias("module"))
+
+    out = out.join(module_lookup, on="Q Name", how="left")
+    out = out.with_columns(
+        pl.when(pl.col("module").cast(pl.Utf8).fill_null("").str.strip_chars() != "")
+        .then(pl.col("module").cast(pl.Utf8))
+        .otherwise(pl.col("_module_from_qname").cast(pl.Utf8).fill_null(""))
+        .alias("module")
+    ).drop("_module_from_qname")
+    return out
 
 
 
@@ -3934,6 +4484,13 @@ structure_issues = validate_questionnaire_structure(
 )
 print(f"Questionnaire structure issues: {structure_issues.height}")
 
+module_issues = validate_module_presence(
+    current_survey=current_survey_cmp,
+    reference_survey=reference_survey,
+    template_survey=template_survey,
+)
+print(f"Module structure issues: {module_issues.height}")
+
 critical_issues = validate_critical_sets(current_cmp_q, rules.get("exact_sets", {}))
 count_issues    = validate_prefix_counts(current_cmp_q, rules.get("min_count_sets", {}))
 harvest_issues  = validate_crop_harvest(current_cmp_q, rules.get("crop_harvest", {}))
@@ -4140,8 +4697,15 @@ all_issues = pl.concat(
      _with_choice_cols(count_issues),
      _with_choice_cols(harvest_issues),
      _with_choice_cols(relevant_issues),
-     _with_choice_cols(structure_issues)],
+     _with_choice_cols(structure_issues),
+     _with_choice_cols(module_issues)],
     how="diagonal",
+)
+all_issues = _attach_module_column_to_issues(
+    all_issues,
+    current_survey=current_survey_cmp,
+    reference_survey=reference_survey,
+    template_survey=template_survey,
 )
 
 # -- previous_round special remap ---------------------------------------------
@@ -4356,8 +4920,12 @@ _ISSUE_LABELS = {
     "replacement_crop_template_mismatch": "Crop list mismatch vs template baseline",
     "placeholder_not_found"    : "Placeholder not in template/additional info",
     "placeholder_should_use_kobo_ref": "Placeholder looks like variable (use ${var})",
+    "replacement_malformed_placeholder": "Malformed placeholder syntax",
     "kobo_ref_loose_syntax"    : "Loose $var syntax (use ${var})",
+    "kobo_ref_malformed_syntax": "Malformed ${var} syntax",
     "kobo_ref_missing_variable": "${var} references missing variable",
+    "module_removed"           : "Template module missing",
+    "module_added"             : "Module added vs reference",
     "duplicate_qname"          : "Duplicate question name",
     "duplicate_choice_name"    : "Duplicate choice name in list",
 }
@@ -4422,8 +4990,12 @@ ISSUE_ACTION_MAP = {
     "duplicate_choice_name": "Rename duplicate choice names in list",
     "placeholder_should_use_kobo_ref": "Use KoBo variable syntax ${var} instead of plain placeholder",
     "placeholder_not_found": "Add missing placeholder key or correct typo",
+    "replacement_malformed_placeholder": "Fix malformed placeholder syntax (use balanced #token#)",
     "kobo_ref_loose_syntax": "Replace loose $var syntax with ${var}",
+    "kobo_ref_malformed_syntax": "Fix malformed KoBo reference syntax and use ${var}",
     "kobo_ref_missing_variable": "Fix ${var} reference to an existing survey variable",
+    "module_removed": "Restore required template module in survey",
+    "module_added": "Informational: module exists in current but not in selected reference",
     "missing_critical_question": "Add missing critical question",
     "advisory_question": "Review advisory question omission",
     "critical_mandatory_mismatch": "Align mandatory flag for critical question",
@@ -4446,6 +5018,7 @@ COL_MAP = [
     ("mandatory_cat", "Type"),
     ("set_name",      "Set"),
     ("Q Name",        "Q Name"),
+    ("module",        "Module"),
     ("list_name",     "list_name"),
     ("option_name",   "name"),
     ("field",         "Detail"),
@@ -4459,13 +5032,25 @@ COL_MAP = [
     ("excel_row",     "Excel row"),
 ]
 
-def _table(ws, start_row, df, apply_view=True, col_map=None):
+
+def _col_map_with_field_header(field_header: str) -> list[tuple[str, str]]:
+    return [(src, field_header if src == "field" else disp) for src, disp in COL_MAP]
+
+
+_COL_MAP_FIELD = _col_map_with_field_header("Field")
+_COL_MAP_DETAIL = _col_map_with_field_header("Detail")
+
+def _prepare_table_df(df: pl.DataFrame) -> pl.DataFrame:
     if "issue_type" in df.columns and "action" not in df.columns:
-        df = df.with_columns(
+        return df.with_columns(
             pl.col("issue_type")
             .map_elements(_action_for_issue_type, return_dtype=pl.Utf8)
             .alias("action")
         )
+    return df
+
+
+def _resolve_table_cols(df: pl.DataFrame, col_map=None) -> list[tuple[str, str]]:
     cmap = col_map or COL_MAP
     cols = []
     for s, d in cmap:
@@ -4494,6 +5079,12 @@ def _table(ws, start_row, df, apply_view=True, col_map=None):
             if not has_vals:
                 continue
         cols.append((s, d))
+    return cols
+
+
+def _table(ws, start_row, df, apply_view=True, col_map=None):
+    df = _prepare_table_df(df)
+    cols = _resolve_table_cols(df, col_map=col_map)
     _hdr(ws, start_row, [d for _, d in cols])
     r = start_row + 1
     if df.height == 0:
@@ -4741,23 +5332,64 @@ CRITICAL_ISSUE_TYPES = {
 }
 RELEVANT_ISSUE_TYPES  = {"broken_relevant_reference", "relevant_inexact_reference", "relevant_modified"}
 STRUCTURE_ISSUE_TYPES = {
-    "kobo_ref_loose_syntax", "kobo_ref_missing_variable",
+    "kobo_ref_loose_syntax", "kobo_ref_missing_variable", "kobo_ref_malformed_syntax",
     "duplicate_qname", "duplicate_choice_name", "type_changed",
+    "module_removed", "module_added",
 }
 REPLACEMENT_ISSUE_TYPES = {
     "placeholder_not_found", "placeholder_should_use_kobo_ref",
-    "replacement_crop_template_mismatch",
+    "replacement_crop_template_mismatch", "replacement_malformed_placeholder",
 }
-QUESTION_CHANGE_TYPES = {
+
+CORE_QUESTION_CHANGE_ISSUE_TYPES = {
     "mandatory_column_mismatch", "added_question", "removed_question", "mandatory_to_optional",
-    "choices_list_changed", "label_mismatch", "constraint_modified",
+    "label_mismatch",
+}
+
+ADDITIONAL_QUESTION_FIELD_ISSUE_TYPES = {
+    "choices_list_changed", "constraint_modified",
     "required_modified", "choice_filter_modified", "appearance_modified", "calculation_modified",
     "hint_changed",
 }
 
+QUESTION_CHANGE_TYPES = CORE_QUESTION_CHANGE_ISSUE_TYPES | ADDITIONAL_QUESTION_FIELD_ISSUE_TYPES
+
 
 def _question_change_expr():
     return pl.col("issue_type").is_in(list(QUESTION_CHANGE_TYPES))
+
+
+def _ensure_question_field_detail(df: pl.DataFrame) -> pl.DataFrame:
+    """
+    Preserve actionable row-level column context for Question Changes.
+    If field is blank after transforms, backfill from issue_type.
+    """
+    if df.height == 0:
+        return df
+
+    if "field" not in df.columns:
+        return df.with_columns(pl.lit("").alias("field"))
+
+    fallback_field = (
+        pl.when(pl.col("issue_type") == "added_question").then(pl.lit("Q Name"))
+        .when(pl.col("issue_type") == "removed_question").then(pl.lit("Q Name"))
+        .when(pl.col("issue_type") == "mandatory_to_optional").then(pl.lit("Q Name"))
+        .when(pl.col("issue_type") == "mandatory_column_mismatch").then(pl.lit("mandatory_category"))
+        .when(pl.col("issue_type") == "label_mismatch").then(pl.lit("label"))
+        .when(pl.col("issue_type") == "choices_list_changed").then(pl.lit("type (list_name)"))
+        .when(pl.col("issue_type") == "required_modified").then(pl.lit("required"))
+        .when(pl.col("issue_type") == "choice_filter_modified").then(pl.lit("choice_filter"))
+        .when(pl.col("issue_type") == "appearance_modified").then(pl.lit("appearance"))
+        .when(pl.col("issue_type") == "calculation_modified").then(pl.lit("calculation"))
+        .when(pl.col("issue_type") == "constraint_modified").then(pl.lit("constraint"))
+        .when(pl.col("issue_type") == "hint_changed").then(pl.lit("hint"))
+        .otherwise(pl.lit(""))
+    )
+
+    field_txt = pl.col("field").cast(pl.Utf8).fill_null("").str.strip_chars()
+    return df.with_columns(
+        pl.when(field_txt == "").then(fallback_field).otherwise(pl.col("field").cast(pl.Utf8)).alias("field")
+    )
 
 
 def _normalise_qtype_for_summary(df):
@@ -4840,32 +5472,43 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
     ws["A1"].font = FONT_TITLE
     ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
     ws.row_dimensions[1].height = 26
-    ws.merge_cells("A2:D2")
-    ws["A2"] = f"Comparison basis: {_reference_scope_label()}"
-    ws["A2"].font = Font(size=10, color="274E13", italic=True)
-    ws["A2"].alignment = Alignment(horizontal="left", vertical="center")
-    ws.merge_cells("A3:D3")
+
     _curr_name = Path(run.get("questionnaire_path", "")).name
     _curr_iso = str(run.get("iso3", "") or "").upper()
     _curr_round = _extract_round_token_kobo(_curr_name) or "R?"
-    ws["A3"] = f"Current questionnaire: {_curr_iso} {_curr_round} | {_curr_name}"
-    ws["A3"].font = Font(size=10, color="1F4E78", italic=True)
-    ws["A3"].alignment = Alignment(horizontal="left", vertical="center")
-    ws.merge_cells("A4:D4")
-    ws["A4"] = f"Checked against: {_reference_descriptor_kobo()}"
-    ws["A4"].font = Font(size=10, color="1F4E78", italic=True)
-    ws["A4"].alignment = Alignment(horizontal="left", vertical="center")
-    ws.merge_cells("A5:D5")
-    ws["A5"] = f"Language scope: {_language_scope_descriptor_kobo()}"
-    ws["A5"].font = Font(size=10, color="1F4E78", italic=True)
-    ws["A5"].alignment = Alignment(horizontal="left", vertical="center")
-    ws.merge_cells("A6:D6")
     _tpl_name = Path(run.get("template_path", "")).name if run.get("template_path") else "N/A"
-    ws["A6"] = f"Template used for placeholder mapping: {_tpl_name}"
-    ws["A6"].font = Font(size=10, color="1F4E78", italic=True)
-    ws["A6"].alignment = Alignment(horizontal="left", vertical="center")
+    _summary_info_lines = [
+        f"Comparison basis: {_reference_scope_label()}",
+        f"Current questionnaire: {_curr_iso} {_curr_round} | {_curr_name}",
+        f"Checked against: {_reference_descriptor_kobo()}",
+        f"Language scope: {_language_scope_descriptor_kobo()}",
+        f"Template used for placeholder mapping: {_tpl_name}",
+    ]
 
-    r = 7
+    _mod_ignore_line = str(globals().get("_module_ignore_scope_summary") or "").strip()
+    _mod_skip_line = str(globals().get("_module_skip_scope_summary") or "").strip()
+    _mod_ignore_unres = str(globals().get("_module_ignore_unresolved_summary") or "").strip()
+    _mod_skip_unres = str(globals().get("_module_skip_unresolved_summary") or "").strip()
+    if _mod_ignore_line and _mod_ignore_line != "(none)":
+        _summary_info_lines.append(f"Modules ignored from comparison: {_mod_ignore_line}")
+    if _mod_skip_line and _mod_skip_line != "(none)":
+        _summary_info_lines.append(f"Modules skipped from validated output: {_mod_skip_line}")
+    if _mod_ignore_unres:
+        _summary_info_lines.append(f"Unresolved ignored-module entries: {_mod_ignore_unres}")
+    if _mod_skip_unres:
+        _summary_info_lines.append(f"Unresolved skipped-module entries: {_mod_skip_unres}")
+
+    for _i, _line in enumerate(_summary_info_lines, start=2):
+        ws.merge_cells(f"A{_i}:D{_i}")
+        ws[f"A{_i}"] = _line
+        ws[f"A{_i}"].font = Font(
+            size=10,
+            color="274E13" if _i == 2 else "1F4E78",
+            italic=True,
+        )
+        ws[f"A{_i}"].alignment = Alignment(horizontal="left", vertical="center")
+
+    r = len(_summary_info_lines) + 2
     _rules = rules or {}
     _crit  = (critical_issues if critical_issues is not None
               else pl.DataFrame(schema={"set_name": pl.Utf8, "issue_type": pl.Utf8, "Q Name": pl.Utf8}))
@@ -4963,14 +5606,26 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
     _dup_q       = _struct_df.filter(pl.col("issue_type") == "duplicate_qname").height
     _dup_choice  = _struct_df.filter(pl.col("issue_type") == "duplicate_choice_name").height
     _qtype       = _struct_df.filter(pl.col("issue_type") == "type_changed").height
-    _other_struct = _struct_all - _dup_q - _dup_choice - _qtype
-    _struct_ok   = _struct_all == 0
+    _module_removed = _struct_df.filter(pl.col("issue_type") == "module_removed").height
+    _module_added = _struct_df.filter(pl.col("issue_type") == "module_added").height
+    _base_struct_df = _struct_df.filter(~pl.col("issue_type").is_in(["module_removed", "module_added"]))
+    _base_struct_all = _base_struct_df.height
+    _other_struct = _base_struct_all - _dup_q - _dup_choice - _qtype
+    _struct_ok   = _base_struct_all == 0
     _struct_det  = (
-        f"{_struct_all} issue(s): Q type integrity={_qtype}; duplicate Q Name={_dup_q}; duplicate choice name={_dup_choice}; KoBo refs={_other_struct}"
+        f"{_base_struct_all} issue(s): Q type integrity={_qtype}; duplicate Q Name={_dup_q}; "
+        f"duplicate choice name={_dup_choice}; KoBo refs={_other_struct}"
         if not _struct_ok else
         "No issues in Q type integrity, duplicates, or KoBo references"
     )
     _check_row(ws, r, "Q type integrity, duplicates and KoBo references", _struct_ok, _struct_det); r += 1
+    _module_ok = _module_removed == 0
+    _module_det = (
+        f"template modules missing={_module_removed}; modules added={_module_added}"
+        if not _module_ok else
+        f"No template module missing (modules added={_module_added})"
+    )
+    _check_row(ws, r, "Module presence (template-required)", _module_ok, _module_det); r += 1
 
     r += 1
 
@@ -5002,9 +5657,24 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
 
     r += 1
 
-    # -- Question Changes -----------------------------------------------------
-    _sect(ws, r, "QUESTION CHANGES", 4); r += 1
-    r = _grouped_table(ws, r, all_issues.filter(_question_change_expr()))
+    # -- Question Changes (Core) ----------------------------------------------
+    _question_df = _ensure_question_field_detail(all_issues.filter(_question_change_expr()))
+
+    _sect(ws, r, "QUESTION CHANGES (CORE)", 4); r += 1
+    r = _grouped_table(
+        ws,
+        r,
+        _question_df.filter(pl.col("issue_type").is_in(list(CORE_QUESTION_CHANGE_ISSUE_TYPES))),
+    )
+    r += 1
+
+    # -- Question Changes (Additional fields) ---------------------------------
+    _sect(ws, r, "QUESTION CHANGES (ADDITIONAL FIELDS)", 4); r += 1
+    r = _grouped_table(
+        ws,
+        r,
+        _question_df.filter(pl.col("issue_type").is_in(list(ADDITIONAL_QUESTION_FIELD_ISSUE_TYPES))),
+    )
     r += 1
 
     # -- Choice Changes -------------------------------------------------------
@@ -5022,7 +5692,7 @@ def write_critical_sets_sheet(wb, all_issues, found_info=None):
         pl.col("issue_type").is_in(list(CRITICAL_ISSUE_TYPES))
     ).sort(["set_name", "severity", "Q Name"])
     _sect(ws, 1, "CRITICAL SETS  Structural validation issues", 8)
-    next_row = _table(ws, 2, df, apply_view=False)
+    next_row = _table(ws, 2, df, apply_view=False, col_map=_COL_MAP_FIELD)
 
     if found_info:
         next_row += 1
@@ -5049,14 +5719,16 @@ def write_questionnaire_structure_sheet(wb, all_issues):
     rel_df = all_issues.filter(
         pl.col("issue_type").is_in(list(RELEVANT_ISSUE_TYPES))
     ).sort(["severity", "Q Name"])
+    rel_df_view = _prepare_table_df(rel_df)
+    rel_cols = _resolve_table_cols(rel_df_view, col_map=_COL_MAP_FIELD)
     _sect(ws, row, "QUESTIONNAIRE STRUCTURE CHECKS  Skip logic references (relevant)", 8)
     _rel_start = row + 1
-    row = _table(ws, _rel_start, rel_df, apply_view=False)
+    row = _table(ws, _rel_start, rel_df_view, apply_view=False, col_map=_COL_MAP_FIELD)
     _apply_inline_diff_for_issue(
         ws,
         _rel_start,
-        rel_df,
-        [(s, d) for s, d in COL_MAP if s in rel_df.columns],
+        rel_df_view,
+        rel_cols,
         {"relevant_modified"},
     )
 
@@ -5066,18 +5738,19 @@ def write_questionnaire_structure_sheet(wb, all_issues):
         pl.col("issue_type") == "type_changed"
     ).sort(["severity", "Q Name", "field"])
     _sect(ws, row, "Q TYPE INTEGRITY ISSUES", 8)
-    row = _table(ws, row + 1, qtype_df, apply_view=False)
+    row = _table(ws, row + 1, qtype_df, apply_view=False, col_map=_COL_MAP_FIELD)
 
     # Box 3: duplicate/token syntax checks
     row += 1
     struct_df = all_issues.filter(
         pl.col("issue_type").is_in([
             "duplicate_qname", "duplicate_choice_name",
-            "kobo_ref_loose_syntax", "kobo_ref_missing_variable",
+            "kobo_ref_loose_syntax", "kobo_ref_malformed_syntax", "kobo_ref_missing_variable",
+            "module_removed", "module_added",
         ])
     ).sort(["severity", "Q Name", "field"])
-    _sect(ws, row, "QUESTIONNAIRE STRUCTURE CHECKS  Duplicates and KoBO references", 8)
-    _table(ws, row + 1, struct_df, apply_view=False)
+    _sect(ws, row, "QUESTIONNAIRE STRUCTURE CHECKS  (Duplicates, KoBO references, modules)", 8)
+    _table(ws, row + 1, struct_df, apply_view=False, col_map=_COL_MAP_FIELD)
 
     # Avoid frozen panes in multi-box sheets (this was causing navigation/display issues).
     ws.freeze_panes = "A1"
@@ -5088,23 +5761,26 @@ def write_replacement_issues_sheet(wb, all_issues):
     ws = wb.create_sheet("Replacement Issues")
     ws.sheet_view.showGridLines = False
     df = all_issues.filter(pl.col("issue_type").is_in(list(REPLACEMENT_ISSUE_TYPES))).sort(["severity", "Q Name", "field"])
+    df_view = _prepare_table_df(df)
     _sect(ws, 1, "REPLACEMENT ISSUES  Placeholder and Additional information checks", 8)
-    next_row = _table(ws, 2, df, apply_view=False)
+    next_row = _table(ws, 2, df_view, apply_view=False, col_map=_COL_MAP_FIELD)
 
     rp_df = (
         all_issues
         .filter(pl.col("issue_type").cast(pl.Utf8).str.starts_with("additional_information_replacement_change ("))
         .sort(["severity", "issue_type", "Q Name"])
     )
+    rp_df_view = _prepare_table_df(rp_df)
+    rp_cols = _resolve_table_cols(rp_df_view, col_map=_COL_MAP_FIELD)
     next_row += 1
     _sect(ws, next_row, "ADDITIONAL INFORMATION REPLACEMENT CHANGES  (previous_round informational)", 8)
     rp_start = next_row + 1
-    _table(ws, rp_start, rp_df, apply_view=False)
+    _table(ws, rp_start, rp_df_view, apply_view=False, col_map=_COL_MAP_FIELD)
     _apply_inline_diff_for_issue(
         ws,
         rp_start,
-        rp_df,
-        [(s, d) for s, d in COL_MAP if s in rp_df.columns],
+        rp_df_view,
+        rp_cols,
         {"additional_information_replacement_change*"},
     )
 
@@ -5117,18 +5793,61 @@ def write_relevant_sheet(wb, all_issues):
     ws.sheet_view.showGridLines = False
     df = all_issues.filter(pl.col("issue_type").is_in(list(RELEVANT_ISSUE_TYPES)))
     _sect(ws, 1, "RELEVANT CHANGES  KoBO skip-logic (relevant column)", 8)
-    _table(ws, 2, df)
+    _table(ws, 2, df, col_map=_COL_MAP_FIELD)
     _autofit(ws)
 
 
 def write_question_changes_sheet(wb, all_issues):
     ws = wb.create_sheet("Question Changes")
     ws.sheet_view.showGridLines = False
-    df = all_issues.filter(_question_change_expr())
-    col_map = [c for c in COL_MAP if c[0] not in {"set_name", "list_name", "option_name"}]
-    _sect(ws, 1, "QUESTION CHANGES  Presence, mandatory, label, hint, required, choice_filter, appearance, calculation, constraint, choices list", 8)
-    _table(ws, 2, df, col_map=col_map)
-    _apply_inline_diff_for_issue(ws, 2, df, [(s, d) for s, d in col_map if s in df.columns], {"label_mismatch", "constraint_modified", "hint_changed", "choice_filter_modified"})
+
+    df = _ensure_question_field_detail(all_issues.filter(_question_change_expr()))
+    if df.height > 0:
+        df = (
+            df
+            .with_columns(
+                pl.when(pl.col("severity") == "high").then(pl.lit(0))
+                .when(pl.col("severity") == "medium").then(pl.lit(1))
+                .otherwise(pl.lit(2))
+                .alias("_s")
+            )
+            .sort(["_s", "issue_type", "Q Name"])
+            .drop("_s")
+        )
+
+    core_df = df.filter(pl.col("issue_type").is_in(list(CORE_QUESTION_CHANGE_ISSUE_TYPES)))
+    additional_df = df.filter(pl.col("issue_type").is_in(list(ADDITIONAL_QUESTION_FIELD_ISSUE_TYPES)))
+    col_map = [c for c in _COL_MAP_FIELD if c[0] not in {"set_name", "list_name", "option_name"}]
+
+    core_view = _prepare_table_df(core_df)
+    core_cols = _resolve_table_cols(core_view, col_map=col_map)
+    _sect(ws, 1, "QUESTION CHANGES (CORE)  Presence, mandatory, labels", 8)
+    next_row = _table(ws, 2, core_view, col_map=col_map, apply_view=False)
+    _apply_inline_diff_for_issue(
+        ws,
+        2,
+        core_view,
+        core_cols,
+        {"label_mismatch"},
+    )
+
+    additional_view = _prepare_table_df(additional_df)
+    additional_cols = _resolve_table_cols(additional_view, col_map=col_map)
+    _sect(
+        ws,
+        next_row,
+        "QUESTION CHANGES (ADDITIONAL FIELDS)  hint, required, choice_filter, appearance, calculation, constraint, choices list",
+        8,
+    )
+    _table(ws, next_row + 1, additional_view, col_map=col_map, apply_view=False)
+    _apply_inline_diff_for_issue(
+        ws,
+        next_row + 1,
+        additional_view,
+        additional_cols,
+        set(ADDITIONAL_QUESTION_FIELD_ISSUE_TYPES),
+    )
+    ws.freeze_panes = "A3"
     _autofit(ws)
 
 
@@ -5139,17 +5858,19 @@ def write_option_changes_sheet(wb, all_issues):
         "removed_choice", "added_choice", "choice_changes_general", "choice_label_mismatch", "option_index_drift", "option_name_dictionary_replaced", "removed_option_causes_index_drift", "added_option_causes_index_drift", "mandatory_choice_set_replaced", "cluster_ea_choice_changes_summary", "enumerator_choice_changes_summary",
     ]))
     df = _with_lang_scope_tag(df, _kobo_report_lang)
-    col_map = [c for c in COL_MAP if c[0] != "set_name"]
+    col_map = [c for c in _COL_MAP_DETAIL if c[0] != "set_name"]
+    df_view = _prepare_table_df(df)
+    cols = _resolve_table_cols(df_view, col_map=col_map)
     _sect(ws, 1, "CHOICE CHANGES  Answer choices for questions in both files", 8)
-    _table(ws, 2, df, col_map=col_map)
+    _table(ws, 2, df_view, col_map=col_map)
     _apply_inline_diff_for_issue(
         ws,
         2,
-        df,
-        [(s, d) for s, d in col_map if s in df.columns],
+        df_view,
+        cols,
         {"added_choice", "removed_choice", "choice_changes_general", "choice_label_mismatch", "option_index_drift", "option_name_dictionary_replaced", "removed_option_causes_index_drift", "added_option_causes_index_drift", "mandatory_choice_set_replaced"},
     )
-    _apply_choice_detail_highlights(ws, 2, df, [(s, d) for s, d in col_map if s in df.columns])
+    _apply_choice_detail_highlights(ws, 2, df_view, cols)
     _autofit(ws)
 
 
@@ -5490,6 +6211,149 @@ def _rebuild_choices_sheet(
         ws.append(list(r))
 
 
+def _strip_skipped_module_blocks_from_survey_sheet(
+    wb,
+    skip_module_keys: set[str],
+    skip_qnames: set[str] | None = None,
+) -> dict[str, int]:
+    """
+    Remove entire skipped-module blocks from survey sheet, including begin/end rows.
+    Also removes any explicitly listed question names as a safety fallback.
+    """
+    stats = {
+        "removed_rows": 0,
+        "removed_question_rows": 0,
+        "removed_group_rows": 0,
+        "removed_module_blocks": 0,
+    }
+    if "survey" not in wb.sheetnames:
+        return stats
+
+    ws = wb["survey"]
+    all_rows = list(ws.iter_rows(values_only=True))
+    if not all_rows:
+        return stats
+
+    n_cols = max((len(r) for r in all_rows), default=0)
+    headers = [str(h).strip() if h is not None else "" for h in all_rows[0]]
+    col_idx = {h: i for i, h in enumerate(headers)}
+    type_col = col_idx.get("type")
+    name_col = col_idx.get("name")
+    if type_col is None and name_col is None:
+        return stats
+
+    skip_keys_norm = {
+        _normalize_module_token(v)
+        for v in (skip_module_keys or set())
+        if _normalize_module_token(v)
+    }
+    skip_q = {str(v).strip() for v in (skip_qnames or set()) if str(v or "").strip()}
+    if not skip_keys_norm and not skip_q:
+        return stats
+
+    def _cell(row, idx):
+        if row is None or idx is None or idx >= len(row):
+            return None
+        return row[idx]
+
+    kept = [all_rows[0]]
+    stack: list[dict[str, object]] = []
+
+    for row in all_rows[1:]:
+        q_type_raw = str(_cell(row, type_col) or "").strip()
+        q_name = str(_cell(row, name_col) or "").strip()
+        type_norm = _normalize_survey_type_token(q_type_raw)
+
+        inside_removed = bool(stack[-1]["remove"]) if stack else False
+
+        if any(type_norm.startswith(t) for t in _GROUP_BEGIN_TYPES):
+            key_norm = _normalize_module_token(q_name)
+            self_match = key_norm in skip_keys_norm if key_norm else False
+            remove_here = inside_removed or self_match
+            stack.append({"remove": remove_here, "module_key_norm": key_norm})
+            if self_match and not inside_removed:
+                stats["removed_module_blocks"] += 1
+            if remove_here:
+                stats["removed_rows"] += 1
+                stats["removed_group_rows"] += 1
+            else:
+                kept.append(row)
+            continue
+
+        if any(type_norm.startswith(t) for t in _GROUP_END_TYPES):
+            remove_here = bool(stack[-1]["remove"]) if stack else False
+            if stack:
+                stack.pop()
+            if remove_here:
+                stats["removed_rows"] += 1
+                stats["removed_group_rows"] += 1
+            else:
+                kept.append(row)
+            continue
+
+        remove_here = inside_removed or (q_name in skip_q if q_name else False)
+        if remove_here:
+            stats["removed_rows"] += 1
+            stats["removed_question_rows"] += 1
+        else:
+            kept.append(row)
+
+    if stats["removed_rows"] == 0:
+        return stats
+
+    ws.delete_rows(1, ws.max_row)
+    for r in kept:
+        padded = list(r) + [None] * max(0, n_cols - len(r))
+        ws.append(padded[:n_cols] if n_cols > 0 else list(r))
+    return stats
+
+
+def _remove_choices_lists_rows(wb, list_names: set[str]) -> int:
+    """Remove all choices rows whose list_name is in list_names (normalized compare)."""
+    if "choices" not in wb.sheetnames or not list_names:
+        return 0
+
+    ws = wb["choices"]
+    all_rows = list(ws.iter_rows(values_only=True))
+    if not all_rows:
+        return 0
+
+    n_cols = max((len(r) for r in all_rows), default=0)
+    headers = [str(h).strip() if h is not None else "" for h in all_rows[0]]
+    col_idx = {h: i for i, h in enumerate(headers)}
+    list_col = col_idx.get("list_name", 0)
+    wanted = {
+        _normalize_list_token(v)
+        for v in list_names
+        if _normalize_list_token(v)
+    }
+    if not wanted:
+        return 0
+
+    def _cell(row, idx):
+        if row is None or idx is None or idx >= len(row):
+            return None
+        return row[idx]
+
+    kept = [all_rows[0]]
+    removed = 0
+    for row in all_rows[1:]:
+        ln = str(_cell(row, list_col) or "").strip()
+        if ln and _normalize_list_token(ln) in wanted:
+            removed += 1
+            continue
+        kept.append(row)
+
+    if removed == 0:
+        return 0
+
+    ws.delete_rows(1, ws.max_row)
+    for r in kept:
+        padded = list(r) + [None] * max(0, n_cols - len(r))
+        ws.append(padded[:n_cols] if n_cols > 0 else list(r))
+    return removed
+
+
 def _apply_replacements_to_wb(wb, replacement_pairs: dict) -> None:
     """Apply #placeholder# -> value to every string cell in survey and choices sheets."""
     if not replacement_pairs:
@@ -5694,6 +6558,31 @@ def _scan_unresolved_placeholders(wb, sheet_name: str, limit: int = 5) -> tuple[
                 if len(examples) < limit:
                     examples.append(f"{cell.coordinate}: {v[:90]}")
     return count, examples
+
+
+def _scan_malformed_placeholder_syntax(wb, sheet_name: str, limit: int = 5) -> tuple[int, list[str]]:
+    """
+    Return (count, examples) of malformed placeholder/reference syntax in a sheet:
+      - malformed #...# tokens
+      - malformed ${...} tokens
+    """
+    if sheet_name not in wb.sheetnames:
+        return 0, []
+    ws = wb[sheet_name]
+    count = 0
+    examples: list[str] = []
+    for row in ws.iter_rows():
+        for cell in row:
+            v = cell.value
+            if not isinstance(v, str):
+                continue
+            if _has_broken_hash_placeholder_token(v) or _has_malformed_kobo_ref_token(v):
+                count += 1
+                if len(examples) < limit:
+                    examples.append(f"{sheet_name}!{cell.coordinate}: {v[:90]}")
+    return count, examples
+
+
 def produce_validated_questionnaire(
     cfg             : dict,
     reference_survey: pl.DataFrame,
@@ -5812,6 +6701,66 @@ def produce_validated_questionnaire(
         else:
             _add_row(f"Choices replaced: {list_name}", "FAIL", f"Expected {expected}, wrote {actual}", "high")
 
+    # -- 3b. Optional module skip from validated output -------------------------
+    _skip_keys = set(globals().get("_skip_module_keys") or set())
+    _skip_qnames = set(globals().get("_skip_module_qnames_for_validated_output") or set())
+    _skip_choice_lists = set(globals().get("_skip_module_choice_lists_for_validated_output") or set())
+
+    if _skip_keys or _skip_qnames:
+        _survey_skip_stats = _strip_skipped_module_blocks_from_survey_sheet(
+            wb,
+            _skip_keys,
+            _skip_qnames,
+        )
+
+        _protected_lists = {
+            str(v).strip()
+            for v in (cfg.get("kobo_options", {}).get("country_specific_list_names", []) or [])
+            if str(v or "").strip()
+        }
+        _protected_lists.update(_crop_lists)
+        _protected_lists.update({"admin1", "admin2"})
+        _protected_norm = {_normalize_list_token(v) for v in _protected_lists if _normalize_list_token(v)}
+
+        _choice_lists_to_remove = {
+            ln for ln in _skip_choice_lists
+            if _normalize_list_token(ln) and _normalize_list_token(ln) not in _protected_norm
+        }
+        _choice_lists_protected = {
+            ln for ln in _skip_choice_lists
+            if _normalize_list_token(ln) and _normalize_list_token(ln) in _protected_norm
+        }
+        _removed_choice_rows = _remove_choices_lists_rows(wb, _choice_lists_to_remove)
+
+        _removed_survey_rows = int(_survey_skip_stats.get("removed_rows", 0))
+        _removed_modules = int(_survey_skip_stats.get("removed_module_blocks", 0))
+        if _removed_survey_rows > 0 or _removed_choice_rows > 0:
+            _det = (
+                f"removed module blocks={_removed_modules}; "
+                f"survey rows removed={_removed_survey_rows}; "
+                f"choices rows removed={_removed_choice_rows}"
+            )
+            if _choice_lists_to_remove:
+                _det += f"; choice lists removed={len(_choice_lists_to_remove)}"
+            if _choice_lists_protected:
+                _det += (
+                    f"; protected country lists kept={len(_choice_lists_protected)} "
+                    f"({', '.join(sorted(_choice_lists_protected)[:8])}"
+                )
+                if len(_choice_lists_protected) > 8:
+                    _det += ", ..."
+                _det += ")"
+            _add_row("Module skip (validated output)", "PASS", _det, "pass")
+            print(f"  Module skip applied: {_det}")
+        else:
+            _add_row(
+                "Module skip (validated output)",
+                "WARN",
+                "Configured, but no matching rows were removed in survey/choices",
+                "medium",
+            )
+            print("  Module skip configured, but no matching rows were removed.")
+
     # -- 4. Restore template labels for #placeholder# questions -----------------
     #      Reset labels to canonical template form so step 5 substitutes correctly.
     if "survey" in wb.sheetnames and reference_survey.height > 0:
@@ -5851,6 +6800,27 @@ def produce_validated_questionnaire(
         if _ch_examples:
             _det += " | examples: " + " ; ".join(_ch_examples)
         _add_row("Placeholder replacement in choices", "FAIL", _det, "high")
+
+    # Malformed placeholder/reference syntax check on final workbook text.
+    _malformed_total = 0
+    _malformed_examples: list[str] = []
+    for _sheet_name in ("survey", "choices"):
+        _cnt, _ex = _scan_malformed_placeholder_syntax(wb, _sheet_name, limit=3)
+        _malformed_total += _cnt
+        if _ex:
+            _malformed_examples.extend(_ex)
+    if _malformed_total == 0:
+        _add_row(
+            "Placeholder/reference syntax integrity",
+            "PASS",
+            "No malformed #...# or ${...} token detected in survey/choices",
+            "pass",
+        )
+    else:
+        _det = f"{_malformed_total} malformed token cell(s) in survey/choices"
+        if _malformed_examples:
+            _det += " | examples: " + " ; ".join(_malformed_examples[:5])
+        _add_row("Placeholder/reference syntax integrity", "FAIL", _det, "high")
 
     # Crop label placement integrity across language columns.
     _en_col = LANG_LABEL_COL.get("en", "label::English (en)")

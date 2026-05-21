@@ -69,6 +69,12 @@ def _summary(all_issues=None, report_path=None, extra_paths=None) -> None:
             print("  No issues found — questionnaire passed all checks.")
     except Exception as _e:
         print(f"  (summary unavailable: {_e})")
+    _mod_ignore = str(globals().get("_module_ignore_scope_summary") or "").strip()
+    _mod_skip = str(globals().get("_module_skip_scope_summary") or "").strip()
+    if _mod_ignore and _mod_ignore != "(none)":
+        print(f"  {'IGNORED MOD':<10} {_mod_ignore}")
+    if _mod_skip and _mod_skip != "(none)":
+        print(f"  {'SKIPPED MOD':<10} {_mod_skip}")
     print()
     if report_path:
         print(f"  Report  : {report_path}")
@@ -823,6 +829,222 @@ def build_questions_df(df: pl.DataFrame) -> pl.DataFrame:
         cs.exclude("excel_row").cast(pl.Utf8).fill_null("").str.strip_chars()
     )
     return out
+
+
+def _normalize_module_token(value) -> str:
+    txt = str(value or "").strip().lower()
+    txt = re.sub(r"\s+", " ", txt)
+    return txt
+
+
+def _is_geopoll_module_row(row: dict) -> bool:
+    """
+    Detect GeoPoll module/section divider rows.
+    Typical pattern: "E. LIVESTOCK MARKETING" in Q Name, with blank Q Type.
+    """
+    q_name = str(row.get("Q Name") or "").strip()
+    if not q_name:
+        return False
+
+    q_type = str(row.get("Q Type") or "").strip()
+    if q_type:
+        return False
+
+    if re.match(r"^[A-Za-z]\s*[\.\)]\s+\S", q_name):
+        return True
+
+    # Conservative fallback: section-like long uppercase labels.
+    if len(q_name) >= 8 and " " in q_name and q_name == q_name.upper():
+        return True
+    return False
+
+
+def split_geopoll_questions_and_modules(df: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """
+    Split questionnaire rows into:
+      1) question rows annotated with module_key/module
+      2) module rows catalog
+    """
+    q_schema = {
+        **{c: df.schema[c] for c in df.columns},
+        "module_key": pl.Utf8,
+        "module": pl.Utf8,
+    }
+    m_schema = {
+        "module_key_norm": pl.Utf8,
+        "module_key": pl.Utf8,
+        "module": pl.Utf8,
+        "excel_row": pl.Int64,
+        "source_file": pl.Utf8,
+    }
+    if df is None or df.height == 0:
+        return pl.DataFrame(schema=q_schema), pl.DataFrame(schema=m_schema)
+
+    current_module = ""
+    current_module_key = ""
+    q_rows: list[dict] = []
+    m_rows: list[dict] = []
+
+    sort_cols = ["excel_row"] if "excel_row" in df.columns else None
+    src_rows = df.sort(sort_cols).to_dicts() if sort_cols else df.to_dicts()
+    for row in src_rows:
+        q_name = str(row.get("Q Name") or "").strip()
+        if _is_geopoll_module_row(row):
+            current_module = q_name
+            current_module_key = q_name
+            key_norm = _normalize_module_token(current_module_key)
+            if key_norm:
+                m_rows.append({
+                    "module_key_norm": key_norm,
+                    "module_key": current_module_key,
+                    "module": current_module,
+                    "excel_row": row.get("excel_row"),
+                    "source_file": str(row.get("source_file") or ""),
+                })
+            continue
+
+        out = dict(row)
+        out["module_key"] = current_module_key
+        out["module"] = current_module
+        q_rows.append(out)
+
+    q_df = pl.DataFrame(q_rows, schema=q_schema) if q_rows else pl.DataFrame(schema=q_schema)
+    m_df = pl.DataFrame(m_rows, schema=m_schema) if m_rows else pl.DataFrame(schema=m_schema)
+    if m_df.height > 0:
+        m_df = (
+            m_df
+            .sort(["module_key_norm", "excel_row"])
+            .group_by("module_key_norm")
+            .agg([
+                pl.col("module_key").first().alias("module_key"),
+                pl.col("module").first().alias("module"),
+                pl.col("excel_row").first().alias("excel_row"),
+                pl.col("source_file").first().alias("source_file"),
+            ])
+            .sort("excel_row")
+        )
+    return q_df, m_df
+
+
+def _filter_questions_by_module_keys(df: pl.DataFrame, excluded_module_keys: set[str]) -> pl.DataFrame:
+    if df is None or df.height == 0 or not excluded_module_keys or "module_key" not in df.columns:
+        return df
+    return (
+        df
+        .with_columns(
+            pl.col("module_key").cast(pl.Utf8).fill_null("").map_elements(_normalize_module_token, return_dtype=pl.Utf8).alias("_module_key_norm")
+        )
+        .filter(~pl.col("_module_key_norm").is_in(list(excluded_module_keys)))
+        .drop("_module_key_norm")
+    )
+
+
+def _filter_module_rows_by_keys(df: pl.DataFrame, excluded_module_keys: set[str]) -> pl.DataFrame:
+    if df is None or df.height == 0 or not excluded_module_keys or "module_key_norm" not in df.columns:
+        return df
+    return df.filter(~pl.col("module_key_norm").is_in(list(excluded_module_keys)))
+
+
+def _resolve_module_keys_from_tokens(tokens: list[str], module_dfs: list[pl.DataFrame]) -> tuple[set[str], list[str]]:
+    alias_to_key: dict[str, str] = {}
+    for df in module_dfs:
+        if df is None or df.height == 0:
+            continue
+        cols = set(df.columns)
+        if not {"module_key_norm", "module_key", "module"}.issubset(cols):
+            continue
+        for row in df.select(["module_key_norm", "module_key", "module"]).iter_rows(named=True):
+            key_norm = str(row.get("module_key_norm") or "").strip()
+            if not key_norm:
+                continue
+            alias_to_key.setdefault(key_norm, key_norm)
+            mk = _normalize_module_token(row.get("module_key"))
+            ml = _normalize_module_token(row.get("module"))
+            if mk:
+                alias_to_key.setdefault(mk, key_norm)
+            if ml:
+                alias_to_key.setdefault(ml, key_norm)
+
+    resolved: set[str] = set()
+    unresolved: list[str] = []
+    for tok in tokens or []:
+        t_norm = _normalize_module_token(tok)
+        if not t_norm:
+            continue
+        key = alias_to_key.get(t_norm)
+        if key:
+            resolved.add(key)
+        else:
+            unresolved.append(str(tok))
+    return resolved, unresolved
+
+
+def _module_display_map(*module_dfs: pl.DataFrame) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for df in module_dfs:
+        if df is None or df.height == 0:
+            continue
+        cols = set(df.columns)
+        if not {"module_key_norm", "module_key", "module"}.issubset(cols):
+            continue
+        for row in df.select(["module_key_norm", "module_key", "module"]).iter_rows(named=True):
+            key = str(row.get("module_key_norm") or "").strip()
+            if not key:
+                continue
+            lbl = str(row.get("module") or row.get("module_key") or "").strip()
+            if key not in out or (not out[key] and lbl):
+                out[key] = lbl or str(row.get("module_key") or key)
+    return out
+
+
+def _dedupe_keep_order(items: list[str]) -> list[str]:
+    seen = set()
+    out: list[str] = []
+    for raw in items or []:
+        txt = str(raw or "").strip()
+        if not txt:
+            continue
+        key = txt.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(txt)
+    return out
+
+
+def _format_module_scope_for_display(configured_tokens: list[str], resolved_keys: set[str], module_names: dict[str, str]) -> str:
+    cfg = _dedupe_keep_order(configured_tokens or [])
+    resolved_parts = []
+    for key in sorted(resolved_keys or set()):
+        lbl = str(module_names.get(key, "") or "").strip()
+        resolved_parts.append(f"{lbl} [{key}]" if lbl else key)
+    cfg_txt = ", ".join(cfg) if cfg else "(none)"
+    if resolved_parts:
+        return f"{cfg_txt} -> {', '.join(resolved_parts)}"
+    return cfg_txt
+
+
+def _qnames_for_module_keys(questions_df: pl.DataFrame, module_keys: set[str]) -> set[str]:
+    if (
+        questions_df is None
+        or questions_df.height == 0
+        or not module_keys
+        or "module_key" not in questions_df.columns
+        or "Q Name" not in questions_df.columns
+    ):
+        return set()
+    out = (
+        questions_df
+        .with_columns(
+            pl.col("module_key").cast(pl.Utf8).fill_null("").map_elements(_normalize_module_token, return_dtype=pl.Utf8).alias("_module_key_norm")
+        )
+        .filter(pl.col("_module_key_norm").is_in(list(module_keys)))
+        .select("Q Name")
+        .drop_nulls()
+        .to_series()
+        .to_list()
+    )
+    return {str(v).strip() for v in out if str(v or "").strip()}
 
 
 
@@ -1692,8 +1914,10 @@ current_wb = _load_workbook_readonly(run["questionnaire_path"], data_only=True, 
 current_raw = read_survey_sheet(run["questionnaire_path"], _wb=current_wb)
 reference_raw = read_survey_sheet(run["reference_path"])
 
-current_questions_raw = build_questions_df(current_raw)
-reference_questions_raw = build_questions_df(reference_raw)
+current_questions_raw_all = build_questions_df(current_raw)
+reference_questions_raw_all = build_questions_df(reference_raw)
+current_questions_raw, current_modules_raw = split_geopoll_questions_and_modules(current_questions_raw_all)
+reference_questions_raw, reference_modules_raw = split_geopoll_questions_and_modules(reference_questions_raw_all)
 
 current_crop_list = read_crop_list(run["questionnaire_path"], _wb=current_wb)
 try:
@@ -1705,6 +1929,7 @@ current_text_replacements = current_text_replacements_by_language.get(cfg.langua
 _close_workbook(current_wb)
 restore_log                = pl.DataFrame(schema={"Q Name": pl.Utf8, "field": pl.Utf8, "restored_value": pl.Utf8})
 template_questions_for_restore = reference_questions_raw
+template_modules_raw = reference_modules_raw
 
 # Comparison restore policy:
 # - Always restore standard text placeholder columns.
@@ -1717,7 +1942,8 @@ if cfg.reference_mode != "previous_round":
 if cfg.reference_mode == "previous_round":
     template_path = find_latest_template(cfg.template_repo, cfg.enumerator, cfg.language)
     template_raw  = read_survey_sheet(template_path)
-    template_questions_for_restore = build_questions_df(template_raw)
+    template_questions_full = build_questions_df(template_raw)
+    template_questions_for_restore, template_modules_raw = split_geopoll_questions_and_modules(template_questions_full)
 
     restored_current_questions, restore_log = restore_placeholder_cells(
         current_questions_raw,
@@ -1756,12 +1982,82 @@ else:
         cfg.language,
     )
 
+# Module controls:
+# - ignore_modules_from_comparison: exclude module content from difference checks
+# - skip_modules_from_validated_output: exclude module content entirely (comparison + validated output)
+_geopoll_opt = (_y.get("geopoll_options", {}) or {}) if isinstance(_y, dict) else {}
+_ignore_module_raw = (
+    _y.get("ignore_modules_from_comparison")
+    if isinstance(_y, dict) and "ignore_modules_from_comparison" in _y
+    else _geopoll_opt.get("ignore_modules_from_comparison", [])
+)
+_skip_module_raw = (
+    _y.get("skip_modules_from_validated_output")
+    if isinstance(_y, dict) and "skip_modules_from_validated_output" in _y
+    else _geopoll_opt.get("skip_modules_from_validated_output", [])
+)
+if isinstance(_ignore_module_raw, str):
+    _ignore_module_raw = [_ignore_module_raw]
+if isinstance(_skip_module_raw, str):
+    _skip_module_raw = [_skip_module_raw]
+_ignore_module_tokens = [str(v) for v in (_ignore_module_raw or []) if str(v or "").strip()]
+_skip_module_tokens = [str(v) for v in (_skip_module_raw or []) if str(v or "").strip()]
+
+_comparison_module_keys, _unresolved_ignore = _resolve_module_keys_from_tokens(
+    _ignore_module_tokens,
+    [current_modules_raw, reference_modules_raw, template_modules_raw],
+)
+_skip_module_keys, _unresolved_skip = _resolve_module_keys_from_tokens(
+    _skip_module_tokens,
+    [current_modules_raw, reference_modules_raw, template_modules_raw],
+)
+_excluded_module_keys_for_comparison = set(_comparison_module_keys) | set(_skip_module_keys)
+_skip_module_qnames_for_validated_output = _qnames_for_module_keys(current_questions_raw, _skip_module_keys)
+
+_module_names = _module_display_map(current_modules_raw, reference_modules_raw, template_modules_raw)
+_module_ignore_scope_summary = _format_module_scope_for_display(
+    _ignore_module_tokens,
+    _comparison_module_keys,
+    _module_names,
+)
+_module_skip_scope_summary = _format_module_scope_for_display(
+    _skip_module_tokens,
+    _skip_module_keys,
+    _module_names,
+)
+_module_ignore_unresolved_summary = ", ".join(_dedupe_keep_order(_unresolved_ignore))
+_module_skip_unresolved_summary = ", ".join(_dedupe_keep_order(_unresolved_skip))
+
+if _ignore_module_tokens or _skip_module_tokens:
+    _info("Mod ignore", _module_ignore_scope_summary)
+    _info("Mod skip", _module_skip_scope_summary)
+    if _module_ignore_unresolved_summary:
+        _info("Mod warn", f"unresolved ignore: {_module_ignore_unresolved_summary}")
+    if _module_skip_unresolved_summary:
+        _info("Mod warn", f"unresolved skip: {_module_skip_unresolved_summary}")
+if _skip_module_qnames_for_validated_output:
+    _info("Mod scope", f"{len(_skip_module_qnames_for_validated_output)} question(s) in skipped module(s)")
+
 current_questions   = comparison_current_questions
 reference_questions = comparison_reference_questions
 
+if _excluded_module_keys_for_comparison:
+    current_questions = _filter_questions_by_module_keys(current_questions, _excluded_module_keys_for_comparison)
+    reference_questions = _filter_questions_by_module_keys(reference_questions, _excluded_module_keys_for_comparison)
+if _skip_module_keys:
+    validated_output_questions = _filter_questions_by_module_keys(validated_output_questions, _skip_module_keys)
+
+current_modules = _filter_module_rows_by_keys(current_modules_raw, _excluded_module_keys_for_comparison)
+reference_modules = _filter_module_rows_by_keys(reference_modules_raw, _excluded_module_keys_for_comparison)
+template_modules = _filter_module_rows_by_keys(template_modules_raw, _excluded_module_keys_for_comparison)
+template_questions_for_module_lookup = (
+    _filter_questions_by_module_keys(template_questions_for_restore, _excluded_module_keys_for_comparison)
+    if _excluded_module_keys_for_comparison else template_questions_for_restore
+)
+
 target_lang, target_lang_source = choose_target_language(
     run["questionnaire_path"],
-    current_questions_raw,
+    current_questions_raw_all,
     preferred=cfg.language,
 )
 print(f"Comparison language : {target_lang} ({target_lang_source})")
@@ -3381,6 +3677,122 @@ def compare_question_presence(
     return added, removed
 
 
+def validate_module_presence(
+    current_modules: pl.DataFrame,
+    reference_modules: pl.DataFrame,
+    template_modules: pl.DataFrame,
+) -> pl.DataFrame:
+    """
+    Module-level structure checks:
+      - module_removed (high): template module missing in current (always enforced)
+      - module_added (info): current module absent from selected reference
+    """
+    schema = {
+        "issue_type": pl.Utf8, "set_name": pl.Utf8, "Q Name": pl.Utf8,
+        "module": pl.Utf8, "field": pl.Utf8, "current": pl.Utf8, "reference": pl.Utf8,
+        "severity": pl.Utf8, "excel_row": pl.Int64,
+    }
+
+    def _to_map(df: pl.DataFrame) -> dict[str, dict]:
+        if df is None or df.height == 0:
+            return {}
+        out = {}
+        for row in df.select(["module_key_norm", "module_key", "module", "excel_row"]).iter_rows(named=True):
+            key = str(row.get("module_key_norm") or "").strip()
+            if key:
+                out[key] = row
+        return out
+
+    cur_map = _to_map(current_modules)
+    ref_map = _to_map(reference_modules)
+    tpl_map = _to_map(template_modules)
+    cur_keys = set(cur_map.keys())
+    ref_keys = set(ref_map.keys())
+    tpl_keys = set(tpl_map.keys())
+
+    rows = []
+    for key in sorted(tpl_keys - cur_keys):
+        src = tpl_map.get(key, {})
+        mod_label = str(src.get("module") or src.get("module_key") or key)
+        rows.append({
+            "issue_type": "module_removed",
+            "set_name": "questionnaire_structure",
+            "Q Name": "",
+            "module": mod_label,
+            "field": "module",
+            "current": "missing_in_current",
+            "reference": "present_in_template",
+            "severity": "high",
+            "excel_row": src.get("excel_row"),
+        })
+
+    for key in sorted(cur_keys - ref_keys):
+        src = cur_map.get(key, {})
+        mod_label = str(src.get("module") or src.get("module_key") or key)
+        rows.append({
+            "issue_type": "module_added",
+            "set_name": "questionnaire_structure",
+            "Q Name": "",
+            "module": mod_label,
+            "field": "module",
+            "current": "present_in_current",
+            "reference": "missing_in_reference",
+            "severity": "info",
+            "excel_row": src.get("excel_row"),
+        })
+
+    return pl.DataFrame(rows, schema=schema) if rows else pl.DataFrame(schema=schema)
+
+
+def _attach_module_column_to_issues(
+    issues_df: pl.DataFrame,
+    current_questions: pl.DataFrame,
+    reference_questions: pl.DataFrame,
+    template_questions: pl.DataFrame,
+) -> pl.DataFrame:
+    if issues_df is None:
+        return pl.DataFrame(schema={"module": pl.Utf8})
+    if issues_df.height == 0:
+        return issues_df if "module" in issues_df.columns else issues_df.with_columns(pl.lit("").alias("module"))
+
+    def _part(df: pl.DataFrame, prio: int) -> pl.DataFrame:
+        if df is None or df.height == 0 or "Q Name" not in df.columns or "module" not in df.columns:
+            return pl.DataFrame(schema={"Q Name": pl.Utf8, "_module_from_qname": pl.Utf8, "_p": pl.Int64})
+        return (
+            df.select(["Q Name", "module"])
+            .with_columns([
+                pl.col("Q Name").cast(pl.Utf8).fill_null("").str.strip_chars().alias("Q Name"),
+                pl.col("module").cast(pl.Utf8).fill_null("").str.strip_chars().alias("_module_from_qname"),
+                pl.lit(prio).alias("_p"),
+            ])
+            .filter((pl.col("Q Name") != "") & (pl.col("_module_from_qname") != ""))
+            .select(["Q Name", "_module_from_qname", "_p"])
+        )
+
+    lookup = (
+        pl.concat([
+            _part(current_questions, 2),
+            _part(reference_questions, 1),
+            _part(template_questions, 0),
+        ], how="vertical")
+        .sort(["Q Name", "_p"])
+        .group_by("Q Name")
+        .agg(pl.col("_module_from_qname").last().alias("_module_from_qname"))
+    )
+
+    out = issues_df
+    if "module" not in out.columns:
+        out = out.with_columns(pl.lit("").alias("module"))
+    out = out.join(lookup, on="Q Name", how="left")
+    out = out.with_columns(
+        pl.when(pl.col("module").cast(pl.Utf8).fill_null("").str.strip_chars() != "")
+        .then(pl.col("module").cast(pl.Utf8))
+        .otherwise(pl.col("_module_from_qname").cast(pl.Utf8).fill_null(""))
+        .alias("module")
+    ).drop("_module_from_qname")
+    return out
+
+
 def compare_mandatory(
     current_questions : pl.DataFrame,
     reference_questions: pl.DataFrame,
@@ -4984,10 +5396,17 @@ if _crop_placeholder_qnames:
     option_changes_view = option_changes_view.filter(_is_code_issue | (~pl.col("Q Name").is_in(_crop_q)))
 _tick("filter crop replacement option issues")
 
+module_issues = validate_module_presence(
+    current_modules=current_modules,
+    reference_modules=reference_modules,
+    template_modules=template_modules,
+)
+_tick("validate module presence")
+
 #  Stack all issues
 all_issues = pl.concat(
     [question_issues, option_issues,
-     critical_issues, count_issues, harvest_issues, skip_issues],
+     critical_issues, count_issues, harvest_issues, skip_issues, module_issues],
     how="vertical",
 )
 
@@ -5088,6 +5507,26 @@ question_changes_view = (
 )
 _tick("mandatory_cat lookup join")
 
+all_issues = _attach_module_column_to_issues(
+    all_issues,
+    current_questions=current_questions,
+    reference_questions=reference_questions,
+    template_questions=template_questions_for_module_lookup,
+)
+question_changes_view = _attach_module_column_to_issues(
+    question_changes_view,
+    current_questions=current_questions,
+    reference_questions=reference_questions,
+    template_questions=template_questions_for_module_lookup,
+)
+option_changes_view = _attach_module_column_to_issues(
+    option_changes_view,
+    current_questions=current_questions,
+    reference_questions=reference_questions,
+    template_questions=template_questions_for_module_lookup,
+)
+_tick("attach module column")
+
 question_changes_view = (
     question_changes_view
     .with_columns(
@@ -5173,6 +5612,8 @@ print(f"Critical set issues   : {critical_issues.height}")
 print(f"Count rule violations : {count_issues.height}")
 print(f"Crop harvest issues   : {harvest_issues.height}")
 print(f"Skip pattern issues   : {skip_issues.height}")
+print(f"Template modules missing: {module_issues.filter(pl.col('issue_type') == 'module_removed').height}")
+print(f"Modules added vs reference: {module_issues.filter(pl.col('issue_type') == 'module_added').height}")
 print(f"")
 print(f"Total issues          : {all_issues.height}")
 print(f"[timing] TOTAL run block                    {time.perf_counter() - _t0:8.3f}s", flush=True)
@@ -5235,6 +5676,7 @@ SKIP_PATTERN_ISSUE_TYPES = {
     "skip_pattern_empty",
 }
 QTYPE_ISSUE_TYPES = {"qtype_changed"}
+MODULE_ISSUE_TYPES = {"module_removed", "module_added"}
 
 CORE_QUESTION_CHANGE_ISSUE_TYPES = {
     "mandatory_source_missing",
@@ -5326,6 +5768,8 @@ ISSUE_ACTION_MAP = {
     "critical_mandatory_mismatch": "Align mandatory flag for critical question",
     "crop_harvest_violation": "Fix crop_harvest sequence/order",
     "duplicate_qname": "Rename duplicate Q Name(s) to unique identifiers",
+    "module_removed": "Restore required template module in survey",
+    "module_added": "Informational: module exists in current but not in selected reference",
     "replacement_additional_info_missing": "Populate Additional information sheet with replacement keys/values",
     "replacement_crop_selection_mismatch": "Review top-10 crop list selection and replacement outputs",
     "replacement_crop_round_delta": "Review crop-list round differences documented in Questionnaire Structure",
@@ -5394,6 +5838,7 @@ def _issues_col_map(field_label: str = "Field"):
         ("mandatory_cat", "Type"),
         ("set_name",      "Set"),
         ("Q Name",        "Q Name"),
+        ("module",        "Module"),
         ("field",         field_label),
         ("lang_scope",    "Language scope"),
         ("current",       "Current value"),
@@ -5746,30 +6191,44 @@ def write_summary_sheet(wb, all_issues, rules, replacement_status=None):
     ws["A1"].font = FONT_TITLE
     ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
     ws.row_dimensions[1].height = 26
-    ws.merge_cells("A2:G2")
-    ws["A2"] = f"Comparison basis: {_reference_scope_label()}"
-    ws["A2"].font = Font(size=10, color="274E13", italic=True)
-    ws["A2"].alignment = Alignment(horizontal="left", vertical="center")
-    ws.merge_cells("A3:G3")
+
     _curr_name = Path((globals().get("run", {}) or {}).get("questionnaire_path", "")).name
     _curr_iso = str(getattr(globals().get("cfg", None), "iso3", "") or "").upper()
     _curr_round = _extract_round_token(_curr_name) or "R?"
-    ws["A3"] = f"Current questionnaire: {_curr_iso} {_curr_round} | {_curr_name}"
-    ws["A3"].font = Font(size=10, color="1F4E78", italic=True)
-    ws["A3"].alignment = Alignment(horizontal="left", vertical="center")
-    ws.merge_cells("A4:G4")
-    ws["A4"] = f"Checked against: {_reference_descriptor()}"
-    ws["A4"].font = Font(size=10, color="1F4E78", italic=True)
-    ws["A4"].alignment = Alignment(horizontal="left", vertical="center")
-    ws.merge_cells("A5:G5")
     _cfg_lang = str(getattr(globals().get("cfg", None), "language", "") or "").upper()
     _effective_lang = str(globals().get("target_lang", "") or "").upper()
     _effective_src = str(globals().get("target_lang_source", "") or "").strip()
-    ws["A5"] = f"Language scope: EN baseline + {_effective_lang or _cfg_lang} (configured={_cfg_lang or 'N/A'}; source={_effective_src or 'config'})"
-    ws["A5"].font = Font(size=10, color="1F4E78", italic=True)
-    ws["A5"].alignment = Alignment(horizontal="left", vertical="center")
+    _summary_info_lines = [
+        f"Comparison basis: {_reference_scope_label()}",
+        f"Current questionnaire: {_curr_iso} {_curr_round} | {_curr_name}",
+        f"Checked against: {_reference_descriptor()}",
+        f"Language scope: EN baseline + {_effective_lang or _cfg_lang} (configured={_cfg_lang or 'N/A'}; source={_effective_src or 'config'})",
+    ]
 
-    r = 6
+    _mod_ignore_line = str(globals().get("_module_ignore_scope_summary") or "").strip()
+    _mod_skip_line = str(globals().get("_module_skip_scope_summary") or "").strip()
+    _mod_ignore_unres = str(globals().get("_module_ignore_unresolved_summary") or "").strip()
+    _mod_skip_unres = str(globals().get("_module_skip_unresolved_summary") or "").strip()
+    if _mod_ignore_line and _mod_ignore_line != "(none)":
+        _summary_info_lines.append(f"Modules ignored from comparison: {_mod_ignore_line}")
+    if _mod_skip_line and _mod_skip_line != "(none)":
+        _summary_info_lines.append(f"Modules skipped from validated output: {_mod_skip_line}")
+    if _mod_ignore_unres:
+        _summary_info_lines.append(f"Unresolved ignored-module entries: {_mod_ignore_unres}")
+    if _mod_skip_unres:
+        _summary_info_lines.append(f"Unresolved skipped-module entries: {_mod_skip_unres}")
+
+    for _i, _line in enumerate(_summary_info_lines, start=2):
+        ws.merge_cells(f"A{_i}:G{_i}")
+        ws[f"A{_i}"] = _line
+        ws[f"A{_i}"].font = Font(
+            size=10,
+            color="274E13" if _i == 2 else "1F4E78",
+            italic=True,
+        )
+        ws[f"A{_i}"].alignment = Alignment(horizontal="left", vertical="center")
+
+    r = len(_summary_info_lines) + 2
     #  Critical sets 
     _section_header(ws, r, "CRITICAL SETS STATUS", 7); r += 1
     _header_row(ws, r, ["Critical set", "Status", "Details", "", "", "", ""]); r += 1
@@ -5817,6 +6276,22 @@ def write_summary_sheet(wb, all_issues, rules, replacement_status=None):
     ws.cell(row=r, column=2, value=_qt_status)
     ws.cell(row=r, column=3, value=f"High: {_qt_high}; Medium: {_qt_med}; Info: {_qt_info}")
     _data_row(ws, r, 7, fill=STATUS_FILL.get(_qt_status)); r += 1
+
+    _mod_removed = all_issues.filter(pl.col("issue_type") == "module_removed").height
+    _mod_added = all_issues.filter(pl.col("issue_type") == "module_added").height
+    _mod_status = "FAIL" if _mod_removed > 0 else "PASS"
+    ws.cell(row=r, column=1, value="Module presence (template-required)")
+    ws.cell(row=r, column=2, value=_mod_status)
+    ws.cell(
+        row=r,
+        column=3,
+        value=(
+            f"Template modules missing: {_mod_removed}; Modules added vs reference: {_mod_added}"
+            if _mod_removed > 0 else
+            f"No template module missing; Modules added vs reference: {_mod_added}"
+        ),
+    )
+    _data_row(ws, r, 7, fill=STATUS_FILL.get(_mod_status)); r += 1
 
     r += 1
     #  Replacement status
@@ -5961,6 +6436,8 @@ def write_structure_skip_sheet(wb, all_issues: pl.DataFrame):
     skip_df = _sorted(all_issues.filter(pl.col("issue_type").is_in(list(SKIP_PATTERN_ISSUE_TYPES))))
     qtype_df = _sorted(all_issues.filter(pl.col("issue_type").is_in(list(QTYPE_ISSUE_TYPES))))
     dup_df = _sorted(all_issues.filter(pl.col("issue_type") == "duplicate_qname"))
+    module_df = _sorted(all_issues.filter(pl.col("issue_type").is_in(list(MODULE_ISSUE_TYPES))))
+    dup_module_df = _sorted(pl.concat([dup_df, module_df], how="diagonal")) if (dup_df.height > 0 or module_df.height > 0) else dup_df
 
     _section_header(ws, 1, "QUESTIONNAIRE STRUCTURE  Skip pattern issues", 8)
     next_row = _issues_table(ws, 2, skip_df)
@@ -5968,8 +6445,8 @@ def write_structure_skip_sheet(wb, all_issues: pl.DataFrame):
     _section_header(ws, next_row, "Q TYPE INTEGRITY ISSUES", 8)
     next_row = _issues_table(ws, next_row + 1, qtype_df)
 
-    _section_header(ws, next_row, "DUPLICATE Q NAME ISSUES", 8)
-    _issues_table(ws, next_row + 1, dup_df)
+    _section_header(ws, next_row, "QUESTIONNAIRE STRUCTURE  (Duplicates, modules)", 8)
+    _issues_table(ws, next_row + 1, dup_module_df)
 
     ws.freeze_panes = "A3"
     _autofit(ws)
@@ -6711,10 +7188,13 @@ def write_validated_questionnaire(
     source_questionnaire_path: Path,
     output_questionnaire_path: Path,
     questions_df: pl.DataFrame,
-) -> None:
+    skip_module_keys: Optional[set[str]] = None,
+    skip_qnames: Optional[set[str]] = None,
+) -> dict:
     """
     Creates a validated questionnaire workbook by copying the original file and
     writing the converted survey values row-by-row using Q Name as key.
+    Optionally removes skipped module blocks from the survey sheet.
     """
     copyfile(source_questionnaire_path, output_questionnaire_path)
 
@@ -6748,9 +7228,52 @@ def write_validated_questionnaire(
             if not isinstance(cell, openpyxl.cell.cell.MergedCell):
                 cell.value = row.get(col_name)
 
+    _skip_keys_norm = {
+        _normalize_module_token(v)
+        for v in (skip_module_keys or set())
+        if _normalize_module_token(v)
+    }
+    _skip_q = {str(v).strip() for v in (skip_qnames or set()) if str(v or "").strip()}
+    _module_skip_stats = {
+        "removed_rows": 0,
+        "removed_question_rows": 0,
+        "removed_module_rows": 0,
+        "removed_module_blocks": 0,
+    }
+
+    if _skip_keys_norm or _skip_q:
+        rows_to_delete: list[int] = []
+        qtype_col = header_map.get("Q Type")
+        active_module_skip = False
+
+        for row_idx in range(4, ws.max_row + 1):
+            q_name_val = ws.cell(row=row_idx, column=q_col).value
+            q_name = str(q_name_val or "").strip()
+            q_type = str(ws.cell(row=row_idx, column=qtype_col).value or "").strip() if qtype_col else ""
+            row_is_module = _is_geopoll_module_row({"Q Name": q_name, "Q Type": q_type})
+
+            if row_is_module:
+                key_norm = _normalize_module_token(q_name)
+                active_module_skip = key_norm in _skip_keys_norm if key_norm else False
+                if active_module_skip:
+                    rows_to_delete.append(row_idx)
+                    _module_skip_stats["removed_rows"] += 1
+                    _module_skip_stats["removed_module_rows"] += 1
+                    _module_skip_stats["removed_module_blocks"] += 1
+                continue
+
+            remove_here = active_module_skip or (q_name in _skip_q if q_name else False)
+            if remove_here:
+                rows_to_delete.append(row_idx)
+                _module_skip_stats["removed_rows"] += 1
+                _module_skip_stats["removed_question_rows"] += 1
+
+        for row_idx in sorted(set(rows_to_delete), reverse=True):
+            ws.delete_rows(row_idx, 1)
+
     wb.save(output_questionnaire_path)
     print(f"Validated questionnaire saved to: {output_questionnaire_path}")
-    return {"status": "OK", "path": str(output_questionnaire_path)}
+    return {"status": "OK", "path": str(output_questionnaire_path), "module_skip": _module_skip_stats}
 
 
 # Duplicate Q Name detection
@@ -6774,6 +7297,12 @@ if _dup_df.height > 0:
     all_issues = pl.concat([all_issues, _dup_issues], how="diagonal")
     if "mandatory_cat" in all_issues.columns:
         all_issues = all_issues.with_columns(pl.col("mandatory_cat").fill_null(""))
+    all_issues = _attach_module_column_to_issues(
+        all_issues,
+        current_questions=current_questions,
+        reference_questions=reference_questions,
+        template_questions=template_questions_for_module_lookup,
+    )
     print(f"Duplicate Q Names: {_dup_df.height} name(s) duplicated")
 else:
     print("Duplicate Q Names: none found")
@@ -6783,6 +7312,8 @@ try:
         source_questionnaire_path = run["questionnaire_path"],
         output_questionnaire_path = run["validated_questionnaire_file"],
         questions_df              = validated_output_questions,
+        skip_module_keys          = set(globals().get("_skip_module_keys") or set()),
+        skip_qnames               = set(globals().get("_skip_module_qnames_for_validated_output") or set()),
     )
 except Exception as _e:
     _sub_status = {"status": "ERROR", "path": "", "error": str(_e)}
@@ -6824,6 +7355,13 @@ _replacement_status = _build_replacement_status_rows(
     write_status             = _sub_status,
     additional_info_diag     = _additional_info_diag,
     replacement_issues       = _replacement_issues,
+)
+
+all_issues = _attach_module_column_to_issues(
+    all_issues,
+    current_questions=current_questions,
+    reference_questions=reference_questions,
+    template_questions=template_questions_for_module_lookup,
 )
 
 print(f"Replacement diagnostics: {_replacement_issues.height} issue(s)")

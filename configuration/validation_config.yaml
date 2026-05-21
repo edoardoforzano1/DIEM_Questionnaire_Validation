@@ -22,13 +22,13 @@ tool: "kobo"
 working_dir: "C:/Temp"
 
 # Current questionnaire filename (resolved under working_dir).
-questionnaire_file: "TCD_R10_fr_kobo_questionnaire_draft_rev.xlsx"
+questionnaire_file: "DIEM_Monitoring questionnaire_kobo_en_AFG_20260415.xlsx"
 
 # Language code: en | fr | ar | es
-language: "fr"
+language: "en"
 
 # ISO3 country code
-iso3: "TCD"
+iso3: "AFG"
 
 # Reference mode:
 #   latest_template -> auto-detect newest matching file in templates_dir
@@ -46,9 +46,15 @@ templates_dir: "c:/Users/edoar/WORK/FAO/repo/questionnaire_validation_revision/Q
 #   geopoll -> output_dir/geopoll_output/
 output_dir: "C:/Temp/questionnaire_validation"
 
-# Report metadata
-validation_number: 1
-user_name: "Edoardo"
+# Module names to ignore in comparison (shared by KoBo and GeoPoll).
+# Differences inside these modules are excluded from issue reporting.
+# Accepts either module keys or visible module labels.
+ignore_modules_from_comparison: []
+
+# Module names to skip entirely from validated output (shared by KoBo and GeoPoll).
+# These modules are excluded from comparison and removed from validated questionnaire output.
+skip_modules_from_validated_output: []
+
 
 # =============================================================================
 #  KOBO-SPECIFIC OPTIONS  (only read by the kobo notebook)
@@ -68,3 +74,7 @@ kobo_options:
   exclude_qnames_from_option_compare:
     - "enumerator"
     - "enum_team"
+
+# Report metadata
+validation_number: 1
+user_name: "Edoardo"
