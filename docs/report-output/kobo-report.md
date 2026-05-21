@@ -101,7 +101,7 @@ Checks whether all structurally required questions are present and correctly fla
 
 ## 3 - Questionnaire Structure Sheet
 
-Three sub-blocks: skip logic references (`relevant`), Q type integrity, and duplicates and KoBo reference syntax.
+Three sub-blocks: skip logic references (`relevant`), Q type integrity, and duplicates / KoBo reference syntax / modules.
 
 ![KoBo Questionnaire Structure](../assets/images/reports/kobo-structure.png)
 
@@ -121,14 +121,17 @@ Validates the `relevant` column for broken references, inexact matches, and drif
 
 - `type_changed` HIGH: incompatible type transition — restore or confirm with the survey team before launch. MEDIUM: type changed within compatible variants.
 
-### QUESTIONNAIRE STRUCTURE CHECKS - Duplicates and KoBo references
+### QUESTIONNAIRE STRUCTURE CHECKS - Duplicates, KoBo references & modules
 
 ![KoBo Structure - Duplicates and KoBo references](../assets/images/reports/kobo-structure-duplicates.png)
 
 - `duplicate_qname` HIGH: two questions share the same name — rename one before launch.
 - `duplicate_choice_name` HIGH: two choices in the same list share the same name — rename one.
-- `kobo_ref_loose_syntax` HIGH/MEDIUM: `$var` syntax found — replace with `${var}`.
 - `kobo_ref_missing_variable` HIGH: `${var}` references an undefined variable — restore the variable or fix the reference.
+- `kobo_ref_malformed_syntax` HIGH: a `${...}` token is structurally broken (unclosed, empty) — fix the syntax before launch.
+- `kobo_ref_loose_syntax` HIGH/MEDIUM: `$var` syntax found — replace with `${var}`.
+- `module_removed` HIGH: a template module is absent from the current form — restore the module or get explicit approval before launch.
+- `module_added` INFO: a module in the current form was not in the reference — confirm it is intentional.
 
 **Key columns (all sub-blocks):** Issue type, Q Name, Field, Current value, Reference / rule, Severity, Excel row.
 
@@ -144,8 +147,10 @@ Checks placeholder consistency between the template, the current questionnaire, 
 
 ![KoBo Replacement - Placeholder checks](../assets/images/reports/kobo-replacement-placeholder-checks.png)
 
+- `replacement_malformed_placeholder` MEDIUM: a `#...#` token in survey text is structurally broken (unbalanced markers) — fix the syntax so it can be parsed.
 - `placeholder_not_found` HIGH: a token in survey text has no mapping in the Additional Information sheet. Add the missing entry or correct the token spelling.
 - `placeholder_should_use_kobo_ref` HIGH: a token matches a survey variable and should be written as `${variable}` instead. Replace the plain text reference.
+- `replacement_crop_template_mismatch` HIGH *(previous-round workflow only)*: crop code/label pairing in the current form diverges from the template baseline. Fix the Crop list sheet before distributing the validated questionnaire.
 
 ### ADDITIONAL INFORMATION REPLACEMENT CHANGES (previous_round informational)
 
@@ -185,10 +190,14 @@ Compares option additions, removals, label drift, and same-label choice-name ren
 **How to read it:**
 
 - Rows are grouped by Q Name. All choice rows for a question appear together.
-- `removed_choice` MEDIUM: a baseline option was removed — respondents can no longer select it. Check historical data coding impact.
+- `removed_choice` HIGH: a baseline option was removed — respondents can no longer select it. Historical data coded to this option will not match any current option.
 - `added_choice` MEDIUM: a new option exists only in the current form — verify coding scheme compatibility.
+- `choice_changes_general` HIGH/MEDIUM/INFO: both additions and removals detected for the same list — consolidated summary row. Severity inherits from the worst underlying record (HIGH when there are any removals). Read the Field column for counts and expand Current value / Reference for the full before/after lists.
+- `mandatory_choice_set_replaced` HIGH: zero normalized-label overlap between current and reference — the entire choice set was replaced. All historical answer coding for this question is broken.
 - `choice_label_mismatch` MEDIUM: option label text changed while the option identity still matches. Check for meaning drift.
 - `choice_name_renumbered_same_label` HIGH: choice label stayed equivalent but its `name` value changed (for example `4` to `3`). Treat as coding-change risk.
+- `cluster_ea_choice_changes_summary` INFO: per-option diffs for the cluster/EA list are suppressed; a single count row shows additions, removals, modifications, and renaming.
+- `enumerator_choice_changes_summary` INFO: per-enumerator option diffs are suppressed; the row shows how many enumerator choices are present in the current form.
 
 **Key columns:** Issue type, Q Name, Field (option name), Current value, Reference / rule, Severity.
 

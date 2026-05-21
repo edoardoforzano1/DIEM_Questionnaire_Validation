@@ -112,7 +112,7 @@ Checks whether all structurally required questions are present and correctly fla
 
 ## 3 - Questionnaire Structure Sheet
 
-Three sub-blocks: skip pattern issues, Q type integrity, and duplicate Q Name checks.
+Three sub-blocks: skip pattern issues, Q type integrity, and duplicate Q Names / module checks.
 
 ### Skip pattern issues
 
@@ -132,11 +132,15 @@ Use `Q Name` + `Field` to locate the question and column. `Current value` shows 
 - HIGH: incompatible or structurally invalid type transition — restore or confirm with the survey team before launch.
 - MEDIUM: type changed within compatible variants — review for expected behavior.
 
-### Duplicate Q Name checks
+### Duplicate Q Names & module checks
 
 ![GeoPoll Structure - Duplicates](../assets/images/reports/geopoll-structure-duplicates.png)
 
 `Q Name` shows the duplicated identifier. `Excel row` gives the row to edit. Duplicate names break skip logic and data joins — fix before launch.
+
+- `duplicate_qname` HIGH: duplicate Q Name — rename one before launch.
+- `module_removed` HIGH: a template module is missing from the current questionnaire — restore the module or get explicit approval before launch.
+- `module_added` INFO: a module in the current questionnaire was absent from the reference — confirm the addition is intentional.
 
 **Key columns (all sub-blocks):** Issue type, Q Name, Field, Current value, Reference / rule, Severity, Excel row.
 
@@ -199,10 +203,18 @@ Answer-set drift at the option level.
 **How to read it:**
 
 - Rows are grouped by Q Name. All option rows for a question appear together.
-- `removed_option` HIGH/MEDIUM and `added_option` INFO: option presence changes. Removals on mandatory questions are HIGH.
-- `option_label_mismatch` MEDIUM: the option wording changed. Inline word-diff highlighting shows the exact change.
-- `option_position_renumbered_same_label` INFO: same label, different position number — usually harmless reordering.
-- `codes_col_*` rows: parallel checks for the Codes column (answer codes used in skip routing).
+- `removed_option` HIGH: a baseline option no longer exists — check skip patterns referencing its code and assess historical data impact.
+- `removed_option_cascading_drift` HIGH: an option was removed and its removal shifted the position numbers of remaining options — consolidated row describing both the removal and the renumbering side effects.
+- `option_changes (added/removed)` HIGH/MEDIUM: both additions and removals on the same question — consolidated summary row. Severity is HIGH when removals are present.
+- `added_option` MEDIUM: a new option not in the reference — confirm it is intentional and verify skip-logic alignment.
+- `option_label_mismatch` MEDIUM: the option wording changed while its identity (position) still matched. Inline word-diff highlighting shows the exact change.
+- `option_position_drift` HIGH: same label, different position number — skip patterns referencing this option's code number are now misaligned.
+- `codes_removed` HIGH: code values removed from the Codes column — update skip patterns that referenced the removed codes.
+- `codes_added` HIGH (mandatory) / lower (optional): new code values in the Codes column — verify skip-logic compatibility.
+- `codes_token_mismatch` HIGH: a code token changed for the same matched option — update routing scripts.
+- `codes_position_drift` HIGH: code position numbers shifted while token semantics stayed stable — update skip patterns to use the new position numbers.
+- `codes_option_count_mismatch` HIGH (mandatory) / MEDIUM (optional): the number of Codes entries does not match the number of options — fix the Codes column so each option has exactly one code.
+- `codes_not_comparable` INFO: the question is present only in one file, so code comparison was skipped — see Question Changes for the underlying presence issue.
 
 **Key columns:** Issue type, Q Name, Field (option position), Current value, Reference / rule, Severity.
 

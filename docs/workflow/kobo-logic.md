@@ -231,23 +231,29 @@ flowchart LR
   </div>
 </div>
 
-### Block 3 · Duplicates & KoBo references
+### Block 3 · Duplicates, KoBo references & modules
 
-Two independent scans. The first looks for duplicate question and choice names — KoBo requires all names to be unique because they are used as identifiers in `relevant` expressions, constraints, and data exports. The second scans all text fields (labels, hints, constraints, calculations) for `${var}` references and checks whether each referenced variable actually exists in the form, and whether the syntax uses the correct `${var}` form rather than the bare `$var` shorthand that KoBo does not support.
+Three independent scans run here. The first looks for duplicate question and choice names — KoBo requires all names to be unique because they are used as identifiers in `relevant` expressions, constraints, and data exports. The second scans all text fields (labels, hints, constraints, calculations) for `${var}` references and checks whether each variable exists, whether the syntax is correct `${var}` form rather than the bare `$var` shorthand, and whether the `${...}` token itself is structurally valid (non-empty, properly closed). The third checks module-level structure: every module present in the template must also appear in the current form; any module present in the current form but absent from the reference is flagged informally for traceability.
 
 ```mermaid
 flowchart LR
-    DK["Block 3 · Duplicates & KoBo references"]
+    DK["Block 3 · Duplicates, KoBo references & modules"]
     DK --> F["duplicate_qname — HIGH"]
     DK --> G["duplicate_choice_name — HIGH"]
     DK --> H["kobo_ref_missing_variable — HIGH"]
-    DK --> I["kobo_ref_loose_syntax — HIGH / MEDIUM"]
+    DK --> I["kobo_ref_malformed_syntax — HIGH"]
+    DK --> J["kobo_ref_loose_syntax — HIGH / MEDIUM"]
+    DK --> K["module_removed — HIGH"]
+    DK --> L["module_added — INFO"]
 
     style DK fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
     style F  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
     style G  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
     style H  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
     style I  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style J  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style K  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style L  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
 ```
 
 #### Issue types
@@ -277,6 +283,30 @@ flowchart LR
 </div>
 
 <div class="issue-block">
+  <div class="issue-card issue-card-high">
+    <span class="issue-card-name"><code>kobo_ref_missing_variable</code></span>
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">A <code>${var}</code> reference points to a variable not defined anywhere in the survey sheet.</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    The variable named in the <code>${...}</code> reference does not exist in the survey. Either restore the missing variable or correct the reference to point to an existing one before launch.
+  </div>
+</div>
+
+<div class="issue-block">
+  <div class="issue-card issue-card-high">
+    <span class="issue-card-name"><code>kobo_ref_malformed_syntax</code></span>
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">A <code>${...}</code> reference token is structurally malformed — unclosed braces, empty variable name, or invalid characters inside the braces. KoBo silently ignores these at runtime.</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    Fix the token in the field shown. The correct format is <code>${variable_name}</code> with a non-empty variable name and both braces properly closed.
+  </div>
+</div>
+
+<div class="issue-block">
   <div class="issue-block-label"><code>kobo_ref_loose_syntax</code> <span class="issue-dynamic-note"> -  severity is dynamic</span></div>
   <div class="issue-card issue-card-high">
     <span class="sev sev-high">HIGH</span>
@@ -294,13 +324,25 @@ flowchart LR
 
 <div class="issue-block">
   <div class="issue-card issue-card-high">
-    <span class="issue-card-name"><code>kobo_ref_missing_variable</code></span>
+    <span class="issue-card-name"><code>module_removed</code></span>
     <span class="sev sev-high">HIGH</span>
-    <span class="issue-card-body">A <code>${var}</code> reference points to a variable not defined anywhere in the survey sheet.</span>
+    <span class="issue-card-body">A question module required by the template is absent from the current form. The module name in the Field column identifies which thematic block is missing.</span>
   </div>
   <div class="issue-action">
     <span class="issue-action-label">What to do</span>
-    The variable named in the <code>${...}</code> reference does not exist in the survey. Either restore the missing variable or correct the reference to point to an existing one before launch.
+    Restore the missing module before launch, or get explicit approval for its removal. A missing module means an entire thematic block of questions will not be collected in this round.
+  </div>
+</div>
+
+<div class="issue-block">
+  <div class="issue-card issue-card-info">
+    <span class="issue-card-name"><code>module_added</code></span>
+    <span class="sev sev-info">INFO</span>
+    <span class="issue-card-body">A module exists in the current form but was absent from the selected reference. Track for traceability.</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    Confirm the addition is intentional. If so, no action needed — document the new module in the round notes.
   </div>
 </div>
 
@@ -315,22 +357,38 @@ Checks placeholder consistency between the template, the current questionnaire, 
 
 ### How checks are structured
 
-Two classes of problem are reported here. The first is a missing or misrouted token: the survey text contains a `#placeholder#` but the Additional Information sheet has no matching key, so the token cannot be resolved. The second is a structural mismatch: a token matches a live form variable but is written as plain text rather than `${variable}` KoBo syntax — meaning it will not resolve at runtime even though a variable with that name exists. In previous-round mode, replacement-driven label deltas are remapped here to avoid inflating Question Changes counts.
+Three classes of problem are reported here. The first is a malformed token: the survey text contains `#...#` syntax that is broken (unbalanced markers), so the token cannot even be parsed. The second is a missing or misrouted token: the survey text contains a valid `#placeholder#` but the Additional Information sheet has no matching key. The third is a structural mismatch: a token matches a live form variable but is written as plain text rather than `${variable}` KoBo syntax — meaning it will not resolve at runtime. In previous-round mode, replacement-driven label deltas are remapped here to avoid inflating Question Changes counts. In previous-round mode only, a `replacement_crop_template_mismatch` is also raised when the crop code/label pairing in the current form diverges from the template.
 
 ```mermaid
 flowchart LR
     R(["Replacement Issues Sheet"])
+    R --> Z["replacement_malformed_placeholder — MEDIUM"]
     R --> A["placeholder_not_found — HIGH"]
     R --> B["placeholder_should_use_kobo_ref — HIGH"]
+    R --> D["replacement_crop_template_mismatch — HIGH"]
     R --> C["additional_information_replacement_change — INFO"]
 
     style R fill:#009edb,stroke:#007eaf,color:#fff
+    style Z fill:#fff0de,stroke:#e08c00,color:#5a3200
     style A fill:#fde2e2,stroke:#e05555,color:#5a0e0e
     style B fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style D fill:#fde2e2,stroke:#e05555,color:#5a0e0e
     style C fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
 ```
 
 ### Issue types
+
+<div class="issue-block">
+  <div class="issue-card issue-card-medium">
+    <span class="issue-card-name"><code>replacement_malformed_placeholder</code></span>
+    <span class="sev sev-medium">MEDIUM</span>
+    <span class="issue-card-body">A placeholder token in survey text is structurally malformed — unbalanced or broken <code>#...#</code> markers that cannot be parsed or resolved.</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    Fix the placeholder syntax in the field shown. The correct format is <code>#token#</code> with both hash signs present and no extra spaces or characters inside the markers.
+  </div>
+</div>
 
 <div class="issue-block">
   <div class="issue-card issue-card-high">
@@ -353,6 +411,18 @@ flowchart LR
   <div class="issue-action">
     <span class="issue-action-label">What to do</span>
     Replace the plain text reference with the correct KoBo syntax: <code>${variable_name}</code>. This token matches a survey variable — using placeholder syntax instead of a KoBo reference means the value will not resolve at runtime.
+  </div>
+</div>
+
+<div class="issue-block">
+  <div class="issue-card issue-card-high">
+    <span class="issue-card-name"><code>replacement_crop_template_mismatch</code></span>
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">Crop code/label pairing in the current form diverges from the template baseline. This check runs only in <code>previous_round</code> mode during validated questionnaire production.</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    Check the Crop list sheet and compare crop codes and labels against the template. A mismatch here means the validated questionnaire output may contain incorrect crop placeholders — fix before distributing the validated file.
   </div>
 </div>
 
@@ -595,23 +665,29 @@ Compares option additions, removals, label drift, and choice-name renumbering fo
 
 ### How checks are structured
 
-For each question that appears in both the current and reference form, the validator compares choice lists by list name and option name. Removed options affect data coding: respondents can no longer select a previously available answer, and historical data coded to that option will not match any current option. Added options introduce a new code that did not exist in previous rounds and may not be handled by existing data processing scripts. Label changes are tracked independently of option identity — an option can keep the same name while its displayed text changes. The validator also flags same-label choice-name renumbering (for example `4` changed to `3`) when mapping is one-to-one in both files.
+For each question that appears in both the current and reference form, the validator compares choice lists by list name and option name. Removed options affect data coding: respondents can no longer select a previously available answer, and historical data coded to that option will not match any current option. Added options introduce a new code that did not exist in previous rounds and may not be handled by existing data processing scripts. Label changes are tracked independently of option identity — an option can keep the same name while its displayed text changes. The validator also flags same-label choice-name renumbering (for example `4` changed to `3`) when mapping is one-to-one in both files. When a question has both additions and removals simultaneously, the individual rows are collapsed into a single `choice_changes_general` row. When zero label overlap is detected between the current and reference choice set for a non-country-specific question, a `mandatory_choice_set_replaced` is raised. Enumerator list changes are always suppressed into an informational summary row.
 
 ```mermaid
 flowchart LR
     C(["Choice Changes Sheet"])
     C --> A["removed_choice — HIGH"]
     C --> B["added_choice — MEDIUM"]
+    C --> G["choice_changes_general — HIGH / MEDIUM / INFO"]
+    C --> H["mandatory_choice_set_replaced — HIGH"]
     C --> D["choice_label_mismatch — MEDIUM"]
     C --> F["choice_name_renumbered_same_label — HIGH"]
     C --> E["cluster_ea_choice_changes_summary — INFO"]
+    C --> I["enumerator_choice_changes_summary — INFO"]
 
     style C fill:#009edb,stroke:#007eaf,color:#fff
     style A fill:#fde2e2,stroke:#e05555,color:#5a0e0e
     style B fill:#fff0de,stroke:#e08c00,color:#5a3200
+    style G fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style H fill:#fde2e2,stroke:#e05555,color:#5a0e0e
     style D fill:#fff0de,stroke:#e08c00,color:#5a3200
     style F fill:#fde2e2,stroke:#e05555,color:#5a0e0e
     style E fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
+    style I fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
 ```
 
 ### Issue types
@@ -637,6 +713,30 @@ flowchart LR
   <div class="issue-action">
     <span class="issue-action-label">What to do</span>
     Confirm the addition is intentional and review how it will be coded in the data. New options without a matching historical code can break existing categorizations — document the addition and its intended coding scheme.
+  </div>
+</div>
+
+<div class="issue-block">
+  <div class="issue-block-label"><code>choice_changes_general</code> <span class="issue-dynamic-note"> -  severity is dynamic</span></div>
+  <div class="issue-card issue-card-high">
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">A question has both options added and options removed in the same list. The row is a consolidated summary showing total counts and option names for both sides. Severity inherits HIGH when any underlying row was HIGH (i.e. when there are removals).</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    Read the Field column for the added and removed counts and expand the Current value and Reference columns to see the full before/after lists. Treat removed options as HIGH priority (data coding risk) and added options as MEDIUM. Confirm both sides are intentional before launch.
+  </div>
+</div>
+
+<div class="issue-block">
+  <div class="issue-card issue-card-high">
+    <span class="issue-card-name"><code>mandatory_choice_set_replaced</code></span>
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">The entire choice set for this question was replaced — zero normalized-label overlap exists between the current and reference options. The current and reference lists share no recognizable answer options.</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    Check whether the choice list replacement was intentional. A complete list swap breaks historical comparability for this question entirely — all previous answer coding maps become invalid. If unintentional, restore the original choice list.
   </div>
 </div>
 
@@ -673,6 +773,18 @@ flowchart LR
   <div class="issue-action">
     <span class="issue-action-label">What to do</span>
     Review the counts shown in the Current value column (added, removed, modified, renamed). If the turnover is unexpectedly high, cross-check the admin area list against the source data. No action needed when the numbers reflect expected area additions or retirements for this round.
+  </div>
+</div>
+
+<div class="issue-block">
+  <div class="issue-card issue-card-info">
+    <span class="issue-card-name"><code>enumerator_choice_changes_summary</code></span>
+    <span class="sev sev-info">INFO</span>
+    <span class="issue-card-body">Enumerator list changes are suppressed into a single informational summary row. The Current value column shows how many enumerator choices are present in the current form; individual per-enumerator diffs are not written to the sheet because they vary by deployment site and are not meaningful for cross-round comparability.</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    No action needed unless the enumerator count is unexpectedly different from what is expected for this round. If so, check the enumerator list in the choices sheet directly.
   </div>
 </div>
 

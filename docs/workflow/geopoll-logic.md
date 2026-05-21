@@ -132,7 +132,7 @@ flowchart TD
 
     SP["Block 1 · Skip Pattern checks"]
     QT["Block 2 · Q type integrity"]
-    DQ["Block 3 · Duplicate Q Names"]
+    DQ["Block 3 · Duplicate Q Names & modules"]
 
     style S  fill:#009edb,stroke:#007eaf,color:#fff
     style SP fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
@@ -296,17 +296,21 @@ flowchart LR
   </div>
 </div>
 
-### Block 3 · Duplicate Q Names
+### Block 3 · Duplicate Q Names & modules
 
-Q Names must be unique across the entire questionnaire because they serve as identifiers in skip routing expressions and in data joins across rounds. Two questions sharing the same name make routing ambiguous and produce duplicate columns in the export — both must be resolved before any deployment.
+Two independent checks run here. The first flags duplicate Q Names — all Q Names must be unique across the questionnaire because they serve as identifiers in skip routing and data joins. The second checks module-level structure against the template: every module present in the template must appear in the current form, and any module present in the current form but absent from the reference is flagged for traceability.
 
 ```mermaid
 flowchart LR
-    DQ["Block 3 · Duplicate Q Names"]
+    DQ["Block 3 · Duplicate Q Names & modules"]
     DQ --> J["duplicate_qname — HIGH"]
+    DQ --> K["module_removed — HIGH"]
+    DQ --> L["module_added — INFO"]
 
     style DQ fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
     style J  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style K  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style L  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
 ```
 
 #### Issue types
@@ -320,6 +324,30 @@ flowchart LR
   <div class="issue-action">
     <span class="issue-action-label">What to do</span>
     Rename one of the duplicated questions so all Q Names are unique. The Excel row column shows where each duplicate is located in the source file.
+  </div>
+</div>
+
+<div class="issue-block">
+  <div class="issue-card issue-card-high">
+    <span class="issue-card-name"><code>module_removed</code></span>
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">A question module required by the template is absent from the current questionnaire. The module name in the Field column identifies which thematic block is missing.</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    Restore the missing module before launch, or get explicit approval for its removal. A missing module means an entire thematic block of questions will not be collected in this round.
+  </div>
+</div>
+
+<div class="issue-block">
+  <div class="issue-card issue-card-info">
+    <span class="issue-card-name"><code>module_added</code></span>
+    <span class="sev sev-info">INFO</span>
+    <span class="issue-card-body">A module exists in the current questionnaire but was absent from the selected reference. Track for traceability.</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    Confirm the addition is intentional. If so, no action needed — document the new module in the round notes.
   </div>
 </div>
 
@@ -617,7 +645,7 @@ Compares answer sets at the option level. Answer-set drift changes respondent me
 
 ### How checks are structured
 
-For each shared question, the validator compares option lists using both position number and label text. When a Codes column is present, code values are compared in parallel and get their own issue types (`codes_col_*`). Removed options carry the highest data risk — respondents can no longer select a previously available answer, and any skip patterns that referenced the removed code need to be updated. Label changes are tracked independently of identity: an option can keep the same code while its displayed text changes.
+For each shared question, the validator compares option lists using both position number and label text. When a Codes column is present, code values are compared in parallel and get their own issue types. Removed options carry the highest data risk — respondents can no longer select a previously available answer, and any skip patterns that referenced the removed code need to be updated. When a removal also shifts the position numbers of remaining options, the individual rows are collapsed into a single `removed_option_cascading_drift` row that describes both the removal and its renumbering side effects. When the same question has both additions and removals, those are collapsed into an `option_changes (added/removed)` row. Label changes are tracked independently of identity: an option can keep the same position while its displayed text changes.
 
 ```mermaid
 flowchart TD
@@ -636,12 +664,16 @@ flowchart TD
 flowchart LR
     OL["Option label checks"]
     OL --> A["removed_option — HIGH"]
+    OL --> E["removed_option_cascading_drift — HIGH"]
+    OL --> F["option_changes (added/removed) — HIGH / MEDIUM"]
     OL --> B["added_option — MEDIUM"]
     OL --> C["option_label_mismatch — MEDIUM"]
-    OL --> D["option_position_renumbered_same_label — HIGH"]
+    OL --> D["option_position_drift — HIGH"]
 
     style OL fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
     style A  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style E  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style F  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
     style B  fill:#fff0de,stroke:#e08c00,color:#5a3200
     style C  fill:#fff0de,stroke:#e08c00,color:#5a3200
     style D  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
@@ -658,6 +690,30 @@ flowchart LR
   <div class="issue-action">
     <span class="issue-action-label">What to do</span>
     Add the option back or confirm the removal is intentional. Also check whether any skip patterns reference the removed option's code — if so, those patterns need to be updated too.
+  </div>
+</div>
+
+<div class="issue-block">
+  <div class="issue-card issue-card-high">
+    <span class="issue-card-name"><code>removed_option_cascading_drift</code></span>
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">One or more options were removed and that removal shifted the position numbers of the remaining options. The row is a consolidated summary — it shows which positions were removed and how surviving options renumbered. Individual <code>removed_option</code> and <code>option_position_drift</code> rows are suppressed when this row is present.</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    Confirm the removal is intentional, then check all skip patterns for this question — the codes they reference have shifted. Update skip patterns to use the new position numbers after the removal.
+  </div>
+</div>
+
+<div class="issue-block">
+  <div class="issue-block-label"><code>option_changes (added/removed)</code> <span class="issue-dynamic-note"> -  severity is dynamic</span></div>
+  <div class="issue-card issue-card-high">
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">A question has both options added and options removed. The row consolidates counts for both sides. Severity is HIGH when any underlying removal was HIGH.</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    Read the Field column for added and removed counts. Removed options are the priority risk — check skip patterns and data coding for the removed codes. Added options need review for new code alignment.
   </div>
 </div>
 
@@ -687,7 +743,7 @@ flowchart LR
 
 <div class="issue-block">
   <div class="issue-card issue-card-high">
-    <span class="issue-card-name"><code>option_position_renumbered_same_label</code></span>
+    <span class="issue-card-name"><code>option_position_drift</code></span>
     <span class="sev sev-high">HIGH</span>
     <span class="issue-card-body">Option ordering changed — the label is the same but the position number changed. Skip patterns referencing this option's code number are now misaligned.</span>
   </div>
@@ -702,25 +758,29 @@ flowchart LR
 ```mermaid
 flowchart LR
     CC["Codes column checks"]
-    CC --> E["codes_col_removed — HIGH"]
-    CC --> F["codes_col_added — MEDIUM"]
-    CC --> G["codes_col_token_mismatch — HIGH"]
-    CC --> H["codes_col_renumbered_same_token — HIGH"]
+    CC --> E["codes_removed — HIGH"]
+    CC --> F["codes_added — HIGH"]
+    CC --> G["codes_token_mismatch — HIGH"]
+    CC --> H["codes_position_drift — HIGH"]
+    CC --> I["codes_option_count_mismatch — MEDIUM / HIGH"]
+    CC --> J["codes_not_comparable — INFO"]
 
     style CC fill:#f0f4f8,stroke:#8aaccc,color:#1f3558
     style E  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
-    style F  fill:#fff0de,stroke:#e08c00,color:#5a3200
+    style F  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
     style G  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
     style H  fill:#fde2e2,stroke:#e05555,color:#5a0e0e
+    style I  fill:#fff0de,stroke:#e08c00,color:#5a3200
+    style J  fill:#e4f1ff,stroke:#3a8ec9,color:#0a3557
 ```
 
 #### Issue types
 
 <div class="issue-block">
   <div class="issue-card issue-card-high">
-    <span class="issue-card-name"><code>codes_col_removed</code></span>
+    <span class="issue-card-name"><code>codes_removed</code></span>
     <span class="sev sev-high">HIGH</span>
-    <span class="issue-card-body">Code values removed from the Codes column - breaks downstream data mappings.</span>
+    <span class="issue-card-body">Code values removed from the Codes column — breaks downstream data mappings and skip routing that referenced the removed codes.</span>
   </div>
   <div class="issue-action">
     <span class="issue-action-label">What to do</span>
@@ -729,22 +789,22 @@ flowchart LR
 </div>
 
 <div class="issue-block">
-  <div class="issue-card issue-card-medium">
-    <span class="issue-card-name"><code>codes_col_added</code></span>
-    <span class="sev sev-medium">MEDIUM</span>
-    <span class="issue-card-body">New code values added. Verify skip-logic and data-coding compatibility.</span>
+  <div class="issue-card issue-card-high">
+    <span class="issue-card-name"><code>codes_added</code></span>
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">New code values added to the Codes column. Severity is HIGH for mandatory and mandatory-panel questions; lower for optional questions. Verify skip-logic and data-coding compatibility.</span>
   </div>
   <div class="issue-action">
     <span class="issue-action-label">What to do</span>
-    Confirm the new code is intentional. Check that skip logic and data processing scripts account for it.
+    Confirm the new code is intentional. Check that skip logic and data processing scripts account for it, especially if the question is mandatory.
   </div>
 </div>
 
 <div class="issue-block">
   <div class="issue-card issue-card-high">
-    <span class="issue-card-name"><code>codes_col_token_mismatch</code></span>
+    <span class="issue-card-name"><code>codes_token_mismatch</code></span>
     <span class="sev sev-high">HIGH</span>
-    <span class="issue-card-body">Code tokens differ for the same matched option - the option now maps to a different code.</span>
+    <span class="issue-card-body">Code tokens differ for the same matched option — the option now maps to a different code value.</span>
   </div>
   <div class="issue-action">
     <span class="issue-action-label">What to do</span>
@@ -754,13 +814,41 @@ flowchart LR
 
 <div class="issue-block">
   <div class="issue-card issue-card-high">
-    <span class="issue-card-name"><code>codes_col_renumbered_same_token</code></span>
+    <span class="issue-card-name"><code>codes_position_drift</code></span>
     <span class="sev sev-high">HIGH</span>
     <span class="issue-card-body">Numeric code positions changed while token semantics stayed stable. Skip patterns that use the old code number to route conditional logic will now point to the wrong option.</span>
   </div>
   <div class="issue-action">
     <span class="issue-action-label">What to do</span>
     The token meaning is unchanged — just the position number shifted. Verify that skip patterns use the correct updated position number after renumbering.
+  </div>
+</div>
+
+<div class="issue-block">
+  <div class="issue-block-label"><code>codes_option_count_mismatch</code> <span class="issue-dynamic-note"> -  severity is dynamic</span></div>
+  <div class="issue-card issue-card-high">
+    <span class="sev sev-high">HIGH</span>
+    <span class="issue-card-body">The number of parsed Codes entries does not match the number of answer options for a mandatory or mandatory-panel question.</span>
+  </div>
+  <div class="issue-card issue-card-medium">
+    <span class="sev sev-medium">MEDIUM</span>
+    <span class="issue-card-body">The number of parsed Codes entries does not match the number of answer options for an optional or non-mandatory question.</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    Open the Codes column for the question shown and count the entries against the options list. Each option must have exactly one corresponding code entry. A mismatch usually means a code was accidentally deleted or duplicated in the Codes column.
+  </div>
+</div>
+
+<div class="issue-block">
+  <div class="issue-card issue-card-info">
+    <span class="issue-card-name"><code>codes_not_comparable</code></span>
+    <span class="sev sev-info">INFO</span>
+    <span class="issue-card-body">A code-bearing question is present only in one file (current or reference), so cross-file code comparison was skipped. This is an informational note, not an error in itself.</span>
+  </div>
+  <div class="issue-action">
+    <span class="issue-action-label">What to do</span>
+    No direct action needed for this row. If the question is missing from one file, check whether it was removed or added intentionally — the underlying <code>removed_question</code> or <code>added_question</code> row in Question Changes is the actionable issue.
   </div>
 </div>
 

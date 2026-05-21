@@ -66,6 +66,36 @@ Incompatible transitions are those that change the fundamental response structur
 
 ---
 
+### `kobo_ref_loose_syntax` (KoBo only)
+
+<div class="logic-box">
+<strong>HIGH</strong> when the loose <code>$var</code> token matches an existing question name in the survey  -  the variable exists and will not be evaluated at runtime without proper <code>${var}</code> braces.<br>
+<strong>MEDIUM</strong> when the variable name does not match any existing question  -  still invalid syntax, but the runtime risk is lower because no real variable is being silently dropped.
+</div>
+
+---
+
+### `codes_removed` / `codes_added` / `codes_token_mismatch` / `codes_position_drift` / `codes_option_count_mismatch` (GeoPoll only)
+
+<div class="logic-box">
+<strong>HIGH</strong> when the affected question is <code>mandatory</code> or <code>mandatory-panel</code>  -  code changes on mandatory questions break skip routing that is required to fire for all respondents.<br>
+<strong>MEDIUM or INFO</strong> for optional and non-mandatory questions  -  the risk is lower, but skip-pattern alignment should still be verified.
+</div>
+
+---
+
+### `choice_changes_general` (KoBo only)
+
+<div class="logic-box">
+<strong>HIGH</strong> when any of the collapsed underlying rows (added or removed choices) carried HIGH severity.<br>
+<strong>MEDIUM</strong> when the worst underlying row was MEDIUM (additions only, no removals).<br>
+<strong>INFO</strong> when all underlying rows were INFO.
+</div>
+
+This type is a collapsed summary row produced when the same choice list has both additions and removals simultaneously. Severity inherits from the most severe underlying record — removals drive it to HIGH.
+
+---
+
 ### `missing_critical_question`
 
 <div class="logic-box">
@@ -82,14 +112,14 @@ A quick lookup: which sheet each issue family appears in and which tool produces
 | Sheet | Issue families | Tools |
 |---|---|---|
 | **Critical Sets** | `missing_critical_question` · `critical_mandatory_mismatch` · `advisory_question` · `crop_harvest_violation` | Both |
-| **Questionnaire Structure** | `skip_pattern_empty`  -  `default_skip_modified`  -  `skipPattern_invalid_qname`  -  `skipPattern_invalid_qnameCategory`  -  `skipPattern_changes`  -  `skipPattern_range_mismatch`  -  `skipPattern_range_invalid`  -  `duplicate_qname`  -  `qtype_changed` | GeoPoll |
-| **Questionnaire Structure** | `broken_relevant_reference`  -  `relevant_inexact_reference`  -  `relevant_modified`  -  `type_changed`  -  `duplicate_qname`  -  `duplicate_choice_name`  -  `kobo_ref_loose_syntax`  -  `kobo_ref_missing_variable` | KoBo |
-| **Replacement Issues** | `replacement_additional_info_missing`  -  `replacement_crop_selection_mismatch`  -  `replacement_crop_round_delta`  -  `replacement_missing_key`  -  `replacement_unresolved_placeholder`  -  `replacement_malformed_placeholder` | GeoPoll |
-| **Replacement Issues** | `placeholder_not_found`  -  `placeholder_should_use_kobo_ref`  -  `additional_information_replacement_change (...)` | KoBo |
-| **Question Changes** | `mandatory_source_missing`  -  `removed_question`  -  `added_question`  -  `mandatory_to_optional`  -  `mandatory_column_mismatch`  -  `question_label_mismatch`  -  `randomize_changed`  -  `conditional_changed`  -  `programming_instructions_changed`  -  `core_questions_only_changed` | GeoPoll |
-| **Question Changes** | `removed_question`  -  `added_question`  -  `mandatory_to_optional`  -  `mandatory_column_mismatch`  -  `label_mismatch`  -  `required_modified`  -  `choice_filter_modified`  -  `appearance_modified`  -  `calculation_modified`  -  `constraint_modified`  -  `hint_changed`  -  `choices_list_changed` | KoBo |
-| **Option / Choice Changes** | `removed_option`  -  `added_option`  -  `option_label_mismatch`  -  `option_position_renumbered_same_label`  -  `codes_col_removed`  -  `codes_col_added`  -  `codes_col_token_mismatch`  -  `codes_col_renumbered_same_token` | GeoPoll |
-| **Choice Changes** | `removed_choice`  -  `added_choice`  -  `choice_label_mismatch`  -  `choice_name_renumbered_same_label` | KoBo |
+| **Questionnaire Structure** | `skip_pattern_empty` · `default_skip_modified` · `skipPattern_invalid_qname` · `skipPattern_invalid_qnameCategory` · `skipPattern_changes` · `skipPattern_range_mismatch` · `skipPattern_range_invalid` · `qtype_changed` · `duplicate_qname` · `module_removed` · `module_added` | GeoPoll |
+| **Questionnaire Structure** | `broken_relevant_reference` · `relevant_inexact_reference` · `relevant_modified` · `type_changed` · `duplicate_qname` · `duplicate_choice_name` · `kobo_ref_missing_variable` · `kobo_ref_malformed_syntax` · `kobo_ref_loose_syntax` · `module_removed` · `module_added` | KoBo |
+| **Replacement Issues** | `replacement_additional_info_missing` · `replacement_crop_selection_mismatch` · `replacement_crop_round_delta` · `replacement_missing_key` · `replacement_unresolved_placeholder` · `replacement_malformed_placeholder` | GeoPoll |
+| **Replacement Issues** | `placeholder_not_found` · `placeholder_should_use_kobo_ref` · `replacement_malformed_placeholder` · `replacement_crop_template_mismatch` · `additional_information_replacement_change (...)` | KoBo |
+| **Question Changes** | `mandatory_source_missing` · `removed_question` · `added_question` · `mandatory_to_optional` · `mandatory_column_mismatch` · `question_label_mismatch` · `randomize_changed` · `conditional_changed` · `programming_instructions_changed` · `core_questions_only_changed` | GeoPoll |
+| **Question Changes** | `removed_question` · `added_question` · `mandatory_to_optional` · `mandatory_column_mismatch` · `label_mismatch` · `required_modified` · `choice_filter_modified` · `appearance_modified` · `calculation_modified` · `constraint_modified` · `hint_changed` · `choices_list_changed` | KoBo |
+| **Option Changes** | `removed_option` · `removed_option_cascading_drift` · `option_changes (added/removed)` · `added_option` · `option_label_mismatch` · `option_position_drift` · `codes_removed` · `codes_added` · `codes_token_mismatch` · `codes_position_drift` · `codes_option_count_mismatch` · `codes_not_comparable` | GeoPoll |
+| **Choice Changes** | `removed_choice` · `added_choice` · `choice_changes_general` · `mandatory_choice_set_replaced` · `choice_label_mismatch` · `choice_name_renumbered_same_label` · `cluster_ea_choice_changes_summary` · `enumerator_choice_changes_summary` | KoBo |
 
 ---
 

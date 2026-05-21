@@ -414,7 +414,7 @@ def build_option_changes_view(
 ) -> pl.DataFrame:
 ```
 
-Orchestrates option comparisons (`removed_option`, `added_option`, `option_label_mismatch`, `option_position_renumbered_same_label`) and code comparisons (`codes_col_removed`, `codes_col_added`, `codes_col_token_mismatch`, `codes_col_renumbered_same_token`).
+Orchestrates option comparisons (`removed_option`, `removed_option_cascading_drift`, `option_changes (added/removed)`, `added_option`, `option_label_mismatch`, `option_position_drift`) and code comparisons (`codes_removed`, `codes_added`, `codes_token_mismatch`, `codes_position_drift`, `codes_option_count_mismatch`, `codes_not_comparable`).
 
 *Internals: `make_presence_issues`, `make_mandatory_issues`, `make_option_issues`, `make_option_presence_issues`, `_mandatory_cat_expr`, `_normalize_qtype_value`, `_qtype_mode`, `_qtype_change_severity`, `compare_option_labels_single`, `compare_option_presence_single`, `compare_option_code_renumber_single`, `compare_codes_presence_single`, `compare_codes_token_mismatch_single`, `compare_codes_renumber_single`, `build_codes_changes_view`*
 
