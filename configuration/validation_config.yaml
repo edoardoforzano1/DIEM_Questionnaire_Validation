@@ -12,7 +12,7 @@ config_profile: ""
 # If empty, defaults to <output_dir>/config_profiles/
 config_profiles_dir: ""
 
-tool: "kobo"
+tool: "geopoll"
 
 # =============================================================================
 #  CORE SETTINGS  (used identically by both tools — change these each run)
@@ -22,13 +22,13 @@ tool: "kobo"
 working_dir: "C:/Temp"
 
 # Current questionnaire filename (resolved under working_dir).
-questionnaire_file: "DIEM_Monitoring questionnaire_kobo_en_AFG_20260415.xlsx"
+questionnaire_file: "validated_questionnaire_geopoll_ar_YEM_20251013124512_TEST.xlsx"
 
 # Language code: en | fr | ar | es
-language: "en"
+language: "ar"
 
 # ISO3 country code
-iso3: "AFG"
+iso3: "YEM"
 
 # Reference mode:
 #   latest_template -> auto-detect newest matching file in templates_dir

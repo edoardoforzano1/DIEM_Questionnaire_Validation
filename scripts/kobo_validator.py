@@ -606,7 +606,6 @@ def build_question_options(survey_df: pl.DataFrame, choices_df: pl.DataFrame) ->
 
     survey_rows = (
         survey_df
-        .filter(pl.col("Q Type").is_in(list(_SELECT_TYPES)))
         .filter(pl.col("list_name").is_not_null() & (pl.col("list_name") != ""))
         .select(["Q Name", "Q Type", "list_name", "module_key", "module", "source_file"])
         .to_dicts()
@@ -4521,6 +4520,45 @@ if _excluded:
     option_label_issues = option_label_issues.filter(~pl.col("Q Name").is_in(list(_excluded)))
     option_pres_issues  = option_pres_issues.filter(~pl.col("Q Name").is_in(list(_excluded)))
     option_renumber_issues = option_renumber_issues.filter(~pl.col("Q Name").is_in(list(_excluded)))
+
+# Suppress option/choice noise caused only by Q Type classification mismatches.
+# Keep Q Type issues visible in structure checks, but do not duplicate them as
+# "all choices removed/added" when one side has no parsable options for that Q.
+_type_changed_q = set(
+    type_issues
+    .filter(pl.col("issue_type") == "type_changed")
+    .select("Q Name")
+    .to_series()
+    .to_list()
+) if type_issues.height > 0 else set()
+if _type_changed_q:
+    _cur_opt_n = (
+        cur_opts_cmp
+        .group_by("Q Name")
+        .agg(pl.len().alias("_cur_opt_n"))
+    ) if cur_opts_cmp.height > 0 else pl.DataFrame(schema={"Q Name": pl.Utf8, "_cur_opt_n": pl.Int64})
+    _ref_opt_n = (
+        ref_opts_cmp
+        .group_by("Q Name")
+        .agg(pl.len().alias("_ref_opt_n"))
+    ) if ref_opts_cmp.height > 0 else pl.DataFrame(schema={"Q Name": pl.Utf8, "_ref_opt_n": pl.Int64})
+    _type_noise_q_df = (
+        pl.DataFrame({"Q Name": list(_type_changed_q)})
+        .join(_cur_opt_n, on="Q Name", how="left")
+        .join(_ref_opt_n, on="Q Name", how="left")
+        .with_columns([
+            pl.col("_cur_opt_n").fill_null(0),
+            pl.col("_ref_opt_n").fill_null(0),
+        ])
+        .filter((pl.col("_cur_opt_n") == 0) != (pl.col("_ref_opt_n") == 0))
+        .select("Q Name")
+    )
+    _type_noise_q = set(_type_noise_q_df.to_series().to_list()) if _type_noise_q_df.height > 0 else set()
+    if _type_noise_q:
+        option_pres_issues = option_pres_issues.filter(~pl.col("Q Name").is_in(list(_type_noise_q)))
+        option_renumber_issues = option_renumber_issues.filter(~pl.col("Q Name").is_in(list(_type_noise_q)))
+        option_label_issues = option_label_issues.filter(~pl.col("Q Name").is_in(list(_type_noise_q)))
+        print(f"Type-induced choice noise suppressed: {len(_type_noise_q)} question(s)")
 
 # Config-driven exclusions for operational fields (case/space-insensitive).
 # Keep 'enumerator' for a dedicated summary row later in the pipeline.

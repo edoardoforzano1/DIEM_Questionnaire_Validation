@@ -1144,13 +1144,11 @@ def explode_options(questions_df: pl.DataFrame, text_col: str = "English") -> pl
         print(f"  Column '{text_col}' not found  returning empty options frame.")
         return pl.DataFrame(schema=EMPTY_SCHEMA)
 
-    df = (
-        questions_df.filter(
-            pl.col("Q Type").map_elements(is_option_bearing_qtype, return_dtype=pl.Boolean)
-        )
-        if "Q Type" in questions_df.columns
-        else questions_df
-    )
+    # IMPORTANT:
+    # Do not gate option extraction on Q Type classification alone.
+    # Q Type can be malformed/corrupted while option text remains valid; in that case
+    # options should still compare independently and type issues are reported separately.
+    df = questions_df
 
     carry_cols = [c for c in ["Q Name", "Q Type", "excel_row", "source_file"] if c in df.columns]
     rows = []
@@ -3172,123 +3170,122 @@ def build_option_changes_view(
     )
 
 
-def collapse_removed_option_with_cascading_drift(option_changes_view: pl.DataFrame) -> pl.DataFrame:
+def collapse_removed_option_with_cascading_drift(
+    option_changes_view: pl.DataFrame,
+    current_lookup_en: dict[str, list[tuple[str, str]]] | None = None,
+    reference_lookup_en: dict[str, list[tuple[str, str]]] | None = None,
+    current_lookup_tgt: dict[str, list[tuple[str, str]]] | None = None,
+    reference_lookup_tgt: dict[str, list[tuple[str, str]]] | None = None,
+) -> pl.DataFrame:
     """
-    Condense noisy "removed_option + many position-renumber rows" into one
-    causal row per question, while preserving pure renumber-only situations.
+    Apply precedence between structural option changes and drift:
+      - structural (add/remove) + drift => drift is reclassified as a combined
+        causal issue and structural rows are suppressed for that question.
+      - structural-only => keep structural rows.
+      - drift-only => keep pure option_position_drift.
+      - label mismatches are suppressed whenever structural changes exist for
+        the same question (to avoid double-reporting replacements as relabels).
     """
     if option_changes_view.height == 0:
         return option_changes_view
-    if not {"issue_type", "Q Name", "field", "current", "reference"}.issubset(set(option_changes_view.columns)):
+    if not {"issue_type", "Q Name"}.issubset(set(option_changes_view.columns)):
         return option_changes_view
 
-    removed_q = (
-        option_changes_view
-        .filter(pl.col("issue_type") == "removed_option")
-        .select("Q Name")
-        .unique()
-    )
-    renumber_q = (
-        option_changes_view
-        .filter(pl.col("issue_type") == "option_position_drift")
-        .select("Q Name")
-        .unique()
-    )
-    affected_q = removed_q.join(renumber_q, on="Q Name", how="inner")
-    if affected_q.height == 0:
+    structural_types = {"added_option", "removed_option", "added_removed_option"}
+
+    def _norm_label(v: str) -> str:
+        txt = str(v or "").strip().lower()
+        txt = re.sub(r"\s+", " ", txt)
+        return txt
+
+    def _infer_drift_from_lookups(q_name: str) -> bool:
+        qk = str(q_name or "").strip().lower()
+        cur_en = (current_lookup_en or {}).get(qk, [])
+        ref_en = (reference_lookup_en or {}).get(qk, [])
+        cur_tgt = (current_lookup_tgt or {}).get(qk, [])
+        ref_tgt = (reference_lookup_tgt or {}).get(qk, [])
+
+        # Prefer EN baseline when available; fallback to target-language entries.
+        cur_entries = cur_en if cur_en and ref_en else cur_tgt
+        ref_entries = ref_en if cur_en and ref_en else ref_tgt
+        if not cur_entries or not ref_entries:
+            return False
+
+        cur_map: dict[str, str] = {}
+        ref_map: dict[str, str] = {}
+        for code, label in cur_entries:
+            k = _norm_label(label)
+            if k and k not in cur_map:
+                cur_map[k] = str(code or "").strip()
+        for code, label in ref_entries:
+            k = _norm_label(label)
+            if k and k not in ref_map:
+                ref_map[k] = str(code or "").strip()
+
+        common = set(cur_map.keys()) & set(ref_map.keys())
+        if not common:
+            return False
+        return any(cur_map[k] != ref_map[k] for k in common)
+    rows = option_changes_view.to_dicts()
+    by_q: dict[str, list[dict]] = {}
+    for rd in rows:
+        q = str(rd.get("Q Name") or "").strip()
+        if not q:
+            continue
+        by_q.setdefault(q, []).append(rd)
+
+    q_with_structural: set[str] = set()
+    q_with_combined_drift: dict[str, str] = {}
+    for q, items in by_q.items():
+        types = {str(r.get("issue_type") or "").strip() for r in items}
+        has_added = "added_option" in types
+        has_removed = "removed_option" in types
+        has_both_merged = "added_removed_option" in types
+        has_structural = has_added or has_removed or has_both_merged
+        has_drift = "option_position_drift" in types or _infer_drift_from_lookups(q)
+        if has_structural:
+            q_with_structural.add(q)
+        if has_structural and has_drift:
+            if has_both_merged or (has_added and has_removed):
+                q_with_combined_drift[q] = "added_removed_option_with_drift"
+            elif has_added:
+                q_with_combined_drift[q] = "added_option_with_drift"
+            else:
+                q_with_combined_drift[q] = "removed_option_with_drift"
+
+    if not q_with_structural and not q_with_combined_drift:
         return option_changes_view
 
-    def _uniq(seq):
-        seen = set()
-        out = []
-        for raw in seq:
-            token = str(raw or "").strip()
-            if not token or token in seen:
+    out_rows: list[dict] = []
+    for rd in rows:
+        q = str(rd.get("Q Name") or "").strip()
+        it = str(rd.get("issue_type") or "").strip()
+
+        # If structural changes exist, label-mismatch rows are derivative noise.
+        if q in q_with_structural and it == "option_label_mismatch":
+            continue
+
+        # For structural+drift questions, keep one combined drift-causal type.
+        if q in q_with_combined_drift:
+            if it == "option_position_drift":
+                nr = dict(rd)
+                nr["issue_type"] = q_with_combined_drift[q]
+                nr["severity"] = "high"
+                out_rows.append(nr)
                 continue
-            seen.add(token)
-            out.append(token)
-        return out
+            if it in structural_types:
+                continue
 
-    has_lang_cols = "current_lang" in option_changes_view.columns and "reference_lang" in option_changes_view.columns
-    combined_rows = []
-    for q_name in affected_q.get_column("Q Name").to_list():
-        removed_rows = (
-            option_changes_view
-            .filter((pl.col("Q Name") == q_name) & (pl.col("issue_type") == "removed_option"))
-            .select([c for c in ["field", "current", "reference", "current_lang", "reference_lang"] if c in option_changes_view.columns])
-            .to_dicts()
-        )
-        renumber_rows = (
-            option_changes_view
-            .filter((pl.col("Q Name") == q_name) & (pl.col("issue_type") == "option_position_drift"))
-            .select([c for c in ["field", "current", "reference", "current_lang", "reference_lang"] if c in option_changes_view.columns])
-            .to_dicts()
-        )
+        out_rows.append(rd)
 
-        removed_positions = _uniq([
-            str(r.get("field") or "").replace("option_", "")
-            for r in removed_rows
-        ])
-        removed_labels_en = _uniq([r.get("reference") for r in removed_rows])
-        renumber_map_en = _uniq([
-            f"{str(r.get('reference') or '').strip()}->{str(r.get('current') or '').strip()}"
-            for r in renumber_rows
-            if str(r.get("reference") or "").strip() and str(r.get("current") or "").strip()
-        ])
-        renumber_current_en = _uniq([r.get("current") for r in renumber_rows])
+    if not out_rows:
+        return pl.DataFrame(schema=option_changes_view.schema)
 
-        row = {
-            "issue_type": "removed_option_cascading_drift",
-            "set_name": "",
-            "Q Name": q_name,
-            "field": "removed_and_cascading_renumber",
-            "current": (
-                f"removed in current: {', '.join(removed_positions) if removed_positions else '(unknown)'}; "
-                f"cascading positions now: {', '.join(renumber_current_en) if renumber_current_en else '(none)'}"
-            ),
-            "reference": (
-                f"removed labels in reference: {', '.join(removed_labels_en) if removed_labels_en else '(none)'}; "
-                f"position map reference->current: {', '.join(renumber_map_en) if renumber_map_en else '(none)'}"
-            ),
-            "severity": "high",
-            "excel_row": None,
-        }
-
-        if has_lang_cols:
-            removed_labels_lang = _uniq([r.get("reference_lang") for r in removed_rows])
-            renumber_map_lang = _uniq([
-                f"{str(r.get('reference_lang') or '').strip()}->{str(r.get('current_lang') or '').strip()}"
-                for r in renumber_rows
-                if str(r.get("reference_lang") or "").strip() and str(r.get("current_lang") or "").strip()
-            ])
-            renumber_current_lang = _uniq([r.get("current_lang") for r in renumber_rows])
-            row["current_lang"] = (
-                f"removed in current: {', '.join(removed_positions) if removed_positions else '(unknown)'}; "
-                f"cascading positions now: {', '.join(renumber_current_lang) if renumber_current_lang else '(none)'}"
-            )
-            row["reference_lang"] = (
-                f"removed labels in reference: {', '.join(removed_labels_lang) if removed_labels_lang else '(none)'}; "
-                f"position map reference->current: {', '.join(renumber_map_lang) if renumber_map_lang else '(none)'}"
-            )
-
-        combined_rows.append(row)
-
-    clean = option_changes_view.filter(
-        ~(
-            pl.col("Q Name").is_in(affected_q.get_column("Q Name"))
-            & pl.col("issue_type").is_in(["removed_option", "option_position_drift"])
-        )
-    )
-    if not combined_rows:
-        return clean
-
-    combined_df = pl.DataFrame(combined_rows)
-    for col in clean.columns:
-        if col not in combined_df.columns:
-            combined_df = combined_df.with_columns(pl.lit(None).alias(col))
-    combined_df = combined_df.select(clean.columns)
-
-    return pl.concat([clean, combined_df], how="vertical")
+    out_df = pl.DataFrame(out_rows)
+    for col in option_changes_view.columns:
+        if col not in out_df.columns:
+            out_df = out_df.with_columns(pl.lit(None).alias(col))
+    return out_df.select(option_changes_view.columns)
 
 
 def _join_limited_tokens(items, limit=20):
@@ -3336,7 +3333,9 @@ def _format_option_entries(
         seen.add(key)
         idx += 1
         if include_code and code:
-            out.append(f"{idx} | {code} | {label or '(blank)'}")
+            out.append(f"{code} | {label or '(blank)'}")
+        elif include_code:
+            out.append(f"(blank) | {label or '(blank)'}")
         else:
             out.append(f"{idx} | {label or code or '(blank)'}")
     if not out:
@@ -3367,6 +3366,182 @@ def _build_option_lookup_by_qname(options_df: pl.DataFrame | None) -> dict[str, 
         seen.add(ckey)
         out.setdefault(qk, []).append((code, label))
     return out
+
+
+def _format_code_entries(
+    entries: list[tuple[str, str]],
+    header: str,
+    empty_label: str = "(empty)",
+) -> str:
+    if not entries:
+        return f"{header}:\n{empty_label}"
+    out = []
+    seen = set()
+    for code_raw, token_raw in entries:
+        code = str(code_raw or "").strip()
+        token = str(token_raw or "").strip()
+        if not code and not token:
+            continue
+        key = (code, token)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(f"{code or '(blank)'} | {token or '(blank)'}")
+    if not out:
+        return f"{header}:\n{empty_label}"
+    return f"{header}:\n" + "\n".join(out)
+
+
+def _build_codes_lookup_by_qname(codes_df: pl.DataFrame | None) -> dict[str, list[tuple[str, str]]]:
+    out: dict[str, list[tuple[str, str]]] = {}
+    if codes_df is None or codes_df.height == 0:
+        return out
+    if not {"Q Name", "code_num", "code_token"}.issubset(set(codes_df.columns)):
+        return out
+    src = (
+        codes_df
+        .select([
+            pl.col("Q Name").cast(pl.Utf8).fill_null(""),
+            pl.col("code_num").cast(pl.Int64),
+            pl.col("code_token").cast(pl.Utf8).fill_null(""),
+        ])
+        .sort(["Q Name", "code_num", "code_token"])
+    )
+    seen_per_q: dict[str, set[tuple[str, str]]] = {}
+    for row in src.iter_rows(named=True):
+        q = str(row.get("Q Name") or "").strip()
+        if not q:
+            continue
+        qk = q.lower()
+        num = str(row.get("code_num") or "").strip()
+        tok = str(row.get("code_token") or "").strip()
+        if not num and not tok:
+            continue
+        key_norm = (num.lower(), tok.lower())
+        seen = seen_per_q.setdefault(qk, set())
+        if key_norm in seen:
+            continue
+        seen.add(key_norm)
+        out.setdefault(qk, []).append((num, tok))
+    return out
+
+
+def enrich_codes_issue_lists(
+    codes_df: pl.DataFrame,
+    current_codes: pl.DataFrame | None,
+    reference_codes: pl.DataFrame | None,
+) -> pl.DataFrame:
+    """
+    Ensure all code-related issue rows show full current/reference code lists.
+    Keeps existing diagnostic text and appends formatted lists for readability.
+    """
+    if codes_df is None or codes_df.height == 0:
+        return codes_df
+    if not {"issue_type", "Q Name", "current", "reference"}.issubset(set(codes_df.columns)):
+        return codes_df
+
+    code_issue_types = {
+        "codes_token_mismatch",
+        "codes_removed",
+        "codes_added",
+        "codes_position_drift",
+        "added_removed_codes",
+        "added_codes_with_drift",
+        "removed_codes_with_drift",
+        "added_removed_codes_with_drift",
+    }
+    cur_lookup = _build_codes_lookup_by_qname(current_codes)
+    ref_lookup = _build_codes_lookup_by_qname(reference_codes)
+
+    def _norm_pair(code_raw: str, tok_raw: str) -> tuple[str, str]:
+        return (str(code_raw or "").strip().lower(), str(tok_raw or "").strip().lower())
+
+    def _format_code_entries_marked(
+        entries: list[tuple[str, str]],
+        header: str,
+        mark_pairs: set[tuple[str, str]] | None = None,
+        marker: str = "",
+    ) -> str:
+        if not entries:
+            return f"{header}:\n(empty)"
+        out = []
+        seen = set()
+        for code_raw, token_raw in entries:
+            code = str(code_raw or "").strip()
+            token = str(token_raw or "").strip()
+            if not code and not token:
+                continue
+            nk = _norm_pair(code, token)
+            if nk in seen:
+                continue
+            seen.add(nk)
+            suffix = f" [{marker}]" if marker and mark_pairs and nk in mark_pairs else ""
+            out.append(f"{code or '(blank)'} | {token or '(blank)'}{suffix}")
+        if not out:
+            return f"{header}:\n(empty)"
+        return f"{header}:\n" + "\n".join(out)
+
+    out_rows: list[dict] = []
+    for rd in codes_df.to_dicts():
+        issue_type = str(rd.get("issue_type") or "").strip()
+        if issue_type not in code_issue_types:
+            out_rows.append(rd)
+            continue
+
+        q = str(rd.get("Q Name") or "").strip()
+        if not q or "," in q:
+            out_rows.append(rd)
+            continue
+
+        qk = q.lower()
+        cur_entries = cur_lookup.get(qk, [])
+        ref_entries = ref_lookup.get(qk, [])
+        if not cur_entries and not ref_entries:
+            out_rows.append(rd)
+            continue
+
+        cur_pairs = {_norm_pair(c, t) for c, t in cur_entries}
+        ref_pairs = {_norm_pair(c, t) for c, t in ref_entries}
+        added_pairs = cur_pairs - ref_pairs
+        removed_pairs = ref_pairs - cur_pairs
+
+        mark_added_current = issue_type in {
+            "codes_added",
+            "added_codes_with_drift",
+            "added_removed_codes",
+            "added_removed_codes_with_drift",
+        }
+        mark_removed_reference = issue_type in {
+            "codes_removed",
+            "removed_codes_with_drift",
+            "added_removed_codes",
+            "added_removed_codes_with_drift",
+        }
+
+        cur_list = _format_code_entries_marked(
+            cur_entries,
+            "Current list (code | token)",
+            mark_pairs=(added_pairs if mark_added_current else set()),
+            marker="ADDED CODE",
+        )
+        ref_list = _format_code_entries_marked(
+            ref_entries,
+            "Reference list (code | token)",
+            mark_pairs=(removed_pairs if mark_removed_reference else set()),
+            marker="REMOVED CODE",
+        )
+        cur_diag = str(rd.get("current") or "").strip()
+        ref_diag = str(rd.get("reference") or "").strip()
+
+        rd["current"] = f"{cur_diag}\n\n{cur_list}" if cur_diag else cur_list
+        rd["reference"] = f"{ref_diag}\n\n{ref_list}" if ref_diag else ref_list
+        out_rows.append(rd)
+
+    out = pl.DataFrame(out_rows) if out_rows else pl.DataFrame(schema=codes_df.schema)
+    for col in codes_df.columns:
+        if col not in out.columns:
+            out = out.with_columns(pl.lit(None).alias(col))
+    return out.select(codes_df.columns)
 
 
 def _extract_option_codes_from_field(rows: list[dict]) -> list[str]:
@@ -3489,13 +3664,6 @@ def merge_added_removed_option_rows(
         cur_entries_tgt = (current_lookup_tgt or {}).get(qk, [])
         ref_entries_tgt = (reference_lookup_tgt or {}).get(qk, [])
 
-        detail = (
-            f"both added and removed options: added={len(added_codes)}, removed={len(removed_codes)}; "
-            f"current total={cur_total if cur_total is not None else '?'}"
-            f", reference total={ref_total if ref_total is not None else '?'} "
-            f"(added: {added_txt}; removed: {removed_txt})"
-        )
-
         severities = [str(r.get("severity") or "").strip().lower() for r in (added_rows + removed_rows)]
         sev = "info"
         if "high" in severities:
@@ -3524,9 +3692,14 @@ def merge_added_removed_option_rows(
         removed_txt = _join_limited_tokens(removed_labels, limit=30)
         cur_total = len(cur_entries)
         ref_total = len(ref_entries)
+        detail = (
+            f"both added and removed options: added={len(added_rows)}, removed={len(removed_rows)}; "
+            f"current total={cur_total}, reference total={ref_total} "
+            f"(added: {added_txt}; removed: {removed_txt})"
+        )
 
         row = {
-            "issue_type": "option_changes (added/removed)",
+            "issue_type": "added_removed_option",
             "set_name": "",
             "Q Name": q,
             "field": detail,
@@ -3562,7 +3735,8 @@ def collapse_option_issue_rows_by_qname(
     reference_lookup_tgt: dict[str, list[tuple[str, str]]] | None = None,
 ) -> pl.DataFrame:
     """
-    Collapse per-option rows into one row per (issue_type, Q Name) with full list context.
+    Collapse per-option rows into stable per-question issue rows with precedence:
+    structural changes first, then drift context, then pure label/drift.
     """
     if df is None or df.height == 0:
         return df
@@ -3580,50 +3754,235 @@ def collapse_option_issue_rows_by_qname(
 
     has_lang_cols = "current_lang" in noisy.columns and "reference_lang" in noisy.columns
     target_lang = str(globals().get("target_lang", "")).upper().strip()
+    def _norm_label(txt: str) -> str:
+        out = str(txt or "").strip().lower()
+        out = re.sub(r"\s+", " ", out)
+        return out
+
+    def _delta_by_label(cur_entries: list[tuple[str, str]], ref_entries: list[tuple[str, str]], kind: str) -> list[str]:
+        cur = {}
+        ref = {}
+        for _, lbl in cur_entries or []:
+            k = _norm_label(lbl)
+            if k and k not in cur:
+                cur[k] = str(lbl or "").strip()
+        for _, lbl in ref_entries or []:
+            k = _norm_label(lbl)
+            if k and k not in ref:
+                ref[k] = str(lbl or "").strip()
+        if kind == "added":
+            return [cur[k] for k in cur.keys() if k not in ref]
+        if kind == "removed":
+            return [ref[k] for k in ref.keys() if k not in cur]
+        return []
+
+    def _common_label_code_shift(cur_entries: list[tuple[str, str]], ref_entries: list[tuple[str, str]]) -> bool:
+        cur = {}
+        ref = {}
+        for code, lbl in cur_entries or []:
+            k = _norm_label(lbl)
+            if k and k not in cur:
+                cur[k] = str(code or "").strip()
+        for code, lbl in ref_entries or []:
+            k = _norm_label(lbl)
+            if k and k not in ref:
+                ref[k] = str(code or "").strip()
+        common = set(cur.keys()) & set(ref.keys())
+        return any(cur[k] != ref[k] for k in common)
+
+    def _extract_codes(rows: list[dict], issue_types: set[str]) -> list[int]:
+        out: list[int] = []
+        for r in rows:
+            if str(r.get("issue_type") or "") not in issue_types:
+                continue
+            m = re.match(r"option_(\d+)$", str(r.get("field") or "").strip())
+            if not m:
+                continue
+            out.append(int(m.group(1)))
+        return out
+
+    def _token_set(txt: str) -> set[str]:
+        return {t for t in re.findall(r"[A-Za-z0-9\u0600-\u06FF]+", str(txt or "").lower()) if t}
+
+    def _is_hard_replacement(curr_label: str, ref_label: str) -> bool:
+        a = _token_set(curr_label)
+        b = _token_set(ref_label)
+        if not a or not b:
+            return True
+        inter = len(a & b)
+        union = len(a | b)
+        jacc = (inter / union) if union else 0.0
+        return jacc < 0.30
+
     rows_out = []
-    for g in noisy.group_by(["issue_type", "Q Name"]).agg(pl.len().alias("_n")).to_dicts():
-        it = str(g.get("issue_type") or "")
-        q = str(g.get("Q Name") or "")
-        sub = noisy.filter((pl.col("issue_type") == it) & (pl.col("Q Name") == q))
-        items = sub.to_dicts()
+    by_q: dict[str, list[dict]] = {}
+    for rd in noisy.to_dicts():
+        q = str(rd.get("Q Name") or "").strip()
+        if not q:
+            continue
+        by_q.setdefault(q, []).append(rd)
+
+    structural_types = {
+        "added_option",
+        "removed_option",
+        "added_removed_option",
+        "added_option_with_drift",
+        "removed_option_with_drift",
+        "added_removed_option_with_drift",
+        "removed_option_cascading_drift",
+    }
+    drift_types = {
+        "option_position_drift",
+        "added_option_with_drift",
+        "removed_option_with_drift",
+        "added_removed_option_with_drift",
+        "removed_option_cascading_drift",
+    }
+
+    for q, q_items in by_q.items():
         qk = q.lower()
+        q_types = {str(r.get("issue_type") or "").strip() for r in q_items}
+
         cur_entries_en = (current_lookup_en or {}).get(qk, [])
         ref_entries_en = (reference_lookup_en or {}).get(qk, [])
         cur_entries_tgt = (current_lookup_tgt or {}).get(qk, [])
         ref_entries_tgt = (reference_lookup_tgt or {}).get(qk, [])
-        n = len(items)
-        codes = _extract_option_codes_from_field(items)
-        severities = [str(r.get("severity") or "").strip().lower() for r in items]
-        sev = "info"
-        if "high" in severities:
-            sev = "high"
-        elif "medium" in severities:
-            sev = "medium"
-        excel_rows = [r.get("excel_row") for r in items if r.get("excel_row") is not None]
-        lang_scopes = [str(r.get("lang_scope") or "").strip() for r in items]
-        lang_scope = _combine_lang_scope(lang_scopes, target_lang)
+
+        lang_scope = _combine_lang_scope([str(r.get("lang_scope") or "").strip() for r in q_items], target_lang)
         show_en, show_tgt = _option_scope_flags(lang_scope, has_lang_cols, target_lang)
         cur_entries = cur_entries_en if show_en else cur_entries_tgt
         ref_entries = ref_entries_en if show_en else ref_entries_tgt
-        added_labels = _option_label_delta_tokens(cur_entries, ref_entries, "added")
-        removed_labels = _option_label_delta_tokens(cur_entries, ref_entries, "removed")
-        if show_en and show_tgt:
-            added_labels = _option_label_delta_tokens(cur_entries_en, ref_entries_en, "added") + _option_label_delta_tokens(cur_entries_tgt, ref_entries_tgt, "added")
-            removed_labels = _option_label_delta_tokens(cur_entries_en, ref_entries_en, "removed") + _option_label_delta_tokens(cur_entries_tgt, ref_entries_tgt, "removed")
 
-        if it == "added_option":
-            detail = f"added options: {n}; current total={len(cur_entries)}, reference total={len(ref_entries)} (added: {_join_limited_tokens(added_labels or codes, 30)})"
-        elif it == "removed_option":
-            detail = f"removed options: {n}; current total={len(cur_entries)}, reference total={len(ref_entries)} (removed: {_join_limited_tokens(removed_labels or codes, 30)})"
-        elif it == "option_label_mismatch":
-            detail = f"option labels changed: {n}; current total={len(cur_entries)}, reference total={len(ref_entries)}"
-        elif it == "option_position_drift":
-            detail = f"option positions drifted: {n}; current total={len(cur_entries)}, reference total={len(ref_entries)}"
+        # Base deltas: use EN baseline when available in scope; fallback to target.
+        added_labels = _delta_by_label(cur_entries, ref_entries, "added")
+        removed_labels = _delta_by_label(cur_entries, ref_entries, "removed")
+
+        # Row-level structural evidence (more robust than pure set-delta in mixed edit cases).
+        added_rows = [r for r in q_items if str(r.get("issue_type") or "") == "added_option"]
+        removed_rows = [r for r in q_items if str(r.get("issue_type") or "") == "removed_option"]
+        mismatch_rows = [r for r in q_items if str(r.get("issue_type") or "") == "option_label_mismatch"]
+
+        added_from_rows = [str(r.get("current") or "").strip() for r in added_rows if str(r.get("current") or "").strip()]
+        removed_from_rows = [str(r.get("reference") or "").strip() for r in removed_rows if str(r.get("reference") or "").strip()]
+
+        # If structural changes exist, treat only hard label replacements as add+remove.
+        if added_rows or removed_rows or ("added_removed_option" in q_types):
+            for r in mismatch_rows:
+                cur_lbl = str(r.get("current") or "").strip()
+                ref_lbl = str(r.get("reference") or "").strip()
+                # Do not convert numbering-corrupted mismatch rows into structural
+                # add/remove; they are usually parser artifacts around drift/removal.
+                if removed_rows and re.search(r"\d+\)", cur_lbl):
+                    continue
+                if cur_lbl and ref_lbl and _is_hard_replacement(cur_lbl, ref_lbl):
+                    added_from_rows.append(cur_lbl)
+                    removed_from_rows.append(ref_lbl)
+
+        # Do not count labels as added/removed when they still exist on the opposite
+        # side (typical drift/reindex of existing options).
+        ref_label_norms = {_norm_label(lbl) for _, lbl in (ref_entries or []) if _norm_label(lbl)}
+        cur_label_norms = {_norm_label(lbl) for _, lbl in (cur_entries or []) if _norm_label(lbl)}
+        added_from_rows = [lbl for lbl in added_from_rows if _norm_label(lbl) and _norm_label(lbl) not in ref_label_norms]
+        removed_from_rows = [lbl for lbl in removed_from_rows if _norm_label(lbl) and _norm_label(lbl) not in cur_label_norms]
+
+        # Filter pseudo-added labels created by malformed numbering merges
+        # (e.g. "... 6)Unusually high fuel prices ...") so they do not appear
+        # as true structural additions.
+        ref_norm_texts = [_norm_label(lbl) for _, lbl in (ref_entries or []) if _norm_label(lbl)]
+        def _is_malformed_added_artifact(lbl: str) -> bool:
+            raw = str(lbl or "")
+            norm = _norm_label(raw)
+            if not norm or not re.search(r"\d+\)", raw):
+                return False
+            return any(t and len(t) >= 8 and t in norm for t in ref_norm_texts)
+        added_from_rows = [lbl for lbl in added_from_rows if not _is_malformed_added_artifact(lbl)]
+
+        if added_from_rows or removed_from_rows:
+            added_labels = added_from_rows
+            removed_labels = removed_from_rows
+
+        added_n = len([v for v in added_labels if str(v or "").strip()])
+        removed_n = len([v for v in removed_labels if str(v or "").strip()])
+
+        explicit_drift = any(t in drift_types for t in q_types)
+        common_labels_n = len(cur_label_norms & ref_label_norms)
+        common_shift = _common_label_code_shift(cur_entries_en, ref_entries_en) or _common_label_code_shift(cur_entries_tgt, ref_entries_tgt)
+        added_codes = _extract_codes(q_items, {"added_option"})
+        removed_codes = _extract_codes(q_items, {"removed_option"})
+        cur_total = len(cur_entries)
+        ref_total = len(ref_entries)
+        removed_causes_shift = any(c <= cur_total for c in removed_codes) if cur_total > 0 else False
+        added_causes_shift = any(c <= ref_total for c in added_codes) if ref_total > 0 else False
+        # Drift is meaningful only when at least one label persists across sides.
+        # If no labels overlap, this is a full replacement (add/remove), not drift.
+        inferred_drift = common_labels_n > 0 and (explicit_drift or common_shift or removed_causes_shift or added_causes_shift)
+
+        has_structural = any(t in structural_types for t in q_types) or (
+            "option_label_mismatch" in q_types and any(t in {"added_option", "removed_option", "added_removed_option"} for t in q_types)
+        )
+
+        # Build one structural-precedence row per question when structural evidence exists.
+        if has_structural:
+            if added_n > 0 and removed_n > 0:
+                issue_type = "added_removed_option_with_drift" if inferred_drift else "added_removed_option"
+                sev = "high"
+                detail = (
+                    f"{'added/removed options with cascading drift' if inferred_drift else 'both added and removed options'}: "
+                    f"added={added_n}, removed={removed_n}; current total={cur_total}, reference total={ref_total} "
+                    f"(added: {_join_limited_tokens(added_labels, 30)}; removed: {_join_limited_tokens(removed_labels, 30)})"
+                )
+            elif removed_n > 0:
+                issue_type = "removed_option_with_drift" if inferred_drift else "removed_option"
+                sev = "high"
+                detail = (
+                    f"{'removed options with cascading drift' if inferred_drift else 'removed options'}: {removed_n}; "
+                    f"current total={cur_total}, reference total={ref_total} "
+                    f"(removed: {_join_limited_tokens(removed_labels, 30)})"
+                )
+            elif added_n > 0:
+                issue_type = "added_option_with_drift" if inferred_drift else "added_option"
+                sev = "high" if inferred_drift else "medium"
+                detail = (
+                    f"{'added options with cascading drift' if inferred_drift else 'added options'}: {added_n}; "
+                    f"current total={cur_total}, reference total={ref_total} "
+                    f"(added: {_join_limited_tokens(added_labels, 30)})"
+                )
+            else:
+                issue_type = "option_position_drift" if inferred_drift else "option_label_mismatch"
+                sev = "high" if issue_type == "option_position_drift" else "medium"
+                detail = (
+                    f"{'option positions drifted' if issue_type == 'option_position_drift' else 'option labels changed'}: "
+                    f"current total={cur_total}, reference total={ref_total}"
+                )
         else:
-            detail = f"option changes: {n}; current total={len(cur_entries)}, reference total={len(ref_entries)}"
+            # No structural change: keep pure type from observed rows.
+            if "option_position_drift" in q_types:
+                issue_type = "option_position_drift"
+                sev = "high"
+                drift_n = len([r for r in q_items if str(r.get("issue_type") or "") == "option_position_drift"])
+                detail = f"option positions drifted: {drift_n}; current total={cur_total}, reference total={ref_total}"
+            elif "option_label_mismatch" in q_types:
+                issue_type = "option_label_mismatch"
+                sev = "medium"
+                lab_n = len([r for r in q_items if str(r.get("issue_type") or "") == "option_label_mismatch"])
+                detail = f"option labels changed: {lab_n}; current total={cur_total}, reference total={ref_total}"
+            elif "removed_option" in q_types:
+                issue_type = "removed_option"
+                sev = "high"
+                detail = f"removed options: {removed_n}; current total={cur_total}, reference total={ref_total} (removed: {_join_limited_tokens(removed_labels, 30)})"
+            elif "added_option" in q_types:
+                issue_type = "added_option"
+                sev = "medium"
+                detail = f"added options: {added_n}; current total={cur_total}, reference total={ref_total} (added: {_join_limited_tokens(added_labels, 30)})"
+            else:
+                # Fallback: keep first seen type for safety.
+                issue_type = str(q_items[0].get("issue_type") or "option_label_mismatch")
+                sev = str(q_items[0].get("severity") or "info")
+                detail = f"option changes: current total={cur_total}, reference total={ref_total}"
 
+        excel_rows = [r.get("excel_row") for r in q_items if r.get("excel_row") is not None]
         row = {
-            "issue_type": it,
+            "issue_type": issue_type,
             "set_name": "",
             "Q Name": q,
             "field": detail,
@@ -4707,7 +5066,6 @@ def apply_codes_severity_by_mandatory(
     qmap = {str(k): str(v or "").strip().lower() for k, v in (q_mandatory_map or {}).items()}
     code_types = {
         "codes_added", "codes_removed", "codes_token_mismatch", "codes_position_drift",
-        "codes_option_count_mismatch",
     }
     return (
         codes_df
@@ -4715,7 +5073,9 @@ def apply_codes_severity_by_mandatory(
             pl.col("Q Name").cast(pl.Utf8).map_elements(lambda q: qmap.get(str(q), ""), return_dtype=pl.Utf8).alias("_mand_cat"),
         ])
         .with_columns([
-            pl.when(
+            pl.when(pl.col("issue_type") == "codes_option_count_mismatch")
+            .then(pl.lit("high"))
+            .when(
                 pl.col("issue_type").is_in(list(code_types))
                 & pl.col("_mand_cat").is_in(["mandatory", "mandatory-panel"])
             ).then(pl.lit("high"))
@@ -4724,6 +5084,149 @@ def apply_codes_severity_by_mandatory(
         ])
         .drop("_mand_cat")
     )
+
+
+def collapse_codes_issue_rows_by_qname(codes_df: pl.DataFrame) -> pl.DataFrame:
+    """
+    Consolidate per-code rows into one per-question structural code issue:
+      - codes_added
+      - codes_removed
+      - added_removed_codes
+      - added_codes_with_drift
+      - removed_codes_with_drift
+      - added_removed_codes_with_drift
+      - codes_position_drift (pure drift only)
+    Non-structural code issues (token mismatch, count mismatch, not comparable) are preserved.
+    """
+    if codes_df is None or codes_df.height == 0:
+        return codes_df
+    required = {"issue_type", "Q Name", "field", "current", "reference", "severity"}
+    if not required.issubset(set(codes_df.columns)):
+        return codes_df
+
+    structural_types = {"codes_added", "codes_removed", "codes_position_drift"}
+    mask = pl.col("issue_type").is_in(list(structural_types))
+    keep_df = codes_df.filter(~mask)
+    noisy = codes_df.filter(mask)
+    if noisy.height == 0:
+        return codes_df
+
+    def _uniq(items: list[str]) -> list[str]:
+        seen = set()
+        out = []
+        for raw in items or []:
+            t = str(raw or "").strip()
+            if not t:
+                continue
+            k = t.lower()
+            if k in seen:
+                continue
+            seen.add(k)
+            out.append(t)
+        return out
+
+    rows_out: list[dict] = []
+    by_q: dict[str, list[dict]] = {}
+    for rd in noisy.to_dicts():
+        q = str(rd.get("Q Name") or "").strip()
+        if not q:
+            continue
+        by_q.setdefault(q, []).append(rd)
+
+    for q, items in by_q.items():
+        added_rows = [r for r in items if str(r.get("issue_type") or "") == "codes_added"]
+        removed_rows = [r for r in items if str(r.get("issue_type") or "") == "codes_removed"]
+        drift_rows = [r for r in items if str(r.get("issue_type") or "") == "codes_position_drift"]
+
+        has_added = len(added_rows) > 0
+        has_removed = len(removed_rows) > 0
+        has_drift = len(drift_rows) > 0
+
+        added_vals = _uniq([str(r.get("current") or "").strip() for r in added_rows])
+        removed_vals = _uniq([str(r.get("reference") or "").strip() for r in removed_rows])
+        drift_from = _uniq([str(r.get("reference") or "").strip() for r in drift_rows])
+        drift_to = _uniq([str(r.get("current") or "").strip() for r in drift_rows])
+
+        if has_added and has_removed and has_drift:
+            issue_type = "added_removed_codes_with_drift"
+            severity = "high"
+            detail = (
+                f"added/removed codes with cascading drift: added={len(added_rows)}, removed={len(removed_rows)}, drifted={len(drift_rows)}; "
+                f"(added: {_join_limited_tokens(added_vals, 30)}; removed: {_join_limited_tokens(removed_vals, 30)})"
+            )
+        elif has_added and has_removed:
+            issue_type = "added_removed_codes"
+            severity = "high"
+            detail = (
+                f"both added and removed codes: added={len(added_rows)}, removed={len(removed_rows)}; "
+                f"(added: {_join_limited_tokens(added_vals, 30)}; removed: {_join_limited_tokens(removed_vals, 30)})"
+            )
+        elif has_added and has_drift:
+            issue_type = "added_codes_with_drift"
+            severity = "high"
+            detail = (
+                f"added codes with cascading drift: added={len(added_rows)}, drifted={len(drift_rows)}; "
+                f"(added: {_join_limited_tokens(added_vals, 30)})"
+            )
+        elif has_removed and has_drift:
+            issue_type = "removed_codes_with_drift"
+            severity = "high"
+            detail = (
+                f"removed codes with cascading drift: removed={len(removed_rows)}, drifted={len(drift_rows)}; "
+                f"(removed: {_join_limited_tokens(removed_vals, 30)})"
+            )
+        elif has_added:
+            issue_type = "codes_added"
+            severity = "medium"
+            detail = f"added codes: {len(added_rows)} (added: {_join_limited_tokens(added_vals, 30)})"
+        elif has_removed:
+            issue_type = "codes_removed"
+            severity = "high"
+            detail = f"removed codes: {len(removed_rows)} (removed: {_join_limited_tokens(removed_vals, 30)})"
+        else:
+            issue_type = "codes_position_drift"
+            severity = "high"
+            detail = f"codes positions drifted: {len(drift_rows)}"
+
+        sev_vals = [str(r.get("severity") or "").strip().lower() for r in items]
+        if "high" in sev_vals:
+            severity = "high"
+        elif severity != "high" and "medium" in sev_vals:
+            severity = "medium"
+
+        excel_rows = [r.get("excel_row") for r in items if r.get("excel_row") is not None]
+        base = items[0] if items else {}
+        row = {
+            "issue_type": issue_type,
+            "set_name": str(base.get("set_name") or ""),
+            "Q Name": q,
+            "field": detail,
+            "lang_scope": str(base.get("lang_scope") or "N/A"),
+            "current": (
+                f"added codes: {_join_limited_tokens(added_vals, 30)}; "
+                f"drift now: {_join_limited_tokens(drift_to, 30)}"
+                if has_drift or has_added else ""
+            ),
+            "reference": (
+                f"removed codes: {_join_limited_tokens(removed_vals, 30)}; "
+                f"drift from: {_join_limited_tokens(drift_from, 30)}"
+                if has_drift or has_removed else ""
+            ),
+            "severity": severity,
+            "excel_row": min(excel_rows) if excel_rows else None,
+        }
+        if "current_lang" in codes_df.columns:
+            row["current_lang"] = ""
+        if "reference_lang" in codes_df.columns:
+            row["reference_lang"] = ""
+        rows_out.append(row)
+
+    collapsed = pl.DataFrame(rows_out) if rows_out else pl.DataFrame(schema=noisy.schema)
+    for col in noisy.columns:
+        if col not in collapsed.columns:
+            collapsed = collapsed.with_columns(pl.lit(None).alias(col))
+    collapsed = collapsed.select(noisy.columns)
+    return pl.concat([keep_df, collapsed], how="vertical")
 
 
 def build_codes_not_comparable_rows(
@@ -4788,14 +5291,15 @@ def build_codes_not_comparable_rows(
 def build_codes_option_count_mismatch_rows(
     current_options_en: pl.DataFrame,
     current_codes: pl.DataFrame,
+    reference_options_en: pl.DataFrame,
     reference_codes: pl.DataFrame,
     target_lang: str,
 ) -> pl.DataFrame:
     """
-    Internal consistency check:
-    flag questions where number of parsed options != number of parsed codes.
-    This is reported even when cross-file comparison is not possible, but only
-    when codes are expected (current has codes or reference has codes).
+    Internal consistency check (CURRENT questionnaire only):
+    flag questions where parsed option codes and parsed Codes entries are not aligned
+    (count mismatch or code-number set mismatch).
+    Reference columns are provided only as contextual baseline.
     """
     schema = {
         "issue_type": pl.Utf8, "set_name": pl.Utf8, "Q Name": pl.Utf8, "field": pl.Utf8,
@@ -4806,68 +5310,134 @@ def build_codes_option_count_mismatch_rows(
     if current_options_en is None or current_options_en.height == 0:
         return pl.DataFrame(schema=schema)
 
-    opt_counts = (
+    def _parse_int_codes(entries: list[tuple[str, str]]) -> set[int]:
+        out = set()
+        for raw, _ in entries or []:
+            s = str(raw or "").strip()
+            if re.fullmatch(r"\d+", s):
+                out.add(int(s))
+        return out
+
+    def _formatted_codes_with_option_alignment(
+        code_entries: list[tuple[str, str]],
+        option_num_set: set[int],
+        header: str,
+    ) -> str:
+        vals = []
+        seen = set()
+        for code_raw, token_raw in code_entries or []:
+            code = str(code_raw or "").strip()
+            token = str(token_raw or "").strip()
+            if not code and not token:
+                continue
+            key = (code.lower(), token.lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            note = ""
+            if re.fullmatch(r"\d+", code) and int(code) not in option_num_set:
+                note = " [NO CORRESPONDING OPTION]"
+            vals.append(f"{code or '(blank)'} | {token or '(blank)'}{note}")
+        if not vals:
+            return f"{header}:\n(empty)"
+        return f"{header}:\n" + "\n".join(vals)
+
+    opt_lookup_cur = _build_option_lookup_by_qname(current_options_en)
+    code_lookup_cur = _build_codes_lookup_by_qname(current_codes)
+    opt_lookup_ref = _build_option_lookup_by_qname(reference_options_en)
+    code_lookup_ref = _build_codes_lookup_by_qname(reference_codes)
+
+    excel_row_lookup: dict[str, int] = {}
+    qname_lookup: dict[str, str] = {}
+    for row in (
         current_options_en
         .group_by("Q Name")
-        .agg([
-            pl.col("option_code").n_unique().alias("option_n"),
-            pl.col("excel_row").min().cast(pl.Int64).alias("excel_row"),
-        ])
-    )
-    cur_code_counts = (
-        current_codes.group_by("Q Name").agg(pl.col("code_num").n_unique().alias("code_n"))
-        if current_codes is not None and current_codes.height > 0
-        else pl.DataFrame(schema={"Q Name": pl.Utf8, "code_n": pl.Int64})
-    )
-    ref_code_counts = (
-        reference_codes.group_by("Q Name").agg(pl.col("code_num").n_unique().alias("ref_code_n"))
-        if reference_codes is not None and reference_codes.height > 0
-        else pl.DataFrame(schema={"Q Name": pl.Utf8, "ref_code_n": pl.Int64})
-    )
+        .agg(pl.col("excel_row").min().cast(pl.Int64).alias("excel_row"))
+        .iter_rows(named=True)
+    ):
+        q_name_raw = str(row.get("Q Name") or "").strip()
+        qk = q_name_raw.lower()
+        if qk:
+            excel_row_lookup[qk] = row.get("excel_row")
+            qname_lookup[qk] = q_name_raw
 
-    mism = (
-        opt_counts
-        .join(cur_code_counts, on="Q Name", how="left")
-        .join(ref_code_counts, on="Q Name", how="left")
-        .with_columns([
-            pl.col("code_n").cast(pl.Int64).fill_null(0),
-            pl.col("ref_code_n").cast(pl.Int64).fill_null(0),
-        ])
-        .filter(
-            ((pl.col("code_n") > 0) | (pl.col("ref_code_n") > 0))
-            & (pl.col("option_n") != pl.col("code_n"))
+    rows: list[dict] = []
+    for qk, cur_opt_entries in opt_lookup_cur.items():
+        cur_code_entries = code_lookup_cur.get(qk, [])
+        ref_code_entries = code_lookup_ref.get(qk, [])
+        # CURRENT-only consistency: evaluate when current has parsed codes.
+        # If current has none, skip to avoid duplicating pure cross-file removals.
+        if not cur_code_entries:
+            continue
+
+        cur_opt_nums = _parse_int_codes(cur_opt_entries)
+        cur_code_nums = _parse_int_codes(cur_code_entries)
+        if not cur_opt_nums and not cur_code_nums:
+            continue
+
+        missing_in_codes = sorted(cur_opt_nums - cur_code_nums)
+        extra_in_codes = sorted(cur_code_nums - cur_opt_nums)
+        count_mismatch = len(cur_opt_nums) != len(cur_code_nums)
+        set_mismatch = bool(missing_in_codes or extra_in_codes)
+        if not (count_mismatch or set_mismatch):
+            continue
+
+        ref_opt_entries = opt_lookup_ref.get(qk, [])
+        ref_opt_nums = _parse_int_codes(ref_opt_entries)
+        ref_code_nums = _parse_int_codes(ref_code_entries)
+        ref_missing = sorted(ref_opt_nums - ref_code_nums)
+        ref_extra = sorted(ref_code_nums - ref_opt_nums)
+
+        missing_txt = ", ".join(str(v) for v in missing_in_codes) if missing_in_codes else "(none)"
+        extra_txt = ", ".join(str(v) for v in extra_in_codes) if extra_in_codes else "(none)"
+        ref_missing_txt = ", ".join(str(v) for v in ref_missing) if ref_missing else "(none)"
+        ref_extra_txt = ", ".join(str(v) for v in ref_extra) if ref_extra else "(none)"
+
+        q_name = qname_lookup.get(qk, qk)
+
+        detail_text = (
+            f"current options={len(cur_opt_nums)}, codes={len(cur_code_nums)}; "
+            f"missing code(s) for option positions={missing_txt}; "
+            f"code(s) without corresponding option={extra_txt} | "
+            f"reference options={len(ref_opt_nums)}, codes={len(ref_code_nums)}; "
+            f"missing code(s) for option positions={ref_missing_txt}; "
+            f"code(s) without corresponding option={ref_extra_txt}"
         )
-    )
+        current_block = _formatted_codes_with_option_alignment(
+            cur_code_entries,
+            cur_opt_nums,
+            "Current codes (code | token)",
+        )
+        reference_block = _formatted_codes_with_option_alignment(
+            ref_code_entries,
+            ref_opt_nums,
+            "Reference codes (code | token)",
+        )
 
-    if mism.height == 0:
+        rows.append({
+            "issue_type": "codes_option_count_mismatch",
+            "set_name": "",
+            "Q Name": q_name,
+            "field": detail_text,
+            "lang_scope": "N/A",
+            "current": current_block,
+            "reference": reference_block,
+            "severity": "high",
+            "excel_row": excel_row_lookup.get(qk),
+            "current_lang": "",
+            "reference_lang": "",
+        })
+
+    if not rows:
         return pl.DataFrame(schema=schema)
 
-    base = mism.with_columns([
-        pl.lit("codes_option_count_mismatch").alias("issue_type"),
-        pl.lit("").alias("set_name"),
-        pl.lit("option_vs_codes_count").alias("field"),
-        pl.concat_str([
-            pl.lit("options="), pl.col("option_n").cast(pl.Utf8),
-            pl.lit("; codes="), pl.col("code_n").cast(pl.Utf8),
-        ]).alias("current"),
-        pl.concat_str([
-            pl.lit("expected options == codes"),
-            pl.lit(" | reference codes="), pl.col("ref_code_n").cast(pl.Utf8),
-        ]).alias("reference"),
-        pl.lit("medium").alias("severity"),
-        pl.lit("N/A").alias("lang_scope"),
-    ])
-
+    base = pl.DataFrame(rows, schema=schema)
     if str(target_lang).upper() == "EN":
         return base.select([
             "issue_type", "set_name", "Q Name", "field", "lang_scope",
             "current", "reference", "severity", "excel_row",
         ])
-
-    return base.with_columns([
-        pl.lit("").alias("current_lang"),
-        pl.lit("").alias("reference_lang"),
-    ]).select([
+    return base.select([
         "issue_type", "set_name", "Q Name", "field", "lang_scope",
         "current", "reference", "current_lang", "reference_lang", "severity", "excel_row",
     ])
@@ -5319,17 +5889,22 @@ _opt_lookup_ref_en = _build_option_lookup_by_qname(reference_options_en)
 _opt_lookup_cur_tgt = _build_option_lookup_by_qname(current_options_tgt)
 _opt_lookup_ref_tgt = _build_option_lookup_by_qname(reference_options_tgt)
 
-option_changes_view = merge_added_removed_option_rows(
-    option_changes_view,
-    current_lookup_en=_opt_lookup_cur_en,
-    reference_lookup_en=_opt_lookup_ref_en,
-    current_lookup_tgt=_opt_lookup_cur_tgt,
-    reference_lookup_tgt=_opt_lookup_ref_tgt,
-)
-option_changes_view = collapse_removed_option_with_cascading_drift(option_changes_view)
+# Keep raw added/removed rows until final per-question precedence collapse.
+# (Merged rows at this stage can hide code-level evidence needed for drift causality.)
+# Early causal collapse disabled: final precedence/classification is handled
+# in collapse_option_issue_rows_by_qname() with full per-question context.
 option_changes_view = collapse_option_issue_rows_by_qname(
     option_changes_view,
-    ["added_option", "removed_option", "option_label_mismatch", "option_position_drift"],
+    [
+        "added_option",
+        "removed_option",
+        "added_removed_option",
+        "option_label_mismatch",
+        "option_position_drift",
+        "added_option_with_drift",
+        "removed_option_with_drift",
+        "added_removed_option_with_drift",
+    ],
     current_lookup_en=_opt_lookup_cur_en,
     reference_lookup_en=_opt_lookup_ref_en,
     current_lookup_tgt=_opt_lookup_cur_tgt,
@@ -5345,6 +5920,7 @@ codes_changes_view = build_codes_changes_view(
 codes_count_mismatch = build_codes_option_count_mismatch_rows(
     current_options_en=current_options_en,
     current_codes=current_codes,
+    reference_options_en=reference_options_en,
     reference_codes=reference_codes,
     target_lang=target_lang,
 )
@@ -5355,6 +5931,7 @@ if codes_count_mismatch.height > 0:
     codes_count_mismatch = codes_count_mismatch.select(codes_changes_view.columns)
     codes_changes_view = pl.concat([codes_changes_view, codes_count_mismatch], how="vertical")
 codes_changes_view = apply_codes_severity_by_mandatory(codes_changes_view, _q_mand_map)
+codes_changes_view = collapse_codes_issue_rows_by_qname(codes_changes_view)
 codes_not_comparable = build_codes_not_comparable_rows(
     current_codes=current_codes,
     reference_codes=reference_codes,
@@ -5367,6 +5944,11 @@ if codes_not_comparable.height > 0:
             codes_not_comparable = codes_not_comparable.with_columns(pl.lit(None).alias(_col))
     codes_not_comparable = codes_not_comparable.select(codes_changes_view.columns)
     codes_changes_view = pl.concat([codes_changes_view, codes_not_comparable], how="vertical")
+codes_changes_view = enrich_codes_issue_lists(
+    codes_changes_view,
+    current_codes=current_codes,
+    reference_codes=reference_codes,
+)
 option_changes_view = pl.concat([option_changes_view, codes_changes_view], how="vertical")
 option_issues = option_changes_view.select([
     "issue_type", "set_name", "Q Name", "field", "current", "reference", "severity", "excel_row"
@@ -5407,7 +5989,7 @@ _tick("validate module presence")
 all_issues = pl.concat(
     [question_issues, option_issues,
      critical_issues, count_issues, harvest_issues, skip_issues, module_issues],
-    how="vertical",
+    how="diagonal",
 )
 
 #  Sort: high -> medium -> info
@@ -5599,9 +6181,11 @@ print(f"Question label changes: {question_issues.filter(pl.col('issue_type') == 
 print(f"Option label changes  : {option_issues.filter(pl.col('issue_type') == 'option_label_mismatch').height}")
 print(f"Option positions changed: {option_issues.filter(pl.col('issue_type') == 'option_position_drift').height}")
 print(f"Options removed       : {option_issues.filter(pl.col('issue_type') == 'removed_option').height}")
-print(f"Removed+drift cascades: {option_issues.filter(pl.col('issue_type') == 'removed_option_cascading_drift').height}")
+print(f"Added+drift cascades  : {option_issues.filter(pl.col('issue_type') == 'added_option_with_drift').height}")
+print(f"Removed+drift cascades: {option_issues.filter(pl.col('issue_type') == 'removed_option_with_drift').height}")
+print(f"Add/Remove+drift casc.: {option_issues.filter(pl.col('issue_type') == 'added_removed_option_with_drift').height}")
 print(f"Options added         : {option_issues.filter(pl.col('issue_type') == 'added_option').height}")
-print(f"Option add+remove merged: {option_issues.filter(pl.col('issue_type') == 'option_changes (added/removed)').height}")
+print(f"Option added+removed   : {option_issues.filter(pl.col('issue_type') == 'added_removed_option').height}")
 print(f"Codes token mismatch  : {option_issues.filter(pl.col('issue_type') == 'codes_token_mismatch').height}")
 print(f"Codes removed         : {option_issues.filter(pl.col('issue_type') == 'codes_removed').height}")
 print(f"Codes added           : {option_issues.filter(pl.col('issue_type') == 'codes_added').height}")
@@ -5746,14 +6330,21 @@ ISSUE_ACTION_MAP = {
     "core_questions_only_changed": "Review core-questions-only flag change",
     "added_option": "Review added option and downstream logic",
     "removed_option": "Review removed option and downstream logic",
-    "option_changes (added/removed)": "Review both added and removed options for the same question",
+    "added_removed_option": "Review both added and removed options for the same question",
     "option_label_mismatch": "Review option label mismatch",
     "option_position_drift": "Verify option reordering and skip/code alignment",
     "removed_option_cascading_drift": "Review removed option causing cascading renumber and coding continuity risks",
+    "added_option_with_drift": "Review added options that cause cascading option-position drift",
+    "removed_option_with_drift": "Review removed options that cause cascading option-position drift",
+    "added_removed_option_with_drift": "Review combined added/removed options that cause cascading option-position drift",
     "codes_token_mismatch": "Review code token mismatch in Codes column",
     "codes_added": "Review added code token and routing",
     "codes_removed": "Review removed code token and routing",
     "codes_position_drift": "Verify code renumbering and skip references",
+    "added_codes_with_drift": "Review added code(s) that cause cascading code-position drift",
+    "removed_codes_with_drift": "Review removed code(s) that cause cascading code-position drift",
+    "added_removed_codes_with_drift": "Review combined added/removed code(s) that cause cascading code-position drift",
+    "added_removed_codes": "Review both added and removed code(s) for the same question",
     "codes_option_count_mismatch": "Fix mismatch between number of options and number of Codes entries",
     "codes_not_comparable": "Codes cannot be compared because the question is present only in one file",
     "skipPattern_changes": "Skip pattern changed versus reference (routing remains valid)",
@@ -5963,7 +6554,13 @@ def _set_rich_text(cell, full_text: str, parts):
     cell.value = CellRichText(*blocks)
 
 
-def _set_rich_text_with_bold_tokens(cell, full_text: str, tokens: list[str]):
+def _set_rich_text_with_bold_tokens(
+    cell,
+    full_text: str,
+    tokens: list[str],
+    color: str = "FF000000",
+    bold: bool = True,
+):
     if not _RICH_TEXT_AVAILABLE or not full_text:
         cell.value = full_text
         return
@@ -5993,7 +6590,7 @@ def _set_rich_text_with_bold_tokens(cell, full_text: str, tokens: list[str]):
     for s, e in merged:
         if s > pos:
             blocks.append(TextBlock(InlineFont(color="FF000000", b=False), txt[pos:s]))
-        blocks.append(TextBlock(InlineFont(color="FF000000", b=True), txt[s:e]))
+        blocks.append(TextBlock(InlineFont(color=color, b=bold), txt[s:e]))
         pos = e
     if pos < len(txt):
         blocks.append(TextBlock(InlineFont(color="FF000000", b=False), txt[pos:]))
@@ -6053,7 +6650,14 @@ def _apply_option_detail_highlights(ws, start_row, df):
     bold_tokens_map = {
         "added_option": ["added"],
         "removed_option": ["removed"],
-        "option_changes (added/removed)": ["both added and removed", "added", "removed"],
+        "added_removed_option": ["both added and removed", "added", "removed"],
+        "added_option_with_drift": ["added", "drift"],
+        "removed_option_with_drift": ["removed", "drift"],
+        "added_removed_option_with_drift": ["added", "removed", "drift"],
+        "added_removed_codes": ["added", "removed"],
+        "added_codes_with_drift": ["added", "drift"],
+        "removed_codes_with_drift": ["removed", "drift"],
+        "added_removed_codes_with_drift": ["added", "removed", "drift"],
     }
 
     for offset, rd in enumerate(df.to_dicts(), start=1):
@@ -6069,6 +6673,47 @@ def _apply_option_detail_highlights(ws, start_row, df):
             detail_txt,
             tokens,
         )
+
+
+def _apply_codes_alignment_marker_highlights(ws, start_row, df):
+    if df.height == 0:
+        return
+    cols = [(s, d) for s, d in _issues_col_map() if s in df.columns]
+    cidx = {src: i for i, (src, _) in enumerate(cols, start=1)}
+    issue_col = cidx.get("issue_type")
+    if not issue_col:
+        return
+
+    marker_tokens = ["NO CORRESPONDING OPTION", "ADDED CODE", "REMOVED CODE"]
+    target_cols = [k for k in ["current", "reference"] if k in cidx]
+    if not target_cols:
+        return
+
+    target_issue_types = {
+        "codes_option_count_mismatch",
+        "codes_added",
+        "codes_removed",
+        "added_removed_codes",
+        "added_codes_with_drift",
+        "removed_codes_with_drift",
+        "added_removed_codes_with_drift",
+    }
+
+    for offset, rd in enumerate(df.to_dicts(), start=1):
+        issue_val = str(rd.get("issue_type") or "")
+        if issue_val not in target_issue_types:
+            continue
+        for col_key in target_cols:
+            txt = str(rd.get(col_key) or "")
+            if not txt:
+                continue
+            _set_rich_text_with_bold_tokens(
+                ws.cell(row=start_row + offset, column=cidx[col_key]),
+                txt,
+                marker_tokens,
+                color="FFFF0000",
+                bold=True,
+            )
 
 
 #  Per-set status builder 
@@ -6384,8 +7029,11 @@ def write_summary_sheet(wb, all_issues, rules, replacement_status=None):
     _section_header(ws, r, "OPTION CHANGES (questions present in both files)", 7); r += 1
     _header_row(ws, r, ["Category", "Total", "Mandatory", "M-Panel", "Non-mand.", "Optional", "Severity"]); r += 1
     for label, itype, disp_sev in [
-        ("Option changes (added/removed)", "option_changes (added/removed)",      "high"),
+        ("Options added/removed",          "added_removed_option",                "high"),
         ("Options removed",                 "removed_option",                     "high"),
+        ("Options added with drift",        "added_option_with_drift",            "high"),
+        ("Options removed with drift",      "removed_option_with_drift",          "high"),
+        ("Add/remove with drift",           "added_removed_option_with_drift",    "high"),
         ("Removed + cascading drift",       "removed_option_cascading_drift",     "high"),
         ("Options added",                   "added_option",                       "medium"),
         ("Option labels changed",           "option_label_mismatch",              "medium"),
@@ -6393,8 +7041,12 @@ def write_summary_sheet(wb, all_issues, rules, replacement_status=None):
         ("Codes token mismatch",            "codes_token_mismatch",               "high"),
         ("Codes removed",                   "codes_removed",                      "high"),
         ("Codes added",                     "codes_added",                        "high"),
+        ("Codes added/removed",             "added_removed_codes",                "high"),
+        ("Codes added with drift",          "added_codes_with_drift",             "high"),
+        ("Codes removed with drift",        "removed_codes_with_drift",           "high"),
+        ("Codes add/remove with drift",     "added_removed_codes_with_drift",     "high"),
         ("Codes renumbered (same token)",   "codes_position_drift",               "high"),
-        ("Codes count vs options mismatch", "codes_option_count_mismatch",        "medium"),
+        ("Codes count vs options mismatch", "codes_option_count_mismatch",        "high"),
         ("Codes not comparable",            "codes_not_comparable",               "info"),
     ]:
         q = all_issues.filter(pl.col("issue_type") == itype)
@@ -6579,6 +7231,10 @@ def write_option_changes_sheet(wb, option_changes_view):
         "codes_removed",
         "codes_added",
         "codes_position_drift",
+        "added_removed_codes",
+        "added_codes_with_drift",
+        "removed_codes_with_drift",
+        "added_removed_codes_with_drift",
         "codes_option_count_mismatch",
         "codes_not_comparable",
     }
@@ -6588,14 +7244,41 @@ def write_option_changes_sheet(wb, option_changes_view):
     _section_header(ws, 1, "OPTION CHANGES  Answer options for questions in both files", max(8, len(df.columns)))
     option_table_start = 2
     next_row = _issues_table(ws, option_table_start, option_df, field_label="Detail")
-    _apply_inline_diff_for_issue(ws, option_table_start, option_df, {"option_label_mismatch", "option_position_drift"})
+    _apply_inline_diff_for_issue(
+        ws,
+        option_table_start,
+        option_df,
+        {
+            "option_label_mismatch",
+            "option_position_drift",
+            "added_option",
+            "removed_option",
+            "added_removed_option",
+            "added_option_with_drift",
+            "removed_option_with_drift",
+            "added_removed_option_with_drift",
+            "removed_option_cascading_drift",
+        },
+    )
     _apply_option_detail_highlights(ws, option_table_start, option_df)
 
     next_row += 1
     _section_header(ws, next_row, "CODES COLUMN CHECKS  Number/token consistency in 'Codes'", max(8, len(df.columns)))
     codes_table_start = next_row + 1
     _issues_table(ws, codes_table_start, codes_df, field_label="Detail")
-    _apply_inline_diff_for_issue(ws, codes_table_start, codes_df, {"codes_token_mismatch", "codes_position_drift"})
+    _apply_inline_diff_for_issue(
+        ws,
+        codes_table_start,
+        codes_df,
+        {
+            "codes_token_mismatch",
+            "codes_position_drift",
+            "added_codes_with_drift",
+            "removed_codes_with_drift",
+            "added_removed_codes_with_drift",
+        },
+    )
+    _apply_codes_alignment_marker_highlights(ws, codes_table_start, codes_df)
 
     # Keep sheet navigation usable: second table must not move freeze panes down.
     ws.freeze_panes = "A3"
@@ -6617,9 +7300,18 @@ def export_validation_report(all_issues, question_changes_view, option_changes_v
     write_replacement_issues_sheet(wb, all_issues)
     write_question_changes_sheet(wb, question_changes_view)
     write_option_changes_sheet(wb, option_changes_view)
-    wb.save(result_file)
-    print(f"Report saved to: {result_file}")
+    out_path = Path(result_file)
+    try:
+        wb.save(out_path)
+    except PermissionError:
+        alt_name = f"{out_path.stem}_{datetime.now().strftime('%H%M%S')}{out_path.suffix}"
+        alt_path = out_path.with_name(alt_name)
+        wb.save(alt_path)
+        out_path = alt_path
+        print(f"Warning: target report file was locked. Saved as: {out_path}")
+    print(f"Report saved to: {out_path}")
     print(f"Sheets: {wb.sheetnames}")
+    return out_path
 
 
 def _resolve_survey_sheet(workbook):
@@ -7366,7 +8058,7 @@ all_issues = _attach_module_column_to_issues(
 
 print(f"Replacement diagnostics: {_replacement_issues.height} issue(s)")
 
-export_validation_report(
+_report_file_written = export_validation_report(
     all_issues           = all_issues,
     question_changes_view= question_changes_view,
     option_changes_view  = option_changes_view,
@@ -7378,6 +8070,6 @@ export_validation_report(
 
 _summary(
     all_issues  = all_issues if 'all_issues' in dir() else None,
-    report_path = run.get('report_file') if isinstance(run, dict) else None,
+    report_path = str(_report_file_written) if '_report_file_written' in dir() else (run.get('report_file') if isinstance(run, dict) else None),
     extra_paths = [("Validated", run.get("validated_questionnaire_file"))] if isinstance(run, dict) and run.get("validated_questionnaire_file") else None,
 )
