@@ -12,6 +12,8 @@ import subprocess
 import pathlib
 import yaml
 
+from scripts.output_housekeeping import run_output_housekeeping
+
 ROOT    = pathlib.Path(__file__).parent
 CFG     = ROOT / "configuration" / "validation_config.yaml"
 SCRIPTS = ROOT / "scripts"
@@ -53,6 +55,25 @@ def main() -> None:
         print(f"ERROR: 'tool' in validation_config.yaml must be one of: {known}")
         print(f"       Got: {tool!r}")
         sys.exit(1)
+
+    hk_result = run_output_housekeeping(raw)
+    if hk_result.get("enabled"):
+        dry_flag = " (dry-run)" if hk_result.get("dry_run") else ""
+        print(f"Housekeeping{dry_flag}:")
+        print(f"  Base output dir : {hk_result.get('base_output_dir')}")
+        print(f"  Scanned files   : {hk_result.get('scanned_files', 0)}")
+        print(f"  Kept files      : {hk_result.get('kept_files', 0)}")
+        print(f"  Candidates      : {hk_result.get('candidate_files', 0)}")
+        if hk_result.get("dry_run"):
+            print(f"  Planned actions : {len(hk_result.get('actions') or [])}")
+        else:
+            print(f"  Archived files  : {hk_result.get('archived_files', 0)}")
+            print(f"  Deleted files   : {hk_result.get('deleted_files', 0)}")
+            print(f"  Purged archives : {hk_result.get('archive_deleted_files', 0)}")
+        if hk_result.get("errors"):
+            print(f"  Housekeeping warnings: {len(hk_result.get('errors'))}")
+            for msg in (hk_result.get("errors") or [])[:5]:
+                print(f"    - {msg}")
 
     script = VALIDATORS[tool]
     if not script.exists():

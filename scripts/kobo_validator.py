@@ -308,6 +308,19 @@ def _language_scope_descriptor_kobo() -> str:
 def _not_in_reference_text() -> str:
     return f"(not in {_reference_scope_label()})"
 
+
+def _as_bool(value, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    txt = str(value).strip().lower()
+    if txt in {"1", "true", "yes", "y", "on"}:
+        return True
+    if txt in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
 try:
     _config_snapshot_file = _write_config_snapshot_kobo(
         cfg=cfg,
@@ -830,6 +843,13 @@ else:
 # - ignore_modules_from_comparison: exclude module content from difference checks
 # - skip_modules_from_validated_output: exclude module content entirely (comparison + validated output)
 _kobo_opt = cfg.get("kobo_options", {}) or {}
+_cfg_include_admin3 = _as_bool(_kobo_opt.get("include_admin3", False), False)
+_cfg_skip_restore_and_replacement = _as_bool(_kobo_opt.get("skip_restore_and_replacement", False), False)
+_cfg_require_additional_info = _as_bool(_kobo_opt.get("require_additional_info", True), True)
+_cfg_require_crop_list = _as_bool(_kobo_opt.get("require_crop_list", True), True)
+_info("Admin3", "enabled" if _cfg_include_admin3 else "disabled")
+_info("Repl mode", "skip restore/replacement" if _cfg_skip_restore_and_replacement else "restore/replace enabled")
+_info("Req inputs", f"additional_info={_cfg_require_additional_info} | crop_list={_cfg_require_crop_list}")
 _ignore_module_raw = (
     cfg.get("ignore_modules_from_comparison")
     if "ignore_modules_from_comparison" in cfg
@@ -935,45 +955,59 @@ _step("Placeholder normalisation")
 _PLACEHOLDER_RE = re.compile(r'#[^#]+#')
 
 
-def read_additional_info(country_path: str, language: str = "en") -> dict[str, str]:
+def read_additional_info_with_status(
+    country_path: str,
+    language: str = "en",
+) -> tuple[dict[str, str], dict]:
     """
-    Read the country questionnaire's Additional information sheet.
-    Layout: row 1 empty, row 2 = headers (Original | Replacement), rows 3+ = data.
-    Returns {#placeholder#: actual_value} for every filled-in entry.
+    Read Additional information replacements and return:
+      - pairs: {#placeholder#: value}
+      - status: diagnostics for strict replacement checks/reporting
     """
+    status = {
+        "sheet_found": False,
+        "headers_found": False,
+        "rows_total": 0,
+        "rows_with_original": 0,
+        "rows_with_replacement": 0,
+        "pairs_count": 0,
+        "missing_replacement_rows": [],
+        "status": "FAIL",
+        "severity": "high",
+        "message": "Additional information sheet not found",
+    }
     try:
         wb = openpyxl.load_workbook(country_path, data_only=True, read_only=True)
         if "Additional information" not in wb.sheetnames:
             wb.close()
-            return {}
-        ws   = wb["Additional information"]
+            return {}, status
+        status["sheet_found"] = True
+        ws = wb["Additional information"]
         rows = list(ws.iter_rows(values_only=True))
         wb.close()
     except Exception as e:
-        print(f"Warning: could not read Additional information sheet: {e}")
-        return {}
+        status["message"] = f"Could not read Additional information sheet: {e}"
+        return {}, status
 
     if len(rows) < 2:
-        return {}
+        status["message"] = "Additional information sheet has no header row"
+        return {}, status
     headers = [str(h).strip() if h is not None else "" for h in rows[1]]
 
     orig_idx = next((i for i, h in enumerate(headers) if h.lower().startswith("original")), None)
     if language == "fr":
-        repl_idx = next(
-            (i for i, h in enumerate(headers) if "replacement" in h.lower() and "fr" in h.lower()), None
-        )
+        repl_idx = next((i for i, h in enumerate(headers) if "replacement" in h.lower() and "fr" in h.lower()), None)
     elif language == "ar":
-        repl_idx = next(
-            (i for i, h in enumerate(headers) if "replacement" in h.lower() and "ar" in h.lower()), None
-        )
+        repl_idx = next((i for i, h in enumerate(headers) if "replacement" in h.lower() and "ar" in h.lower()), None)
     else:
         repl_idx = next((i for i, h in enumerate(headers) if h.lower() == "replacement"), None)
         if repl_idx is None:
             repl_idx = next((i for i, h in enumerate(headers) if "replacement" in h.lower()), None)
 
     if orig_idx is None or repl_idx is None:
-        print("Warning: Original/Replacement columns not found in Additional information sheet.")
-        return {}
+        status["message"] = "Original/Replacement columns not found in Additional information sheet"
+        return {}, status
+    status["headers_found"] = True
 
     def _placeholder_aliases(s: str) -> set[str]:
         """Generate tolerant alias tokens (case + simple singular/plural) for replacements."""
@@ -982,7 +1016,6 @@ def read_additional_info(country_path: str, language: str = "en") -> dict[str, s
             return set()
         aliases = {s, s.lower(), s.upper()}
         low = s.lower()
-        # Simple singular/plural tolerance (e.g., unit <-> units)
         if low.endswith("s") and len(s) > 1:
             stem = s[:-1]
             aliases |= {stem, stem.lower(), stem.upper()}
@@ -992,16 +1025,55 @@ def read_additional_info(country_path: str, language: str = "en") -> dict[str, s
         return aliases
 
     pairs: dict[str, str] = {}
-    for row in rows[2:]:
+    missing_rows: list[dict] = []
+    row_total = 0
+    row_with_original = 0
+    row_with_replacement = 0
+    for excel_row, row in enumerate(rows[2:], start=3):
+        row_total += 1
         orig = row[orig_idx] if orig_idx < len(row) else None
         repl = row[repl_idx] if repl_idx < len(row) else None
         if not orig or str(orig).strip() == "":
             continue
+        row_with_original += 1
         repl_str = str(repl).strip() if repl is not None else ""
         if repl_str in ("", "nan", "None"):
+            missing_rows.append({"excel_row": excel_row, "original": str(orig).strip()})
             continue
+        row_with_replacement += 1
         for _alias in _placeholder_aliases(str(orig)):
             pairs[f"#{_alias}#"] = repl_str
+
+    status["rows_total"] = row_total
+    status["rows_with_original"] = row_with_original
+    status["rows_with_replacement"] = row_with_replacement
+    status["pairs_count"] = len(pairs)
+    status["missing_replacement_rows"] = missing_rows
+    if row_with_original == 0:
+        status["status"] = "WARN"
+        status["severity"] = "medium"
+        status["message"] = "No placeholder rows found in Additional information sheet"
+    elif row_with_replacement == 0:
+        status["status"] = "FAIL"
+        status["severity"] = "high"
+        status["message"] = "Additional information has placeholders but no replacement values"
+    elif missing_rows:
+        status["status"] = "WARN"
+        status["severity"] = "medium"
+        status["message"] = (
+            f"Loaded {len(pairs)} replacement token(s); "
+            f"{len(missing_rows)} row(s) have Original but blank Replacement"
+        )
+    else:
+        status["status"] = "PASS"
+        status["severity"] = "pass"
+        status["message"] = f"Loaded {len(pairs)} replacement token(s)"
+
+    return pairs, status
+
+
+def read_additional_info(country_path: str, language: str = "en") -> dict[str, str]:
+    pairs, _ = read_additional_info_with_status(country_path, language)
     return pairs
 
 
@@ -1073,38 +1145,58 @@ _CROP_SPECIALS_COMPARE = {
 }
 
 
-def read_crop_choice_rows_for_compare(country_path: str, language: str) -> dict[str, list[tuple[str, str]]]:
+def read_crop_choice_rows_for_compare_with_status(
+    country_path: str,
+    language: str,
+) -> tuple[dict[str, list[tuple[str, str]]], dict]:
     """Read current questionnaire Crop list and build rows for crop/crop2/crop3 replacement."""
+    status = {
+        "sheet_found": False,
+        "headers_found": False,
+        "selected_count": 0,
+        "candidate_count": 0,
+        "status": "FAIL",
+        "severity": "high",
+        "message": "Crop list sheet not found",
+    }
     try:
         wb = openpyxl.load_workbook(country_path, data_only=True, read_only=True)
         if "Crop list" not in wb.sheetnames:
             wb.close()
-            return {}
+            return {}, status
+        status["sheet_found"] = True
         rows = list(wb["Crop list"].iter_rows(values_only=True))
         wb.close()
     except Exception as e:
-        print(f"Warning: could not read Crop list sheet: {e}")
-        return {}
+        status["message"] = f"Could not read Crop list sheet: {e}"
+        return {}, status
 
     if len(rows) < 3:
-        return {}
+        status["message"] = "Crop list sheet has no crop rows"
+        return {}, status
 
-    headers  = [str(h).strip() if h is not None else "" for h in rows[2]]
-    sel_idx  = next((i for i, h in enumerate(headers) if "Select top" in h), None)
+    headers = [str(h).strip() if h is not None else "" for h in rows[2]]
+    sel_idx = next((i for i, h in enumerate(headers) if "Select top" in h), None)
     code_idx = next((i for i, h in enumerate(headers) if "Dataset code" in h), None)
     if language == "fr":
         lbl_idx = next((i for i, h in enumerate(headers) if "Label" in h and "FR" in h), None)
+    elif language == "ar":
+        lbl_idx = next((i for i, h in enumerate(headers) if "Label" in h and "AR" in h), None)
+    elif language == "es":
+        lbl_idx = next((i for i, h in enumerate(headers) if "Label" in h and "ES" in h), None)
     else:
         lbl_idx = next((i for i, h in enumerate(headers) if "Label" in h and "EN" in h), None)
 
     if code_idx is None or lbl_idx is None:
-        return {}
+        status["message"] = "Crop list headers missing Dataset code / language label"
+        return {}, status
+    status["headers_found"] = True
 
     selected, unselected = [], []
     for row in rows[3:]:
         code = row[code_idx] if code_idx < len(row) else None
-        lbl  = row[lbl_idx]  if lbl_idx  < len(row) else None
-        sel  = row[sel_idx]  if sel_idx is not None and sel_idx < len(row) else None
+        lbl = row[lbl_idx] if lbl_idx < len(row) else None
+        sel = row[sel_idx] if sel_idx is not None and sel_idx < len(row) else None
         if code is None or str(code).strip() in ("", "nan"):
             continue
         entry = (str(code).strip(), str(lbl or "").strip())
@@ -1113,20 +1205,53 @@ def read_crop_choice_rows_for_compare(country_path: str, language: str) -> dict[
     selected.sort(key=lambda x: x[0])
     unselected.sort(key=lambda x: x[0])
     combined = selected + unselected
-    return {name: combined + specials for name, specials in _CROP_SPECIALS_COMPARE.items()}
+    status["selected_count"] = len(selected)
+    status["candidate_count"] = len(combined)
+    if len(selected) == 10:
+        status["status"] = "PASS"
+        status["severity"] = "pass"
+        status["message"] = f"10 crops selected (OK) out of {len(combined)} candidates"
+    elif len(selected) == 0:
+        status["status"] = "FAIL"
+        status["severity"] = "high"
+        status["message"] = f"No crops selected (0/10) out of {len(combined)} candidates"
+    elif len(selected) < 10:
+        status["status"] = "WARN"
+        status["severity"] = "medium"
+        status["message"] = f"Only {len(selected)}/10 crops selected out of {len(combined)} candidates"
+    else:
+        status["status"] = "WARN"
+        status["severity"] = "medium"
+        status["message"] = f"{len(selected)}/10 crops selected (more than expected) out of {len(combined)} candidates"
+
+    return ({name: combined + specials for name, specials in _CROP_SPECIALS_COMPARE.items()}, status)
 
 
-def fetch_admin_choice_rows_for_compare(iso3: str) -> dict[str, list[tuple]]:
-    """Fetch admin1/admin2 rows from AGOL for comparison preprocessing."""
+def read_crop_choice_rows_for_compare(country_path: str, language: str) -> dict[str, list[tuple[str, str]]]:
+    rows, _ = read_crop_choice_rows_for_compare_with_status(country_path, language)
+    return rows
+
+
+def fetch_admin_choice_rows_for_compare(iso3: str, include_admin3: bool = False) -> dict[str, list[tuple]]:
+    """Fetch admin rows from AGOL for comparison preprocessing."""
     try:
         import urllib.request as _urlreq
         import json as _json
 
-        _BASE = ("https://services5.arcgis.com/sjP4Ugu5s0dZWLjd/arcgis/rest/services"
-                 "/Administrative_Boundaries_Reference_(view_layer)/FeatureServer")
+        _BASE_ADMIN12 = ("https://services5.arcgis.com/sjP4Ugu5s0dZWLjd/arcgis/rest/services"
+                         "/Administrative_Boundaries_Reference_(view_layer)/FeatureServer")
+        _BASE_ADMIN3 = ("https://services5.arcgis.com/sjP4Ugu5s0dZWLjd/arcgis/rest/services"
+                        "/Reference_Admin_3_(view_layer)/FeatureServer")
 
-        def _get(layer, fields):
-            url = (f"{_BASE}/{layer}/query"
+        def _get_admin12(layer, fields):
+            url = (f"{_BASE_ADMIN12}/{layer}/query"
+                   f"?where=adm0_ISO3+%3D+%27{iso3}%27"
+                   f"&outFields={fields}&returnGeometry=false&outSR=4326&f=json")
+            with _urlreq.urlopen(url, timeout=30) as r:
+                return _json.loads(r.read().decode())["features"]
+
+        def _get_admin3(fields):
+            url = (f"{_BASE_ADMIN3}/0/query"
                    f"?where=adm0_ISO3+%3D+%27{iso3}%27"
                    f"&outFields={fields}&returnGeometry=false&outSR=4326&f=json")
             with _urlreq.urlopen(url, timeout=30) as r:
@@ -1134,16 +1259,31 @@ def fetch_admin_choice_rows_for_compare(iso3: str) -> dict[str, list[tuple]]:
 
         adm1 = sorted(
             [(f["attributes"]["adm1_pcode"], f["attributes"]["adm1_name"])
-             for f in _get(1, "adm1_name,adm1_pcode")],
+             for f in _get_admin12(1, "adm1_name,adm1_pcode")],
             key=lambda x: x[0],
         )
         adm2 = sorted(
             [(f["attributes"]["adm2_pcode"], f["attributes"]["adm2_name"], f["attributes"]["adm1_pcode"])
-             for f in _get(0, "adm2_name,adm2_pcode,adm1_pcode")],
+             for f in _get_admin12(0, "adm2_name,adm2_pcode,adm1_pcode")],
             key=lambda x: x[0],
         )
-        print(f"AGOL compare rows loaded: admin1={len(adm1)} admin2={len(adm2)}")
-        return {"admin1": adm1, "admin2": adm2}
+        rows = {"admin1": adm1, "admin2": adm2}
+
+        if include_admin3:
+            try:
+                adm3 = sorted(
+                    [(f["attributes"]["adm3_pcode"], f["attributes"]["adm3_name"], f["attributes"]["adm2_pcode"])
+                     for f in _get_admin3("adm3_name,adm3_pcode,adm2_pcode")],
+                    key=lambda x: x[0],
+                )
+                rows["admin3"] = adm3
+                print(f"AGOL compare rows loaded: admin1={len(adm1)} admin2={len(adm2)} admin3={len(adm3)}")
+            except Exception as e:
+                print(f"Warning: AGOL admin3 fetch failed during compare preprocessing: {e}")
+                print(f"AGOL compare rows loaded: admin1={len(adm1)} admin2={len(adm2)} admin3=0")
+        else:
+            print(f"AGOL compare rows loaded: admin1={len(adm1)} admin2={len(adm2)} (admin3 skipped)")
+        return rows
     except Exception as e:
         print(f"Warning: AGOL fetch failed during compare preprocessing: {e}")
         return {}
@@ -1183,39 +1323,168 @@ def replace_choice_lists_for_compare(choices_df: pl.DataFrame, country_rows: dic
 _VANILLA_COLS_SURVEY  = ["label", "constraint", "hint"]
 _VANILLA_COLS_OPTIONS = ["option_label"]
 
-# Read placeholder replacements from current questionnaire Additional information sheet
-replacement_pairs = read_additional_info(run["questionnaire_path"], run["language"])
-print(f"Loaded {len(replacement_pairs)} placeholder pair(s) from Additional information sheet:")
-for k, v in replacement_pairs.items():
-    print(f"  {k!r}  ->  {v!r}")
+_replacement_input_issues_rows: list[dict] = []
+
+def _add_replacement_input_issue(
+    issue_type: str,
+    field: str,
+    current: str,
+    reference: str,
+    severity: str = "high",
+    q_name: str = "",
+    list_name: str = "",
+    option_name: str = "",
+    excel_row: int | None = None,
+):
+    _replacement_input_issues_rows.append({
+        "issue_type": issue_type,
+        "set_name": "",
+        "Q Name": q_name,
+        "list_name": list_name,
+        "option_name": option_name,
+        "field": field,
+        "current": current,
+        "reference": reference,
+        "severity": severity,
+        "excel_row": excel_row,
+    })
+
+def _count_hash_placeholders_in_text_df(df: pl.DataFrame, cols: list[str]) -> int:
+    if df is None or df.height == 0:
+        return 0
+    total = 0
+    for c in cols:
+        if c not in df.columns:
+            continue
+        total += df.filter(pl.col(c).cast(pl.Utf8).fill_null("").str.contains(r"#[^#]+#")).height
+    return int(total)
+
+if _cfg_skip_restore_and_replacement:
+    replacement_pairs = {}
+    _additional_info_status = {
+        "sheet_found": False,
+        "headers_found": False,
+        "rows_total": 0,
+        "rows_with_original": 0,
+        "rows_with_replacement": 0,
+        "pairs_count": 0,
+        "missing_replacement_rows": [],
+        "status": "SKIP",
+        "severity": "info",
+        "message": "Skipped by config (kobo_options.skip_restore_and_replacement=true)",
+    }
+    _crop_compare_probe = {
+        "sheet_found": False,
+        "headers_found": False,
+        "selected_count": 0,
+        "candidate_count": 0,
+        "status": "SKIP",
+        "severity": "info",
+        "message": "Skipped by config (kobo_options.skip_restore_and_replacement=true)",
+    }
+    print("Replacement preprocessing skipped by config.")
+else:
+    # Read placeholder replacements from current questionnaire Additional information sheet
+    replacement_pairs, _additional_info_status = read_additional_info_with_status(
+        run["questionnaire_path"],
+        run["language"],
+    )
+    print(f"Loaded {len(replacement_pairs)} placeholder pair(s) from Additional information sheet:")
+    for k, v in replacement_pairs.items():
+        print(f"  {k!r}  ->  {v!r}")
+    print(f"Additional information status: {_additional_info_status.get('message', '')}")
+
+    # Probe Crop list availability early so missing inputs are flagged before output generation.
+    _, _crop_compare_probe = read_crop_choice_rows_for_compare_with_status(
+        run["questionnaire_path"],
+        run["language"],
+    )
+    print(f"Crop list probe status: {_crop_compare_probe.get('message', '')}")
+
+_has_placeholder_cells = (
+    _count_hash_placeholders_in_text_df(current_survey, _VANILLA_COLS_SURVEY)
+    + _count_hash_placeholders_in_text_df(current_options, _VANILLA_COLS_OPTIONS)
+) > 0
+_has_crop_questions = (
+    current_survey
+    .with_columns(_normalized_list_expr("list_name").alias("_ln"))
+    .filter(pl.col("_ln").is_in(["crop", "crop2", "crop3"]))
+    .height
+) > 0
+
+if (not _cfg_skip_restore_and_replacement) and _cfg_require_additional_info:
+    if not _additional_info_status.get("sheet_found"):
+        _sev = "high"
+        _add_replacement_input_issue(
+            "replacement_input_missing_additional_info",
+            "Additional information",
+            _additional_info_status.get("message", "sheet not found"),
+            "Sheet is required to resolve #placeholder# tokens",
+            severity=_sev,
+        )
+    elif not _additional_info_status.get("headers_found"):
+        _add_replacement_input_issue(
+            "replacement_input_missing_additional_info",
+            "Additional information headers",
+            _additional_info_status.get("message", "required columns missing"),
+            "Expected columns: Original + Replacement",
+            severity="high",
+        )
+
+if (not _cfg_skip_restore_and_replacement) and _cfg_require_crop_list:
+    if not _crop_compare_probe.get("sheet_found"):
+        _sev = "high" if _has_crop_questions else "medium"
+        _add_replacement_input_issue(
+            "replacement_input_missing_crop_list",
+            "Crop list",
+            _crop_compare_probe.get("message", "sheet not found"),
+            "Sheet is required to rebuild crop/crop2/crop3 choices",
+            severity=_sev,
+        )
+    elif not _crop_compare_probe.get("headers_found"):
+        _add_replacement_input_issue(
+            "replacement_input_missing_crop_list",
+            "Crop list headers",
+            _crop_compare_probe.get("message", "required columns missing"),
+            "Expected columns: Dataset code + language label",
+            severity="high",
+        )
 
 # Template is always the placeholder map for restoration in previous_round mode.
 _vanilla_ref_survey  = template_survey
 _vanilla_ref_options = template_options
 _vanilla_ref_options_en = template_options_en
 
-# Restore: where template has #placeholder#, copy template value -> current
-current_survey_vanilla  = restore_to_vanilla(
-    current_survey,  _vanilla_ref_survey,  _VANILLA_COLS_SURVEY
-)
-current_options_vanilla = restore_to_vanilla(
-    current_options, _vanilla_ref_options, _VANILLA_COLS_OPTIONS,
-    key_cols=["Q Name", "option_name"],
-)
-current_options_en_vanilla = restore_to_vanilla(
-    current_options_en, _vanilla_ref_options_en, _VANILLA_COLS_OPTIONS,
-    key_cols=["Q Name", "option_name"],
-)
+if _cfg_skip_restore_and_replacement:
+    current_survey_vanilla = current_survey
+    current_options_vanilla = current_options
+    current_options_en_vanilla = current_options_en
+    _n_survey = 0
+    _n_options = 0
+    print("\nVanilla restoration skipped by config (kobo_options.skip_restore_and_replacement=true)")
+else:
+    # Restore: where template has #placeholder#, copy template value -> current
+    current_survey_vanilla  = restore_to_vanilla(
+        current_survey,  _vanilla_ref_survey,  _VANILLA_COLS_SURVEY
+    )
+    current_options_vanilla = restore_to_vanilla(
+        current_options, _vanilla_ref_options, _VANILLA_COLS_OPTIONS,
+        key_cols=["Q Name", "option_name"],
+    )
+    current_options_en_vanilla = restore_to_vanilla(
+        current_options_en, _vanilla_ref_options_en, _VANILLA_COLS_OPTIONS,
+        key_cols=["Q Name", "option_name"],
+    )
 
-_n_survey  = sum(
-    _vanilla_ref_survey.filter(pl.col(c).str.contains(r'#[^#]+#')).height
-    for c in _VANILLA_COLS_SURVEY if c in _vanilla_ref_survey.columns
-)
-_n_options = (
-    _vanilla_ref_options.filter(pl.col("option_label").str.contains(r'#[^#]+#')).height
-    if "option_label" in _vanilla_ref_options.columns else 0
-)
-print(f"\nVanilla restoration map (from template): {_n_survey} survey cell(s), {_n_options} option cell(s)")
+    _n_survey  = sum(
+        _vanilla_ref_survey.filter(pl.col(c).str.contains(r'#[^#]+#')).height
+        for c in _VANILLA_COLS_SURVEY if c in _vanilla_ref_survey.columns
+    )
+    _n_options = (
+        _vanilla_ref_options.filter(pl.col("option_label").str.contains(r'#[^#]+#')).height
+        if "option_label" in _vanilla_ref_options.columns else 0
+    )
+    print(f"\nVanilla restoration map (from template): {_n_survey} survey cell(s), {_n_options} option cell(s)")
 
 # -----------------------------------------------------------------------------
 # Comparison datasets
@@ -1235,6 +1504,8 @@ _round_param_country_lists = {
     for v in cfg.get("kobo_options", {}).get("country_specific_list_names", [])
     if _normalize_list_token(v)
 }
+if _cfg_include_admin3:
+    _round_param_country_lists.add("admin3")
 
 # Placeholder-affected question names from template map.
 for _c in _VANILLA_COLS_SURVEY:
@@ -1254,36 +1525,52 @@ if "option_label" in _vanilla_ref_options.columns:
 if run.get("reference_mode") == "previous_round":
     print("\nMode previous_round: preprocessing current questionnaire before comparison")
 
-    # 1) Apply Additional information replacements to restored current values.
-    current_survey_cmp = apply_replacements(current_survey_vanilla, replacement_pairs, _VANILLA_COLS_SURVEY)
+    if _cfg_skip_restore_and_replacement:
+        print("Previous-round preprocess: skip restore/replacement is enabled.")
+        current_survey_cmp = current_survey
+    else:
+        # 1) Apply Additional information replacements to restored current values.
+        current_survey_cmp = apply_replacements(current_survey_vanilla, replacement_pairs, _VANILLA_COLS_SURVEY)
 
     # 2) Rebuild current choices for country-specific lists from CURRENT round inputs.
-    _crop_rows  = read_crop_choice_rows_for_compare(run["questionnaire_path"], run["language"])
-    _admin_rows = fetch_admin_choice_rows_for_compare(run["iso3"])
+    _crop_rows = {}
+    if not _cfg_skip_restore_and_replacement:
+        _crop_rows = read_crop_choice_rows_for_compare(run["questionnaire_path"], run["language"])
+    _admin_rows = fetch_admin_choice_rows_for_compare(
+        run["iso3"],
+        include_admin3=_cfg_include_admin3,
+    )
     _country_rows = {**_crop_rows, **_admin_rows}
 
     current_choices_cmp = replace_choice_lists_for_compare(current_choices, _country_rows)
     current_options_cmp = build_question_options(current_survey_cmp, current_choices_cmp)
 
-    # Restore+replace option labels using template placeholder map.
-    current_options_cmp = restore_to_vanilla(
-        current_options_cmp, _vanilla_ref_options, _VANILLA_COLS_OPTIONS,
-        key_cols=["Q Name", "option_name"],
-    )
-    current_options_cmp = apply_replacements(current_options_cmp, replacement_pairs, _VANILLA_COLS_OPTIONS)
+    if not _cfg_skip_restore_and_replacement:
+        # Restore+replace option labels using template placeholder map.
+        current_options_cmp = restore_to_vanilla(
+            current_options_cmp, _vanilla_ref_options, _VANILLA_COLS_OPTIONS,
+            key_cols=["Q Name", "option_name"],
+        )
+        current_options_cmp = apply_replacements(current_options_cmp, replacement_pairs, _VANILLA_COLS_OPTIONS)
 
     current_survey_vanilla_cmp = current_survey_cmp
     current_options_vanilla_cmp = current_options_cmp
 
     if _kobo_dual_lang:
-        _crop_rows_en = read_crop_choice_rows_for_compare(run["questionnaire_path"], "en")
+        _crop_rows_en = (
+            read_crop_choice_rows_for_compare(run["questionnaire_path"], "en")
+            if not _cfg_skip_restore_and_replacement else {}
+        )
         _country_rows_en = {**_crop_rows_en, **_admin_rows}
         current_choices_cmp_en = replace_choice_lists_for_compare(current_choices_en, _country_rows_en)
         current_options_cmp_en = build_question_options(current_survey_cmp, current_choices_cmp_en)
-        current_options_en_vanilla_cmp = restore_to_vanilla(
-            current_options_cmp_en, _vanilla_ref_options_en, _VANILLA_COLS_OPTIONS,
-            key_cols=["Q Name", "option_name"],
-        )
+        if not _cfg_skip_restore_and_replacement:
+            current_options_en_vanilla_cmp = restore_to_vanilla(
+                current_options_cmp_en, _vanilla_ref_options_en, _VANILLA_COLS_OPTIONS,
+                key_cols=["Q Name", "option_name"],
+            )
+        else:
+            current_options_en_vanilla_cmp = current_options_cmp_en
 
     # Country-specific option questions (crop/admin etc) are round-parameter-change candidates.
     if _round_param_country_lists:
@@ -4411,6 +4698,8 @@ _country_lists = {
     for v in cfg.get("kobo_options", {}).get("country_specific_list_names", [])
     if _normalize_list_token(v)
 }
+if _cfg_include_admin3:
+    _country_lists.add("admin3")
 if run.get("reference_mode") == "previous_round":
     _country_lists = set()
 
@@ -4712,6 +5001,17 @@ def _with_choice_cols(df: pl.DataFrame) -> pl.DataFrame:
         out = out.with_columns(pl.lit("").alias("option_name"))
     return out
 
+replacement_input_issues = (
+    pl.DataFrame(_replacement_input_issues_rows)
+    if "_replacement_input_issues_rows" in globals() and _replacement_input_issues_rows
+    else pl.DataFrame(schema={
+        "issue_type": pl.Utf8, "set_name": pl.Utf8, "Q Name": pl.Utf8,
+        "list_name": pl.Utf8, "option_name": pl.Utf8, "field": pl.Utf8,
+        "current": pl.Utf8, "reference": pl.Utf8, "severity": pl.Utf8,
+        "excel_row": pl.Int64,
+    })
+)
+
 all_issues = pl.concat(
     [_with_choice_cols(presence_issues),
      _with_choice_cols(mandatory_issues),
@@ -4736,6 +5036,7 @@ all_issues = pl.concat(
      _with_choice_cols(harvest_issues),
      _with_choice_cols(relevant_issues),
      _with_choice_cols(structure_issues),
+     _with_choice_cols(replacement_input_issues),
      _with_choice_cols(module_issues)],
     how="diagonal",
 )
@@ -4956,6 +5257,10 @@ _ISSUE_LABELS = {
     "cluster_ea_choice_changes_summary": "Cluster/EA choice changes summary",
     "enumerator_choice_changes_summary": "Enumerator choice changes summary",
     "replacement_crop_template_mismatch": "Crop list mismatch vs template baseline",
+    "replacement_unresolved_placeholder": "Unresolved placeholder token in validated output",
+    "replacement_input_missing_additional_info": "Missing Additional information input",
+    "replacement_input_missing_crop_list": "Missing Crop list input",
+    "replacement_restore_missing_target_row": "Template placeholder row missing in current questionnaire",
     "placeholder_not_found"    : "Placeholder not in template/additional info",
     "placeholder_should_use_kobo_ref": "Placeholder looks like variable (use ${var})",
     "replacement_malformed_placeholder": "Malformed placeholder syntax",
@@ -5019,6 +5324,10 @@ ISSUE_ACTION_MAP = {
     "added_option_causes_index_drift": "Review inserted option and reconcile downstream coding/index continuity",
     "mandatory_choice_set_replaced": "Restore reference choice set or document approved redesign for mandatory question",
     "replacement_crop_template_mismatch": "Align final crop choices with template baseline (codes and labels)",
+    "replacement_unresolved_placeholder": "Add missing replacement values or fix placeholder keys",
+    "replacement_input_missing_additional_info": "Provide Additional information sheet/headers or disable strict requirement",
+    "replacement_input_missing_crop_list": "Provide Crop list sheet/headers or disable strict requirement",
+    "replacement_restore_missing_target_row": "Align question/list option names with template to allow placeholder restoration",
     "cluster_ea_choice_changes_summary": "Informational only: review aggregate cluster/ea choice turnover counts",
     "enumerator_choice_changes_summary": "Informational only: enumerator list is operational and expected to change",
     "broken_relevant_reference": "Fix relevant expression to valid referenced variables",
@@ -5377,6 +5686,10 @@ STRUCTURE_ISSUE_TYPES = {
 REPLACEMENT_ISSUE_TYPES = {
     "placeholder_not_found", "placeholder_should_use_kobo_ref",
     "replacement_crop_template_mismatch", "replacement_malformed_placeholder",
+    "replacement_unresolved_placeholder",
+    "replacement_input_missing_additional_info",
+    "replacement_input_missing_crop_list",
+    "replacement_restore_missing_target_row",
 }
 
 CORE_QUESTION_CHANGE_ISSUE_TYPES = {
@@ -5689,6 +6002,8 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
                 ws.cell(row=r, column=2).font = Font(bold=True, size=10, color="274E13")
             elif st == "WARN":
                 ws.cell(row=r, column=2).font = Font(bold=True, size=10, color="B45F06")
+            elif st == "SKIP":
+                ws.cell(row=r, column=2).font = Font(bold=True, size=10, color="1F4E78")
             else:
                 ws.cell(row=r, column=2).font = Font(bold=True, size=10, color="CC0000")
             r += 1
@@ -5965,6 +6280,7 @@ _step("Producing validated questionnaire")
 import urllib.request as _urlreq
 import json as _json
 import re as _re
+from copy import copy as _style_copy
 from shutil import copy2 as _copy2
 from datetime import date as _date
 
@@ -6168,6 +6484,29 @@ def _fetch_admin_choices(iso3: str) -> dict[str, list[tuple]]:
     return {"admin1": adm1, "admin2": adm2}
 
 
+def _fetch_admin3_choices(iso3: str) -> list[tuple]:
+    """
+    Fetch adm3 from public FAO AGOL REST service.
+    Returns:
+      admin3 rows as [(adm3_pcode, adm3_name, adm2_pcode), ...]
+    """
+    _BASE = ("https://services5.arcgis.com/sjP4Ugu5s0dZWLjd/arcgis/rest/services"
+             "/Reference_Admin_3_(view_layer)/FeatureServer")
+    url = (f"{_BASE}/0/query"
+           f"?where=adm0_ISO3+%3D+%27{iso3}%27"
+           f"&outFields=adm3_name,adm3_pcode,adm2_pcode"
+           f"&returnGeometry=false&outSR=4326&f=json")
+    with _urlreq.urlopen(url, timeout=30) as r:
+        features = _json.loads(r.read().decode())["features"]
+    adm3 = sorted(
+        [(f["attributes"]["adm3_pcode"], f["attributes"]["adm3_name"], f["attributes"]["adm2_pcode"])
+         for f in features],
+        key=lambda x: x[0],
+    )
+    print(f"  AGOL  adm3: {len(adm3)} rows")
+    return adm3
+
+
 def _rebuild_choices_sheet(
     wb,
     country_rows: dict[str, list[tuple]],
@@ -6180,11 +6519,30 @@ def _rebuild_choices_sheet(
     admin2 rows also populate col 5 (adm1_pcode) for choice_filter cascading.
     """
     ws = wb["choices"]
-    all_rows = list(ws.iter_rows(values_only=True))
-    if not all_rows:
+    all_rows_cells = list(ws.iter_rows(min_row=1, max_row=ws.max_row, max_col=ws.max_column))
+    if not all_rows_cells:
         return
-    n_cols = max((len(r) for r in all_rows), default=5)
-    headers = [str(h).strip() if h is not None else "" for h in all_rows[0]]
+
+    n_cols = ws.max_column or 5
+
+    def _row_values(cells):
+        vals = [c.value for c in cells]
+        if len(vals) < n_cols:
+            vals.extend([None] * (n_cols - len(vals)))
+        return vals[:n_cols]
+
+    def _row_styles(cells):
+        styles = []
+        for i in range(n_cols):
+            if i < len(cells):
+                styles.append(_style_copy(cells[i]._style))
+            else:
+                styles.append(None)
+        return styles
+
+    header_vals = _row_values(all_rows_cells[0])
+    header_styles = _row_styles(all_rows_cells[0])
+    headers = [str(h).strip() if h is not None else "" for h in header_vals]
     col_idx = {h: i for i, h in enumerate(headers)}
     skip = set(country_rows.keys())
 
@@ -6203,23 +6561,78 @@ def _rebuild_choices_sheet(
             break
     if admin_filter_col is None and n_cols >= 5:
         admin_filter_col = 4
+    sample_filter_col = col_idx.get("my_filter_sample")
 
-    def _cell(row, idx):
-        if row is None or idx is None or idx >= len(row):
-            return None
-        return row[idx]
+    def _norm_key(v):
+        return str(v).strip().lower() if v is not None else ""
 
-    # Keep header + non-country rows + empty separator rows.
-    kept = [all_rows[0]] + [
-        r
-        for r in all_rows[1:]
-        if _cell(r, list_col) is None or str(_cell(r, list_col)).strip() not in skip
-    ]
+    def _is_empty(v):
+        return v is None or str(v).strip() == ""
 
-    # Build new country blocks, each preceded by an empty separator row
-    new_rows = []
+    preserved_sample_by_code: dict[tuple[str, str], object] = {}
+    preserved_sample_by_label: dict[tuple[str, str], object] = {}
+    preserved_sample_by_label_parent: dict[tuple[str, str, str], object] = {}
+
+    def _remember_sample(list_name, code_val, label_val, parent_val, sample_val):
+        if sample_filter_col is None or _is_empty(sample_val):
+            return
+        list_key = _norm_key(list_name)
+        code_key = _norm_key(code_val)
+        label_key = _norm_key(label_val)
+        parent_key = _norm_key(parent_val)
+
+        if code_key:
+            preserved_sample_by_code.setdefault((list_key, code_key), sample_val)
+        if label_key:
+            preserved_sample_by_label.setdefault((list_key, label_key), sample_val)
+        if label_key and parent_key:
+            preserved_sample_by_label_parent.setdefault((list_key, label_key, parent_key), sample_val)
+
+    def _is_blank(values):
+        return all(v is None or str(v).strip() == "" for v in values)
+
+    # Keep non-country rows (with styles) and capture style templates for replaced lists.
+    kept_rows: list[tuple[list, list]] = []
+    style_by_list: dict[str, list] = {}
+    blank_style = None
+    generic_style = _row_styles(all_rows_cells[1]) if len(all_rows_cells) > 1 else header_styles
+
+    for cells in all_rows_cells[1:]:
+        vals = _row_values(cells)
+        styles = _row_styles(cells)
+        list_val = vals[list_col] if list_col < len(vals) else None
+        list_txt = str(list_val).strip() if list_val is not None else ""
+
+        if list_txt in skip:
+            style_by_list.setdefault(list_txt, styles)
+            if blank_style is None and _is_blank(vals):
+                blank_style = styles
+            if sample_filter_col is not None and sample_filter_col < len(vals):
+                old_code = vals[name_col] if name_col < len(vals) else None
+                if fallback_label_col is not None and fallback_label_col < len(vals):
+                    old_label = vals[fallback_label_col]
+                elif en_label_col is not None and en_label_col < len(vals):
+                    old_label = vals[en_label_col]
+                elif tgt_label_col is not None and tgt_label_col < len(vals):
+                    old_label = vals[tgt_label_col]
+                else:
+                    old_label = None
+                old_parent = vals[admin_filter_col] if admin_filter_col is not None and admin_filter_col < len(vals) else None
+                _remember_sample(list_txt, old_code, old_label, old_parent, vals[sample_filter_col])
+            continue
+
+        if blank_style is None and _is_blank(vals):
+            blank_style = styles
+        kept_rows.append((vals, styles))
+
+    if blank_style is None:
+        blank_style = generic_style
+
+    # Build new country blocks, each preceded by an empty separator row.
+    new_rows: list[tuple[list, list]] = []
     for list_name, entries in country_rows.items():
-        new_rows.append([None] * n_cols)   # blank separator between blocks
+        new_rows.append(([None] * n_cols, blank_style))
+        row_style = style_by_list.get(str(list_name), generic_style)
         for entry in entries:
             row = [None] * n_cols
             row[list_col] = list_name
@@ -6242,11 +6655,31 @@ def _rebuild_choices_sheet(
                     row[en_label_col] = admin_lbl
                 if len(entry) > 2 and admin_filter_col is not None:
                     row[admin_filter_col] = entry[2]
-            new_rows.append(row)
+                # Preserve existing sample filters for matching admin rows.
+                if sample_filter_col is not None and sample_filter_col < n_cols and _norm_key(list_name) in {"admin1", "admin2", "admin3"}:
+                    list_key = _norm_key(list_name)
+                    code_key = _norm_key(entry[0] if len(entry) > 0 else "")
+                    label_key = _norm_key(admin_lbl)
+                    parent_key = _norm_key(entry[2] if len(entry) > 2 else "")
+                    preserved_sample = None
+                    if code_key:
+                        preserved_sample = preserved_sample_by_code.get((list_key, code_key))
+                    if preserved_sample is None and label_key and parent_key:
+                        preserved_sample = preserved_sample_by_label_parent.get((list_key, label_key, parent_key))
+                    if preserved_sample is None and label_key:
+                        preserved_sample = preserved_sample_by_label.get((list_key, label_key))
+                    if preserved_sample is not None:
+                        row[sample_filter_col] = preserved_sample
+            new_rows.append((row, row_style))
 
+    # Rewrite choices with preserved styles.
+    payload = [(header_vals, header_styles)] + kept_rows + new_rows
     ws.delete_rows(1, ws.max_row)
-    for r in kept + new_rows:
-        ws.append(list(r))
+    for r_idx, (vals, styles) in enumerate(payload, start=1):
+        for c_idx in range(1, n_cols + 1):
+            cell = ws.cell(row=r_idx, column=c_idx, value=vals[c_idx - 1] if c_idx - 1 < len(vals) else None)
+            if c_idx - 1 < len(styles) and styles[c_idx - 1] is not None:
+                cell._style = _style_copy(styles[c_idx - 1])
 
 
 def _strip_skipped_module_blocks_from_survey_sheet(
@@ -6407,6 +6840,176 @@ def _apply_replacements_to_wb(wb, replacement_pairs: dict) -> None:
                         if key in v:
                             v = v.replace(key, str(val))
                     cell.value = v
+
+
+def _restore_placeholder_tokens_from_template(
+    wb,
+    template_path: str,
+    replacement_pairs: dict[str, str] | None = None,
+) -> dict:
+    """
+    Restore placeholder-bearing cells from template into current workbook for:
+      - survey sheet (key: name)
+      - choices sheet (key: list_name + name)
+    Only shared headers are considered; only template cells containing #...# are copied.
+    """
+    stats = {
+        "survey_cells_restored": 0,
+        "choices_cells_restored": 0,
+        "survey_template_placeholder_cells": 0,
+        "choices_template_placeholder_cells": 0,
+        "survey_placeholder_cells_skipped_missing_replacement": 0,
+        "choices_placeholder_cells_skipped_missing_replacement": 0,
+        "survey_cells_already_vanilla": 0,
+        "choices_cells_already_vanilla": 0,
+        "survey_missing_key_rows": 0,
+        "choices_missing_key_rows": 0,
+        "survey_missing_qnames": [],
+        "choices_missing_keys": [],
+        "error": "",
+    }
+
+    def _norm_txt(v) -> str:
+        return str(v or "").strip()
+
+    _allow_tokens_exact: set[str] | None = None
+    _allow_tokens_lower: set[str] | None = None
+    if replacement_pairs is not None:
+        _allow_tokens_exact = set(str(k) for k in replacement_pairs.keys())
+        _allow_tokens_lower = {str(k).lower() for k in replacement_pairs.keys()}
+
+    def _can_restore_template_value(v: str) -> bool:
+        if _allow_tokens_exact is None or _allow_tokens_lower is None:
+            return True
+        toks = _PLACEHOLDER_RE.findall(v or "")
+        if not toks:
+            return True
+        for t in toks:
+            if t in _allow_tokens_exact:
+                continue
+            if str(t).lower() in _allow_tokens_lower:
+                continue
+            return False
+        return True
+
+    try:
+        tpl_wb = openpyxl.load_workbook(template_path, data_only=False, read_only=True)
+    except Exception as e:
+        stats["error"] = f"could not open template for placeholder restore: {e}"
+        return stats
+
+    try:
+        # -- survey --------------------------------------------------------------
+        if "survey" in wb.sheetnames and "survey" in tpl_wb.sheetnames:
+            ws_cur = wb["survey"]
+            ws_tpl = tpl_wb["survey"]
+
+            cur_hdr_vals = next(ws_cur.iter_rows(min_row=1, max_row=1, values_only=True), None) or []
+            tpl_hdr_vals = next(ws_tpl.iter_rows(min_row=1, max_row=1, values_only=True), None) or []
+            cur_headers = [str(h).strip() if h is not None else "" for h in cur_hdr_vals]
+            tpl_headers = [str(h).strip() if h is not None else "" for h in tpl_hdr_vals]
+            cur_idx = {h: i for i, h in enumerate(cur_headers) if h}
+            tpl_idx = {h: i for i, h in enumerate(tpl_headers) if h}
+            shared_headers = [h for h in tpl_idx.keys() if h in cur_idx]
+
+            if "name" in cur_idx and "name" in tpl_idx and shared_headers:
+                cur_rows_by_name: dict[str, tuple] = {}
+                for row in ws_cur.iter_rows(min_row=2):
+                    qn = _norm_txt(row[cur_idx["name"]].value if cur_idx["name"] < len(row) else "")
+                    if qn and qn not in cur_rows_by_name:
+                        cur_rows_by_name[qn] = row
+
+                for tpl_row in ws_tpl.iter_rows(min_row=2, values_only=True):
+                    qn = _norm_txt(tpl_row[tpl_idx["name"]] if tpl_idx["name"] < len(tpl_row) else "")
+                    if not qn:
+                        continue
+                    _tpl_placeholder_cells: list[tuple[str, str]] = []
+                    for h in shared_headers:
+                        t_i = tpl_idx[h]
+                        t_val = tpl_row[t_i] if t_i < len(tpl_row) else None
+                        if isinstance(t_val, str) and "#" in t_val and _PLACEHOLDER_RE.search(t_val):
+                            _tpl_placeholder_cells.append((h, t_val))
+                    if not _tpl_placeholder_cells:
+                        continue
+
+                    stats["survey_template_placeholder_cells"] += len(_tpl_placeholder_cells)
+                    cur_row = cur_rows_by_name.get(qn)
+                    if cur_row is None:
+                        stats["survey_missing_key_rows"] += 1
+                        stats["survey_missing_qnames"].append(qn)
+                        continue
+                    for h, t_val in _tpl_placeholder_cells:
+                        if not _can_restore_template_value(t_val):
+                            stats["survey_placeholder_cells_skipped_missing_replacement"] += 1
+                            continue
+                        c_i = cur_idx[h]
+                        cur_cell = cur_row[c_i] if c_i < len(cur_row) else None
+                        if cur_cell is None:
+                            continue
+                        if cur_cell.value != t_val:
+                            cur_cell.value = t_val
+                            stats["survey_cells_restored"] += 1
+                        else:
+                            stats["survey_cells_already_vanilla"] += 1
+
+        # -- choices -------------------------------------------------------------
+        if "choices" in wb.sheetnames and "choices" in tpl_wb.sheetnames:
+            ws_cur = wb["choices"]
+            ws_tpl = tpl_wb["choices"]
+
+            cur_hdr_vals = next(ws_cur.iter_rows(min_row=1, max_row=1, values_only=True), None) or []
+            tpl_hdr_vals = next(ws_tpl.iter_rows(min_row=1, max_row=1, values_only=True), None) or []
+            cur_headers = [str(h).strip() if h is not None else "" for h in cur_hdr_vals]
+            tpl_headers = [str(h).strip() if h is not None else "" for h in tpl_hdr_vals]
+            cur_idx = {h: i for i, h in enumerate(cur_headers) if h}
+            tpl_idx = {h: i for i, h in enumerate(tpl_headers) if h}
+            shared_headers = [h for h in tpl_idx.keys() if h in cur_idx]
+
+            if {"list_name", "name"}.issubset(set(cur_idx.keys())) and {"list_name", "name"}.issubset(set(tpl_idx.keys())):
+                cur_rows_by_key: dict[tuple[str, str], tuple] = {}
+                for row in ws_cur.iter_rows(min_row=2):
+                    ln = _normalize_list_token(row[cur_idx["list_name"]].value if cur_idx["list_name"] < len(row) else "")
+                    nm = _canonical_option_name_token(row[cur_idx["name"]].value if cur_idx["name"] < len(row) else "")
+                    if ln and nm and (ln, nm) not in cur_rows_by_key:
+                        cur_rows_by_key[(ln, nm)] = row
+
+                for tpl_row in ws_tpl.iter_rows(min_row=2, values_only=True):
+                    ln = _normalize_list_token(tpl_row[tpl_idx["list_name"]] if tpl_idx["list_name"] < len(tpl_row) else "")
+                    nm = _canonical_option_name_token(tpl_row[tpl_idx["name"]] if tpl_idx["name"] < len(tpl_row) else "")
+                    if not ln or not nm:
+                        continue
+                    _tpl_placeholder_cells: list[tuple[str, str]] = []
+                    for h in shared_headers:
+                        t_i = tpl_idx[h]
+                        t_val = tpl_row[t_i] if t_i < len(tpl_row) else None
+                        if isinstance(t_val, str) and "#" in t_val and _PLACEHOLDER_RE.search(t_val):
+                            _tpl_placeholder_cells.append((h, t_val))
+                    if not _tpl_placeholder_cells:
+                        continue
+
+                    stats["choices_template_placeholder_cells"] += len(_tpl_placeholder_cells)
+                    cur_row = cur_rows_by_key.get((ln, nm))
+                    if cur_row is None:
+                        stats["choices_missing_key_rows"] += 1
+                        stats["choices_missing_keys"].append(f"{ln}/{nm}")
+                        continue
+                    for h, t_val in _tpl_placeholder_cells:
+                        if not _can_restore_template_value(t_val):
+                            stats["choices_placeholder_cells_skipped_missing_replacement"] += 1
+                            continue
+                        c_i = cur_idx[h]
+                        cur_cell = cur_row[c_i] if c_i < len(cur_row) else None
+                        if cur_cell is None:
+                            continue
+                        if cur_cell.value != t_val:
+                            cur_cell.value = t_val
+                            stats["choices_cells_restored"] += 1
+                        else:
+                            stats["choices_cells_already_vanilla"] += 1
+    finally:
+        tpl_wb.close()
+
+    return stats
 
 
 def _count_choices_list_rows(wb, list_name: str) -> int:
@@ -6598,6 +7201,44 @@ def _scan_unresolved_placeholders(wb, sheet_name: str, limit: int = 5) -> tuple[
     return count, examples
 
 
+def _collect_unresolved_placeholder_cells(wb) -> list[dict]:
+    """
+    Collect every unresolved #placeholder# cell from survey/choices with row context.
+    Returns rows with keys: sheet, cell, token_text, q_name, list_name, option_name, excel_row.
+    """
+    patt = _re.compile(r"#[^#]+#")
+    out: list[dict] = []
+    for sheet_name in ("survey", "choices"):
+        if sheet_name not in wb.sheetnames:
+            continue
+        ws = wb[sheet_name]
+        hdr_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), None)
+        headers = [str(h).strip() if h is not None else "" for h in (hdr_row or [])]
+        col_idx = {h: i for i, h in enumerate(headers)}
+        q_col = col_idx.get("name")
+        list_col = col_idx.get("list_name")
+        opt_col = col_idx.get("name") if sheet_name == "choices" else None
+
+        for row in ws.iter_rows(min_row=2):
+            vals = [c.value for c in row]
+            q_name = str(vals[q_col]).strip() if q_col is not None and q_col < len(vals) and vals[q_col] is not None else ""
+            list_name = str(vals[list_col]).strip() if list_col is not None and list_col < len(vals) and vals[list_col] is not None else ""
+            opt_name = str(vals[opt_col]).strip() if opt_col is not None and opt_col < len(vals) and vals[opt_col] is not None else ""
+            for cell in row:
+                v = cell.value
+                if isinstance(v, str) and patt.search(v):
+                    out.append({
+                        "sheet": sheet_name,
+                        "cell": cell.coordinate,
+                        "token_text": v[:220],
+                        "q_name": q_name,
+                        "list_name": list_name,
+                        "option_name": opt_name,
+                        "excel_row": cell.row,
+                    })
+    return out
+
+
 def _scan_malformed_placeholder_syntax(wb, sheet_name: str, limit: int = 5) -> tuple[int, list[str]]:
     """
     Return (count, examples) of malformed placeholder/reference syntax in a sheet:
@@ -6625,6 +7266,7 @@ def produce_validated_questionnaire(
     cfg             : dict,
     reference_survey: pl.DataFrame,
     replacement_pairs: dict,
+    replacement_input_status: dict | None = None,
 ) -> tuple[str, dict, pl.DataFrame]:
     """
     Build validated_questionnaire_kobo_<lang>_<iso3>_<date>.xlsx:
@@ -6645,6 +7287,11 @@ def produce_validated_questionnaire(
 
     replacement_status = {"rows": []}
     replacement_issue_rows: list[dict] = []
+    _kobo_opt_local = cfg.get("kobo_options", {}) or {}
+    _include_admin3 = _as_bool(_kobo_opt_local.get("include_admin3", False), False)
+    _skip_restore_and_replacement = _as_bool(_kobo_opt_local.get("skip_restore_and_replacement", False), False)
+    _require_additional_info = _as_bool(_kobo_opt_local.get("require_additional_info", True), True)
+    _require_crop_list = _as_bool(_kobo_opt_local.get("require_crop_list", True), True)
 
     def _add_row(check: str, status: str, details: str, severity: str):
         replacement_status["rows"].append({
@@ -6668,6 +7315,30 @@ def produce_validated_questionnaire(
             "excel_row": None,
         })
 
+    def _add_issue_row(
+        issue_type: str,
+        field: str,
+        current: str,
+        reference: str,
+        severity: str = "high",
+        q_name: str = "",
+        list_name: str = "",
+        option_name: str = "",
+        excel_row: int | None = None,
+    ):
+        replacement_issue_rows.append({
+            "issue_type": issue_type,
+            "set_name": "",
+            "Q Name": q_name,
+            "list_name": list_name,
+            "option_name": option_name,
+            "field": field,
+            "current": current,
+            "reference": reference,
+            "severity": severity,
+            "excel_row": excel_row,
+        })
+
     print("Building validated questionnaire ...")
     print(f"  Source : {Path(src).name}")
     print(f"  Output : {dest}")
@@ -6676,68 +7347,176 @@ def produce_validated_questionnaire(
     wb = openpyxl.load_workbook(dest)
 
     _crop_lists = ["crop", "crop2", "crop3"]
+    _admin_lists = ["admin1", "admin2"] + (["admin3"] if _include_admin3 else [])
+
+    _pre_status = replacement_input_status or {}
+    _ai_status = _pre_status.get("additional_info", {}) if isinstance(_pre_status, dict) else {}
+    _crop_probe = _pre_status.get("crop_list_probe", {}) if isinstance(_pre_status, dict) else {}
+
+    if _skip_restore_and_replacement:
+        _add_row(
+            "Restore/replace process",
+            "SKIP",
+            "Skipped by config: kobo_options.skip_restore_and_replacement=true",
+            "info",
+        )
+    else:
+        if _require_additional_info:
+            if not _ai_status.get("sheet_found"):
+                _det = _ai_status.get("message", "Additional information sheet not found")
+                _add_row("Additional information input", "FAIL", _det, "high")
+            elif not _ai_status.get("headers_found"):
+                _det = _ai_status.get("message", "Original/Replacement headers not found")
+                _add_row("Additional information input", "FAIL", _det, "high")
+            else:
+                _add_row(
+                    "Additional information input",
+                    _ai_status.get("status", "PASS"),
+                    _ai_status.get("message", ""),
+                    "pass" if _ai_status.get("status") == "PASS" else "medium",
+                )
+                for _mr in (_ai_status.get("missing_replacement_rows") or []):
+                    _orig = str(_mr.get("original", "")).strip()
+                    _erow = _mr.get("excel_row")
+                    _add_issue_row(
+                        "replacement_input_missing_additional_info",
+                        "Additional information Replacement cell",
+                        f"Original='{_orig}' has blank Replacement",
+                        "Provide replacement value or remove unused placeholder key",
+                        severity="medium",
+                        q_name="",
+                        list_name="",
+                        option_name="",
+                        excel_row=_erow if isinstance(_erow, int) else None,
+                    )
+        else:
+            _add_row(
+                "Additional information input",
+                "SKIP",
+                "Requirement disabled (kobo_options.require_additional_info=false)",
+                "info",
+            )
+
+        if _require_crop_list:
+            if not _crop_probe.get("sheet_found"):
+                _det = _crop_probe.get("message", "Crop list sheet not found")
+                _add_row("Crop list input", "FAIL", _det, "high")
+            elif not _crop_probe.get("headers_found"):
+                _det = _crop_probe.get("message", "Crop list required headers missing")
+                _add_row("Crop list input", "FAIL", _det, "high")
+            else:
+                _add_row(
+                    "Crop list input",
+                    _crop_probe.get("status", "PASS"),
+                    _crop_probe.get("message", ""),
+                    "pass" if _crop_probe.get("status") == "PASS" else "medium",
+                )
+        else:
+            _add_row(
+                "Crop list input",
+                "SKIP",
+                "Requirement disabled (kobo_options.require_crop_list=false)",
+                "info",
+            )
 
     # -- 2. Crop choices --------------------------------------------------------
-    _, crop_sel_status = _read_crop_choices(src, lang)
-    crop_rows_target, _ = _read_crop_choices(src, lang, strict_language=True)
-    crop_rows_en, _ = _read_crop_choices(src, "en")
-    crop_rows = _merge_crop_rows_for_multilang(crop_rows_en, crop_rows_target, lang)
-    print(f"  Crop selection: {crop_sel_status['message']}")
-    if crop_sel_status["status"] == "PASS":
-        _add_row("Crop selection (top 10)", "PASS", crop_sel_status["message"], "pass")
-    elif crop_sel_status["status"] == "WARN":
-        _add_row("Crop selection (top 10)", "WARN", crop_sel_status["message"], "medium")
+    if _skip_restore_and_replacement:
+        crop_sel_status = {"status": "SKIP", "message": "Skipped by config"}
+        crop_rows = {}
+        _add_row(
+            "Crop selection (top 10)",
+            "SKIP",
+            "Skipped by config: kobo_options.skip_restore_and_replacement=true",
+            "info",
+        )
     else:
-        _add_row("Crop selection (top 10)", "FAIL", crop_sel_status["message"], "high")
+        _, crop_sel_status = _read_crop_choices(src, lang)
+        crop_rows_target, _ = _read_crop_choices(src, lang, strict_language=True)
+        crop_rows_en, _ = _read_crop_choices(src, "en")
+        crop_rows = _merge_crop_rows_for_multilang(crop_rows_en, crop_rows_target, lang)
+        print(f"  Crop selection: {crop_sel_status['message']}")
+        if crop_sel_status["status"] == "PASS":
+            _add_row("Crop selection (top 10)", "PASS", crop_sel_status["message"], "pass")
+        elif crop_sel_status["status"] == "WARN":
+            _add_row("Crop selection (top 10)", "WARN", crop_sel_status["message"], "medium")
+        else:
+            _add_row("Crop selection (top 10)", "FAIL", crop_sel_status["message"], "high")
 
-    if crop_rows:
-        print(f"  Crops  : {sum(len(v) for v in crop_rows.values())} entries  "
-              f"({', '.join(crop_rows)})")
+        if crop_rows:
+            print(f"  Crops  : {sum(len(v) for v in crop_rows.values())} entries  "
+                  f"({', '.join(crop_rows)})")
 
     # -- 3. Admin choices from AGOL ---------------------------------------------
     admin_rows: dict = {}
     agol_error = None
+    admin3_error = None
     try:
         admin_rows = _fetch_admin_choices(iso3)
     except Exception as e:
         agol_error = str(e)
         print(f"  Warning: AGOL fetch failed -- admin choices not updated  ({e})")
 
+    if _include_admin3 and not agol_error:
+        try:
+            admin_rows["admin3"] = _fetch_admin3_choices(iso3)
+        except Exception as e:
+            admin3_error = str(e)
+            admin_rows["admin3"] = []
+            print(f"  Warning: AGOL admin3 fetch failed -- admin3 choices not updated  ({e})")
+    elif not _include_admin3:
+        _add_row("AGOL fetch admin3", "SKIP", "Skipped by config (kobo_options.include_admin3=false)", "info")
+
     adm1_n = len(admin_rows.get("admin1", []))
     adm2_n = len(admin_rows.get("admin2", []))
+    adm3_n = len(admin_rows.get("admin3", []))
     if agol_error:
         _add_row("AGOL fetch", "FAIL", f"Fetch failed: {agol_error}", "high")
     elif adm1_n > 0 and adm2_n > 0:
         _add_row("AGOL fetch", "PASS", f"admin1={adm1_n}, admin2={adm2_n}", "pass")
     else:
         _add_row("AGOL fetch", "WARN", f"admin1={adm1_n}, admin2={adm2_n}", "medium")
+    if _include_admin3:
+        if admin3_error:
+            _add_row("AGOL fetch admin3", "FAIL", f"Fetch failed: {admin3_error}", "high")
+        elif adm3_n > 0:
+            _add_row("AGOL fetch admin3", "PASS", f"admin3={adm3_n}", "pass")
+        else:
+            _add_row("AGOL fetch admin3", "WARN", "admin3=0", "medium")
 
     country_rows = {**crop_rows, **admin_rows}
     if country_rows:
         _rebuild_choices_sheet(wb, country_rows, target_language=lang)
 
     # Verify choices replacement counts in workbook
-    for list_name in _crop_lists:
-        expected = len(crop_rows.get(list_name, []))
-        actual = _count_choices_list_rows(wb, list_name)
-        if expected > 0 and actual == expected:
-            _add_row(f"Choices replaced: {list_name}", "PASS", f"{actual} rows written", "pass")
-        elif expected == 0:
-            _add_row(f"Choices replaced: {list_name}", "FAIL", "No rows prepared from Crop list", "high")
-        else:
-            _add_row(f"Choices replaced: {list_name}", "FAIL", f"Expected {expected}, wrote {actual}", "high")
+    if _skip_restore_and_replacement:
+        for list_name in _crop_lists:
+            _add_row(f"Choices replaced: {list_name}", "SKIP", "Skipped by config", "info")
+    else:
+        for list_name in _crop_lists:
+            expected = len(crop_rows.get(list_name, []))
+            actual = _count_choices_list_rows(wb, list_name)
+            if expected > 0 and actual == expected:
+                _add_row(f"Choices replaced: {list_name}", "PASS", f"{actual} rows written", "pass")
+            elif expected == 0:
+                _add_row(f"Choices replaced: {list_name}", "FAIL", "No rows prepared from Crop list", "high")
+            else:
+                _add_row(f"Choices replaced: {list_name}", "FAIL", f"Expected {expected}, wrote {actual}", "high")
 
-    for list_name in ["admin1", "admin2"]:
+    for list_name in _admin_lists:
         expected = len(admin_rows.get(list_name, []))
         actual = _count_choices_list_rows(wb, list_name)
         if expected > 0 and actual == expected:
             _add_row(f"Choices replaced: {list_name}", "PASS", f"{actual} rows written", "pass")
         elif agol_error:
             _add_row(f"Choices replaced: {list_name}", "FAIL", "Skipped because AGOL fetch failed", "high")
+        elif list_name == "admin3" and admin3_error:
+            _add_row(f"Choices replaced: {list_name}", "FAIL", "Skipped because AGOL admin3 fetch failed", "high")
         elif expected == 0:
             _add_row(f"Choices replaced: {list_name}", "WARN", "No rows fetched from AGOL", "medium")
         else:
             _add_row(f"Choices replaced: {list_name}", "FAIL", f"Expected {expected}, wrote {actual}", "high")
+    if not _include_admin3:
+        _add_row("Choices replaced: admin3", "SKIP", "Skipped by config", "info")
 
     # -- 3b. Optional module skip from validated output -------------------------
     _skip_keys = set(globals().get("_skip_module_keys") or set())
@@ -6758,6 +7537,8 @@ def produce_validated_questionnaire(
         }
         _protected_lists.update(_crop_lists)
         _protected_lists.update({"admin1", "admin2"})
+        if _include_admin3:
+            _protected_lists.update({"admin3"})
         _protected_norm = {_normalize_list_token(v) for v in _protected_lists if _normalize_list_token(v)}
 
         _choice_lists_to_remove = {
@@ -6799,30 +7580,138 @@ def produce_validated_questionnaire(
             )
             print("  Module skip configured, but no matching rows were removed.")
 
-    # -- 4. Restore template labels for #placeholder# questions -----------------
-    #      Reset labels to canonical template form so step 5 substitutes correctly.
-    if "survey" in wb.sheetnames and reference_survey.height > 0:
-        ws_s      = wb["survey"]
-        hdr       = [str(c.value or "").strip() for c in next(ws_s.iter_rows(min_row=1, max_row=1))]
-        name_idx  = next((i for i, h in enumerate(hdr) if h == "name"), None)
-        label_col = _find_label_col(hdr, lang)
-        label_idx = hdr.index(label_col) if label_col and label_col in hdr else None
+    # -- 4/5. Restore template placeholder-bearing cells + apply replacements ---
+    #         Restore (step 4) always runs when not explicitly skipped: template
+    #         #placeholder# cells are written back to the output so unresolved
+    #         tokens surface even when no Additional information is available.
+    #         Replacement (step 5) runs only when pairs were successfully loaded.
+    _can_run_restore = not _skip_restore_and_replacement
+    _can_run_replace = _can_run_restore and bool(replacement_pairs)
 
-        if name_idx is not None and label_idx is not None:
-            ref_ph = {
-                r["Q Name"]: r["label"]
-                for r in reference_survey
-                    .filter(pl.col("label").str.contains(r"#[^#]+#"))
-                    .select(["Q Name", "label"])
-                    .iter_rows(named=True)
-            }
-            for row in ws_s.iter_rows(min_row=2):
-                qn = str(row[name_idx].value or "").strip()
-                if qn in ref_ph:
-                    row[label_idx].value = ref_ph[qn]
+    if not _skip_restore_and_replacement and replacement_pairs:
+        _add_row(
+            "Placeholder replacement input pairs",
+            "PASS",
+            f"{len(replacement_pairs)} replacement token(s) loaded",
+            "pass",
+        )
+    elif not _skip_restore_and_replacement:
+        _sev = "high" if _require_additional_info else "medium"
+        _st = "FAIL" if _require_additional_info else "WARN"
+        _add_row(
+            "Placeholder replacement input pairs",
+            _st,
+            "No replacement pairs loaded from Additional information",
+            _sev,
+        )
 
-    # -- 5. Apply #placeholder# -> actual values ---------------------------------
-    _apply_replacements_to_wb(wb, replacement_pairs)
+    if _can_run_restore:
+        _tpl_restore_path = None
+        if "run" in globals():
+            _tpl_restore_path = run.get("template_path") or run.get("reference_path")
+        if _tpl_restore_path:
+            # Pass replacement_pairs only when we have pairs (filters restore to
+            # known-replaceable tokens). Pass None when pairs are absent so ALL
+            # template placeholder cells are restored, making them visible in output.
+            _restore_stats = _restore_placeholder_tokens_from_template(
+                wb,
+                str(_tpl_restore_path),
+                replacement_pairs=replacement_pairs if _can_run_replace else None,
+            )
+            if _restore_stats.get("error"):
+                _add_row(
+                    "Placeholder vanilla restore",
+                    "FAIL",
+                    str(_restore_stats.get("error")),
+                    "high",
+                )
+            else:
+                _n_s = int(_restore_stats.get("survey_cells_restored", 0))
+                _n_c = int(_restore_stats.get("choices_cells_restored", 0))
+                _tpl_s = int(_restore_stats.get("survey_template_placeholder_cells", 0))
+                _tpl_c = int(_restore_stats.get("choices_template_placeholder_cells", 0))
+                _skp_s = int(_restore_stats.get("survey_placeholder_cells_skipped_missing_replacement", 0))
+                _skp_c = int(_restore_stats.get("choices_placeholder_cells_skipped_missing_replacement", 0))
+                _van_s = int(_restore_stats.get("survey_cells_already_vanilla", 0))
+                _van_c = int(_restore_stats.get("choices_cells_already_vanilla", 0))
+                _miss_s = int(_restore_stats.get("survey_missing_key_rows", 0))
+                _miss_c = int(_restore_stats.get("choices_missing_key_rows", 0))
+                _det = (
+                    f"Template placeholder cells survey={_tpl_s}, choices={_tpl_c}; "
+                    f"restored survey={_n_s}, choices={_n_c}; "
+                    f"skipped(no replacement) survey={_skp_s}, choices={_skp_c}; "
+                    f"already-vanilla survey={_van_s}, choices={_van_c}; "
+                    f"missing key rows survey={_miss_s}, choices={_miss_c}"
+                )
+
+                if (_miss_s + _miss_c) > 0:
+                    _sev = "high" if not replacement_pairs else "info"
+                    _st = "FAIL" if not replacement_pairs else "PASS"
+                    if replacement_pairs:
+                        _det += "; replacements loaded, so unresolved rows are still evaluated after replacement"
+                elif (_skp_s + _skp_c) > 0:
+                    _sev = "medium"
+                    _st = "WARN"
+                else:
+                    _sev = "pass"
+                    _st = "PASS"
+                _add_row(
+                    "Placeholder vanilla restore",
+                    _st,
+                    _det,
+                    _sev,
+                )
+
+                if (_miss_s + _miss_c) > 0 and not replacement_pairs:
+                    _iss_sev = "high"
+                    for _qn in (_restore_stats.get("survey_missing_qnames") or []):
+                        _add_issue_row(
+                            "replacement_restore_missing_target_row",
+                            "template survey name",
+                            str(_qn),
+                            "Template has placeholder cells but survey row is missing in current output",
+                            severity=_iss_sev,
+                            q_name=str(_qn),
+                        )
+                    for _key in (_restore_stats.get("choices_missing_keys") or []):
+                        _ln, _nm = "", ""
+                        _parts = str(_key).split("/", 1)
+                        if len(_parts) == 2:
+                            _ln, _nm = _parts[0], _parts[1]
+                        _add_issue_row(
+                            "replacement_restore_missing_target_row",
+                            "template choice key",
+                            str(_key),
+                            "Template has placeholder cells but choices row is missing in current output",
+                            severity=_iss_sev,
+                            list_name=_ln,
+                            option_name=_nm,
+                        )
+        else:
+            _add_row(
+                "Placeholder vanilla restore",
+                "FAIL",
+                "Template path unavailable; cannot restore placeholder-bearing cells",
+                "high",
+            )
+
+        # -- 5. Apply #placeholder# -> actual values ----------------------------
+        if _can_run_replace:
+            _apply_replacements_to_wb(wb, replacement_pairs)
+        else:
+            _add_row(
+                "Placeholder replacement",
+                "FAIL" if _require_additional_info else "WARN",
+                "No replacement pairs available; placeholders restored from template but not replaced",
+                "high" if _require_additional_info else "medium",
+            )
+    else:
+        _add_row(
+            "Placeholder restore/replacement",
+            "SKIP",
+            "Skipped by config: kobo_options.skip_restore_and_replacement=true",
+            "info",
+        )
 
     # Explicit choices-level replacement integrity check
     _ch_unresolved, _ch_examples = _scan_unresolved_placeholders(wb, "choices")
@@ -6837,7 +7726,26 @@ def produce_validated_questionnaire(
         _det = f"{_ch_unresolved} unresolved #placeholder# token(s) in choices"
         if _ch_examples:
             _det += " | examples: " + " ; ".join(_ch_examples)
-        _add_row("Placeholder replacement in choices", "FAIL", _det, "high")
+        if _skip_restore_and_replacement:
+            _add_row("Placeholder replacement in choices", "WARN", _det, "medium")
+        else:
+            _add_row("Placeholder replacement in choices", "FAIL", _det, "high")
+
+    _unresolved_rows = _collect_unresolved_placeholder_cells(wb)
+    if _unresolved_rows:
+        _sev = "medium" if _skip_restore_and_replacement else "high"
+        for rr in _unresolved_rows:
+            _add_issue_row(
+                "replacement_unresolved_placeholder",
+                f"{rr.get('sheet', '')}!{rr.get('cell', '')}",
+                rr.get("token_text", ""),
+                "Resolve with Additional information replacements or correct token",
+                severity=_sev,
+                q_name=rr.get("q_name", ""),
+                list_name=rr.get("list_name", ""),
+                option_name=rr.get("option_name", ""),
+                excel_row=rr.get("excel_row"),
+            )
 
     # Malformed placeholder/reference syntax check on final workbook text.
     _malformed_total = 0
@@ -6860,177 +7768,185 @@ def produce_validated_questionnaire(
             _det += " | examples: " + " ; ".join(_malformed_examples[:5])
         _add_row("Placeholder/reference syntax integrity", "FAIL", _det, "high")
 
-    # Crop label placement integrity across language columns.
-    _en_col = LANG_LABEL_COL.get("en", "label::English (en)")
-    _total_en, _blank_en = _count_blank_labels_for_lists(wb, _crop_lists, _en_col)
-    if _total_en == 0:
-        _add_row(
-            "Crop label placement (EN)",
-            "WARN",
-            f"Column '{_en_col}' not found or no crop rows present",
-            "medium",
-        )
-    elif _blank_en == 0:
-        _add_row("Crop label placement (EN)", "PASS", f"All {_total_en} crop rows have EN labels", "pass")
-    else:
-        _add_row(
-            "Crop label placement (EN)",
-            "FAIL",
-            f"{_blank_en}/{_total_en} crop rows have blank EN labels",
-            "high",
-        )
-
     _lang_norm = str(lang or "").strip().lower()
-    if _lang_norm != "en":
-        _target_col = LANG_LABEL_COL.get(_lang_norm, f"label::{lang}")
-        _total_tgt, _blank_tgt = _count_blank_labels_for_lists(wb, _crop_lists, _target_col)
-        if _total_tgt == 0:
+    if _skip_restore_and_replacement:
+        _add_row("Crop label placement (EN)", "SKIP", "Skipped by config", "info")
+        if _lang_norm != "en":
+            _add_row(f"Crop label placement ({_lang_norm.upper()})", "SKIP", "Skipped by config", "info")
+    else:
+        # Crop label placement integrity across language columns.
+        _en_col = LANG_LABEL_COL.get("en", "label::English (en)")
+        _total_en, _blank_en = _count_blank_labels_for_lists(wb, _crop_lists, _en_col)
+        if _total_en == 0:
             _add_row(
-                f"Crop label placement ({_lang_norm.upper()})",
+                "Crop label placement (EN)",
                 "WARN",
-                f"Column '{_target_col}' not found or no crop rows present",
+                f"Column '{_en_col}' not found or no crop rows present",
                 "medium",
             )
-        elif _blank_tgt == 0:
-            _add_row(
-                f"Crop label placement ({_lang_norm.upper()})",
-                "PASS",
-                f"All {_total_tgt} crop rows have {_lang_norm.upper()} labels",
-                "pass",
-            )
+        elif _blank_en == 0:
+            _add_row("Crop label placement (EN)", "PASS", f"All {_total_en} crop rows have EN labels", "pass")
         else:
             _add_row(
-                f"Crop label placement ({_lang_norm.upper()})",
+                "Crop label placement (EN)",
                 "FAIL",
-                f"{_blank_tgt}/{_total_tgt} crop rows have blank {_lang_norm.upper()} labels",
+                f"{_blank_en}/{_total_en} crop rows have blank EN labels",
                 "high",
             )
+
+        if _lang_norm != "en":
+            _target_col = LANG_LABEL_COL.get(_lang_norm, f"label::{lang}")
+            _total_tgt, _blank_tgt = _count_blank_labels_for_lists(wb, _crop_lists, _target_col)
+            if _total_tgt == 0:
+                _add_row(
+                    f"Crop label placement ({_lang_norm.upper()})",
+                    "WARN",
+                    f"Column '{_target_col}' not found or no crop rows present",
+                    "medium",
+                )
+            elif _blank_tgt == 0:
+                _add_row(
+                    f"Crop label placement ({_lang_norm.upper()})",
+                    "PASS",
+                    f"All {_total_tgt} crop rows have {_lang_norm.upper()} labels",
+                    "pass",
+                )
+            else:
+                _add_row(
+                    f"Crop label placement ({_lang_norm.upper()})",
+                    "FAIL",
+                    f"{_blank_tgt}/{_total_tgt} crop rows have blank {_lang_norm.upper()} labels",
+                    "high",
+                )
 
     wb.save(dest)
 
     # -- 6. Crop parity vs template baseline -----------------------------------
-    _tmpl_path = None
-    if "run" in globals():
-        _tmpl_path = run.get("template_path") or run.get("reference_path")
-    if not _tmpl_path:
-        _add_row(
-            "Crop template parity",
-            "FAIL",
-            "Template path is unavailable; cannot verify crop code+label parity",
-            "high",
-        )
-        for _ln in _crop_lists:
-            _add_issue(
-                _ln,
-                "Parity check unavailable (template path missing)",
-                "Template crop baseline not accessible",
+    if _skip_restore_and_replacement:
+        _add_row("Crop template parity", "SKIP", "Skipped by config", "info")
+    else:
+        _tmpl_path = None
+        if "run" in globals():
+            _tmpl_path = run.get("template_path") or run.get("reference_path")
+        if not _tmpl_path:
+            _add_row(
+                "Crop template parity",
+                "FAIL",
+                "Template path is unavailable; cannot verify crop code+label parity",
                 "high",
             )
-    else:
-        try:
-            _lang_candidates = ["en"]
-            if _lang_norm and _lang_norm not in _lang_candidates:
-                _lang_candidates.append(_lang_norm)
-            _parity_langs = [
-                _lc
-                for _lc in _lang_candidates
-                if _choices_has_language_col(dest, _lc) and _crop_list_has_language_col(str(_tmpl_path), _lc)
-            ]
+            for _ln in _crop_lists:
+                _add_issue(
+                    _ln,
+                    "Parity check unavailable (template path missing)",
+                    "Template crop baseline not accessible",
+                    "high",
+                )
+        else:
+            try:
+                _lang_candidates = ["en"]
+                if _lang_norm and _lang_norm not in _lang_candidates:
+                    _lang_candidates.append(_lang_norm)
+                _parity_langs = [
+                    _lc
+                    for _lc in _lang_candidates
+                    if _choices_has_language_col(dest, _lc) and _crop_list_has_language_col(str(_tmpl_path), _lc)
+                ]
 
-            if _parity_langs:
-                for _plang in _parity_langs:
-                    _actual_choices = read_kobo_choices(dest, _plang)
-                    _template_crop_rows, _template_crop_status = _read_crop_choices(
-                        str(_tmpl_path),
-                        _plang,
-                        strict_language=True,
+                if _parity_langs:
+                    for _plang in _parity_langs:
+                        _actual_choices = read_kobo_choices(dest, _plang)
+                        _template_crop_rows, _template_crop_status = _read_crop_choices(
+                            str(_tmpl_path),
+                            _plang,
+                            strict_language=True,
+                        )
+                        if not _template_crop_rows:
+                            raise ValueError(
+                                f"Template Crop list baseline is unavailable for language '{_plang}' "
+                                f"({_template_crop_status.get('message', 'unknown reason')})"
+                            )
+                        _actual_map = _choice_pair_set_by_list(_actual_choices, _crop_lists)
+                        _template_map = _choice_pair_set_from_rows(_template_crop_rows, _crop_lists)
+
+                        _tag = _plang.upper()
+                        for _ln in _crop_lists:
+                            _actual_set = _actual_map.get(_ln, set())
+                            _template_set = _template_map.get(_ln, set())
+                            _missing = _template_set - _actual_set
+                            _extra = _actual_set - _template_set
+                            if _missing or _extra:
+                                _det_parts = []
+                                if _missing:
+                                    _det_parts.append(f"missing={len(_missing)} ({_fmt_choice_pairs(_missing, limit=8)})")
+                                if _extra:
+                                    _det_parts.append(f"extra={len(_extra)} ({_fmt_choice_pairs(_extra, limit=8)})")
+                                _det = "; ".join(_det_parts)
+                                _add_row(f"Crop template parity ({_tag}): {_ln}", "FAIL", _det, "high")
+                                _add_issue(
+                                    _ln,
+                                    f"[{_tag}] extra in current: {_fmt_choice_pairs(_extra, limit=12)}",
+                                    f"[{_tag}] missing vs template: {_fmt_choice_pairs(_missing, limit=12)}",
+                                    "high",
+                                )
+                            else:
+                                _add_row(
+                                    f"Crop template parity ({_tag}): {_ln}",
+                                    "PASS",
+                                    f"All {_ln} code+label pairs match template baseline (order ignored)",
+                                    "pass",
+                                )
+                else:
+                    _add_row(
+                        "Crop template parity language scope",
+                        "WARN",
+                        "No shared label column between choices and template Crop list; using code-only parity",
+                        "medium",
                     )
+                    _actual_choices = read_kobo_choices(dest, "en")
+                    _template_crop_rows, _template_crop_status = _read_crop_choices(str(_tmpl_path), "en")
                     if not _template_crop_rows:
                         raise ValueError(
-                            f"Template Crop list baseline is unavailable for language '{_plang}' "
+                            "Template Crop list baseline is unavailable "
                             f"({_template_crop_status.get('message', 'unknown reason')})"
                         )
-                    _actual_map = _choice_pair_set_by_list(_actual_choices, _crop_lists)
-                    _template_map = _choice_pair_set_from_rows(_template_crop_rows, _crop_lists)
-
-                    _tag = _plang.upper()
+                    _actual_codes = _choice_code_set_by_list(_actual_choices, _crop_lists)
+                    _template_codes = _choice_code_set_from_rows(_template_crop_rows, _crop_lists)
                     for _ln in _crop_lists:
-                        _actual_set = _actual_map.get(_ln, set())
-                        _template_set = _template_map.get(_ln, set())
+                        _actual_set = _actual_codes.get(_ln, set())
+                        _template_set = _template_codes.get(_ln, set())
                         _missing = _template_set - _actual_set
                         _extra = _actual_set - _template_set
                         if _missing or _extra:
                             _det_parts = []
                             if _missing:
-                                _det_parts.append(f"missing={len(_missing)} ({_fmt_choice_pairs(_missing, limit=8)})")
+                                _det_parts.append(f"missing={len(_missing)} ({_fmt_choice_codes(_missing, limit=8)})")
                             if _extra:
-                                _det_parts.append(f"extra={len(_extra)} ({_fmt_choice_pairs(_extra, limit=8)})")
+                                _det_parts.append(f"extra={len(_extra)} ({_fmt_choice_codes(_extra, limit=8)})")
                             _det = "; ".join(_det_parts)
-                            _add_row(f"Crop template parity ({_tag}): {_ln}", "FAIL", _det, "high")
+                            _add_row(f"Crop template parity (codes): {_ln}", "FAIL", _det, "high")
                             _add_issue(
                                 _ln,
-                                f"[{_tag}] extra in current: {_fmt_choice_pairs(_extra, limit=12)}",
-                                f"[{_tag}] missing vs template: {_fmt_choice_pairs(_missing, limit=12)}",
+                                f"extra codes in current: {_fmt_choice_codes(_extra, limit=12)}",
+                                f"missing codes vs template: {_fmt_choice_codes(_missing, limit=12)}",
                                 "high",
                             )
                         else:
                             _add_row(
-                                f"Crop template parity ({_tag}): {_ln}",
+                                f"Crop template parity (codes): {_ln}",
                                 "PASS",
-                                f"All {_ln} code+label pairs match template baseline (order ignored)",
+                                f"All {_ln} crop codes match template baseline",
                                 "pass",
                             )
-            else:
-                _add_row(
-                    "Crop template parity language scope",
-                    "WARN",
-                    "No shared label column between choices and template Crop list; using code-only parity",
-                    "medium",
-                )
-                _actual_choices = read_kobo_choices(dest, "en")
-                _template_crop_rows, _template_crop_status = _read_crop_choices(str(_tmpl_path), "en")
-                if not _template_crop_rows:
-                    raise ValueError(
-                        "Template Crop list baseline is unavailable "
-                        f"({_template_crop_status.get('message', 'unknown reason')})"
-                    )
-                _actual_codes = _choice_code_set_by_list(_actual_choices, _crop_lists)
-                _template_codes = _choice_code_set_from_rows(_template_crop_rows, _crop_lists)
+            except Exception as e:
+                _add_row("Crop template parity", "FAIL", f"Comparison failed: {e}", "high")
                 for _ln in _crop_lists:
-                    _actual_set = _actual_codes.get(_ln, set())
-                    _template_set = _template_codes.get(_ln, set())
-                    _missing = _template_set - _actual_set
-                    _extra = _actual_set - _template_set
-                    if _missing or _extra:
-                        _det_parts = []
-                        if _missing:
-                            _det_parts.append(f"missing={len(_missing)} ({_fmt_choice_codes(_missing, limit=8)})")
-                        if _extra:
-                            _det_parts.append(f"extra={len(_extra)} ({_fmt_choice_codes(_extra, limit=8)})")
-                        _det = "; ".join(_det_parts)
-                        _add_row(f"Crop template parity (codes): {_ln}", "FAIL", _det, "high")
-                        _add_issue(
-                            _ln,
-                            f"extra codes in current: {_fmt_choice_codes(_extra, limit=12)}",
-                            f"missing codes vs template: {_fmt_choice_codes(_missing, limit=12)}",
-                            "high",
-                        )
-                    else:
-                        _add_row(
-                            f"Crop template parity (codes): {_ln}",
-                            "PASS",
-                            f"All {_ln} crop codes match template baseline",
-                            "pass",
-                        )
-        except Exception as e:
-            _add_row("Crop template parity", "FAIL", f"Comparison failed: {e}", "high")
-            for _ln in _crop_lists:
-                _add_issue(
-                    _ln,
-                    f"Parity check failed: {e}",
-                    "Template crop baseline comparison could not be completed",
-                    "high",
-                )
+                    _add_issue(
+                        _ln,
+                        f"Parity check failed: {e}",
+                        "Template crop baseline comparison could not be completed",
+                        "high",
+                    )
 
     print(f"  Saved  : {dest}")
 
@@ -7051,7 +7967,16 @@ def produce_validated_questionnaire(
 
 
 # -- Run ------------------------------------------------------------------------
-_validated_path, _replacement_status, _replacement_issues = produce_validated_questionnaire(cfg, reference_survey, replacement_pairs)
+_replacement_input_status = {
+    "additional_info": globals().get("_additional_info_status", {}),
+    "crop_list_probe": globals().get("_crop_compare_probe", {}),
+}
+_validated_path, _replacement_status, _replacement_issues = produce_validated_questionnaire(
+    cfg,
+    reference_survey,
+    replacement_pairs,
+    replacement_input_status=_replacement_input_status,
+)
 
 # Refresh report so Summary includes replacement status from Step 12
 if all(k in globals() for k in ["export_report", "all_issues", "_report_file", "_found_info", "rules", "critical_issues", "count_issues"]):
@@ -7072,7 +7997,7 @@ else:
     print("  Note: Replacement status prepared, but report context is not loaded in memory.")
 
 _summary(
-    all_issues  = all_issues if 'all_issues' in dir() else None,
+    all_issues  = (_all_issues_export if '_all_issues_export' in dir() else all_issues) if 'all_issues' in dir() else None,
     report_path = _report_file if '_report_file' in dir() else None,
     extra_paths = [("Validated", _validated_path)] if '_validated_path' in dir() and _validated_path else None,
 )

@@ -12,7 +12,7 @@ config_profile: ""
 # If empty, defaults to <output_dir>/config_profiles/
 config_profiles_dir: ""
 
-tool: "geopoll"
+tool: "kobo"
 
 # =============================================================================
 #  CORE SETTINGS  (used identically by both tools — change these each run)
@@ -22,13 +22,13 @@ tool: "geopoll"
 working_dir: "C:/Temp"
 
 # Current questionnaire filename (resolved under working_dir).
-questionnaire_file: "validated_questionnaire_geopoll_ar_YEM_20251013124512_TEST.xlsx"
+questionnaire_file: "NIGERIA DEAL QUESTIONNAIRE_SECOND WAVE_May_2026_en_kobo_R10.xlsx"
 
 # Language code: en | fr | ar | es
-language: "ar"
+language: "en"
 
 # ISO3 country code
-iso3: "YEM"
+iso3: "NGA"
 
 # Reference mode:
 #   latest_template -> auto-detect newest matching file in templates_dir
@@ -46,6 +46,27 @@ templates_dir: "c:/Users/edoar/WORK/FAO/repo/questionnaire_validation_revision/Q
 #   geopoll -> output_dir/geopoll_output/
 output_dir: "C:/Temp/questionnaire_validation"
 
+# Output housekeeping (runs before each validation execution).
+housekeeping:
+  enabled: true
+  dry_run: false
+
+  # Strict mode: keep limits apply immediately.
+  keep_all_for_last_days: 0
+  protect_today_files: false
+
+  # Strict retention by identical output key (tool + type + iso3 + language + round).
+  keep_reports_per_group: 3
+  keep_validated_per_group: 3
+  keep_config_snapshots_per_group: 30
+
+  # Cleanup flow:
+  # 1) Move excess files to archive
+  # 2) Delete archived files older than TTL
+  archive_before_delete: true
+  archive_dir: ""
+  delete_archives_older_than_days: 180
+
 # Module names to ignore in comparison (shared by KoBo and GeoPoll).
 # Differences inside these modules are excluded from issue reporting.
 # Accepts either module keys or visible module labels.
@@ -61,6 +82,21 @@ skip_modules_from_validated_output: []
 # =============================================================================
 
 kobo_options:
+  # Optional: include admin3 fetch/rebuild from AGOL.
+  # true  -> fetch admin3 and rebuild admin3 choices
+  # false -> skip admin3 fetch and keep existing admin3 values untouched
+  include_admin3: false
+
+  # Optional: skip placeholder restore/replacement and crop-list rebuild.
+  # true  -> keep already-personalized values as-is; do not use Additional information/Crop list
+  # false -> run restore vanilla -> replace placeholders -> crop/admin rebuild
+  skip_restore_and_replacement: false
+
+  # Strict input requirements (applied when skip_restore_and_replacement=false).
+  # If true and input is missing, validation reports explicit replacement input failures.
+  require_additional_info: true
+  require_crop_list: true
+
   # Choice list names treated as country-parameter lists (crop/admin/etc).
   country_specific_list_names:
     - "crop"
@@ -68,6 +104,7 @@ kobo_options:
     - "crop3"
     - "admin1"
     - "admin2"
+    - "admin3"
     - "crp_main_sales2"
 
   # Question names to skip from option-level comparison (temporary operational fields).
@@ -78,3 +115,5 @@ kobo_options:
 # Report metadata
 validation_number: 1
 user_name: "Edoardo"
+
+
