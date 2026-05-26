@@ -1,0 +1,24 @@
+# Admin standalone tools configuration
+# - source.mode: "standard" -> use latest validated output automatically
+# - source.mode: "custom"   -> use source.file_name from custom_dir/validated_dir/working_dir/output_dir
+
+tool: kobo
+iso3: NGA
+language: en
+include_admin3: false
+dry_run: false
+
+# Optional explicit folders; leave blank to use defaults from validation_config.yaml.
+validated_dir: ""
+output_dir: "C:/Temp/questionnaire_validation/admin_tools_output"
+
+source:
+  mode: standard
+  # In custom mode you can provide only a file name (e.g. from C:/Temp).
+  file_name: ""
+  # Optional folder priority for custom mode.
+  custom_dir: "C:/Temp"
+
+sync:
+  mode: subset_from_agol
+  preserve_my_filter_sample: true

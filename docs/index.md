@@ -25,3 +25,4 @@ For documentation: run `.\documentation` from the repo root to open this site at
 | [Severity Reference](workflow/checks-and-severity.md) | Severity levels, dynamic severity logic, issue index by sheet |
 | [GeoPoll Logic](workflow/geopoll-logic.md) | All GeoPoll sheets with issue cards and report screenshots |
 | [KoBo Logic](workflow/kobo-logic.md) | All KoBo sheets with issue cards and report screenshots |
+| [Admin Tools](tools/admin-tools.md) | Standalone tools for checking and updating admin boundary lists against AGOL |

@@ -57,6 +57,24 @@ documentation
 validate
 ```
 
+## Admin Standalone Tools
+
+Two standalone admin utilities are available from the repository root:
+
+```powershell
+tool_admin_check
+tool_admin_sync
+```
+
+Both read options from `configuration/admin_tools_config.yaml`.
+
+Source selection is controlled by:
+- `source.mode: standard` -> auto-use latest validated output
+- `source.mode: custom` -> use `source.file_name` (file name is enough; searched in `source.custom_dir`, validated/output/working dirs)
+
+- `tool_admin_check`: compares current admin lists in the selected validated questionnaire against AGOL and exports mismatch reports.
+- `tool_admin_sync`: creates a new questionnaire file using one of the sync modes (`keep_previous`, `subset_from_agol`, `full_from_agol`).
+
 ## Essential Workflow
 
 1. Select tool: `kobo` or `geopoll`.

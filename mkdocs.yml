@@ -65,3 +65,5 @@ nav:
       - Overview: report-output/index.md
       - GeoPoll Report: report-output/geopoll-report.md
       - KoBo Report: report-output/kobo-report.md
+  - Tools:
+      - Admin Tools: tools/admin-tools.md

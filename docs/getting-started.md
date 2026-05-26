@@ -88,6 +88,28 @@ questionnaire_file: "my_questionnaire_en_AFG_20260101.xlsx"
 
 The validator reads the file from `working_dir/questionnaire_file`. If the file is not found at that path, the run will stop with an error.
 
+## 4. Admin Tools (Optional)
+
+Two standalone tools — `tool_admin_check` and `tool_admin_sync` — are available for checking and updating the admin boundary lists in a validated questionnaire. They have their own configuration file: `configuration/admin_tools_config.yaml`.
+
+The minimum settings to review before running either tool:
+
+| Setting | What it controls |
+|---|---|
+| `iso3` | Country code — must match the questionnaire you are checking |
+| `language` | Language code (`en`, `fr`, `ar`, `es`) — controls which label column is read |
+| `source.mode` | `standard` to auto-pick the latest validated output, `custom` to specify a file by name |
+| `output_dir` | Where the check report or synced file will be written |
+
+Run from the repository root with the environment active:
+
+```powershell
+tool_admin_check   # compare questionnaire admin lists against AGOL
+tool_admin_sync    # create a new questionnaire file with admin lists updated from AGOL
+```
+
+See [Admin Tools](tools/admin-tools.md) for the full reference.
+
 ## Environment Contents
 
 | Package | Purpose |
