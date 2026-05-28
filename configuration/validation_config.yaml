@@ -12,7 +12,7 @@ config_profile: ""
 # If empty, defaults to <output_dir>/config_profiles/
 config_profiles_dir: ""
 
-tool: "kobo"
+tool: "geopoll"
 
 # =============================================================================
 #  CORE SETTINGS  (used identically by both tools — change these each run)
@@ -22,13 +22,13 @@ tool: "kobo"
 working_dir: "C:/Temp"
 
 # Current questionnaire filename (resolved under working_dir).
-questionnaire_file: "NIGERIA DEAL QUESTIONNAIRE_SECOND WAVE_May_2026_en_kobo_R10.xlsx"
+questionnaire_file: "DiEM questionnaire 2026_26may_PSE_R2_ar.xlsx"
 
 # Language code: en | fr | ar | es
-language: "en"
+language: "ar"
 
 # ISO3 country code
-iso3: "NGA"
+iso3: "PSE"
 
 # Reference mode:
 #   latest_template -> auto-detect newest matching file in templates_dir
