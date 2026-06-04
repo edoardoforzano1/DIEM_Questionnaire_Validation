@@ -170,8 +170,8 @@ def _rewrite_admin_choices(ws, entries_per_list, language: str, preserve_sample:
         if c in idx:
             parent_col = idx[c]
             break
-    if parent_col is None and n_cols >= 5:
-        parent_col = 4
+    # No magic column-index fallback: if no known filter column is found, leave parent_col=None
+    # and the write step will skip parent values rather than writing into the wrong column.
     sample_col = idx.get("my_filter_sample")
 
     skip = set(entries_per_list.keys())
@@ -242,6 +242,9 @@ def run(cfg: dict) -> int:
     out_file = out_dir / f"{source.stem}_adminsync_{sync_mode}_{now_stamp()}.xlsx"
 
     if sync_mode == "keep_previous":
+        if dry_run:
+            print("  dry_run     : true (no file written)")
+            return 0
         copy2(source, out_file)
         print("  mode        : keep_previous (no admin edits)")
         print(f"  output      : {out_file}")

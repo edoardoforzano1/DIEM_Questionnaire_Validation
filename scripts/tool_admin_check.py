@@ -4,6 +4,19 @@ import argparse
 from collections import defaultdict
 from pathlib import Path
 
+_ISSUE_FIELDS = [
+    "issue_type",
+    "severity",
+    "list_name",
+    "code",
+    "current_label",
+    "agol_label",
+    "current_parent",
+    "agol_parent",
+    "source_row",
+    "details",
+]
+
 import openpyxl
 from openpyxl import Workbook
 
@@ -212,21 +225,9 @@ def _write_check_report(out_xlsx: Path, issues: list[dict], summary_rows: list[d
             r["parent_mismatch"],
         ])
 
-    headers = [
-        "issue_type",
-        "severity",
-        "list_name",
-        "code",
-        "current_label",
-        "agol_label",
-        "current_parent",
-        "agol_parent",
-        "source_row",
-        "details",
-    ]
-    ws_det.append(headers)
+    ws_det.append(_ISSUE_FIELDS)
     for row in issues:
-        ws_det.append([row.get(h, "") for h in headers])
+        ws_det.append([row.get(h, "") for h in _ISSUE_FIELDS])
 
     out_xlsx.parent.mkdir(parents=True, exist_ok=True)
     wb.save(out_xlsx)
@@ -270,8 +271,10 @@ def run(cfg: dict) -> int:
         )
 
     out_dir = Path(str(cfg.get("output_dir")))
-    out_xlsx = out_dir / f"admin_check_report_{Path(source).stem}_{now_stamp()}.xlsx"
-    out_csv = out_dir / f"admin_check_report_{Path(source).stem}_{now_stamp()}.csv"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    _stamp = now_stamp()
+    out_xlsx = out_dir / f"admin_check_report_{Path(source).stem}_{_stamp}.xlsx"
+    out_csv = out_dir / f"admin_check_report_{Path(source).stem}_{_stamp}.csv"
     _write_check_report(
         out_xlsx=out_xlsx,
         issues=all_issues,
@@ -286,26 +289,12 @@ def run(cfg: dict) -> int:
         },
     )
 
-    out_dir.mkdir(parents=True, exist_ok=True)
+    import csv
     with out_csv.open("w", encoding="utf-8", newline="") as f:
-        headers = [
-            "issue_type",
-            "severity",
-            "list_name",
-            "code",
-            "current_label",
-            "agol_label",
-            "current_parent",
-            "agol_parent",
-            "source_row",
-            "details",
-        ]
-        import csv
-
-        w = csv.DictWriter(f, fieldnames=headers)
+        w = csv.DictWriter(f, fieldnames=_ISSUE_FIELDS)
         w.writeheader()
         for row in all_issues:
-            w.writerow({h: row.get(h, "") for h in headers})
+            w.writerow({h: row.get(h, "") for h in _ISSUE_FIELDS})
 
     print(f"  issues      : {len(all_issues)}")
     for r in summary_rows:

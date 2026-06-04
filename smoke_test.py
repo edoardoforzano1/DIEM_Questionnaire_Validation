@@ -95,15 +95,21 @@ def _check_inputs(cfg: dict) -> None:
 
     reference_mode = str(cfg.get("reference_mode") or "latest_template")
     if reference_mode == "latest_template":
-        tpl_dir = Path(str(cfg.get("templates_dir") or ""))
-        tpl_ok = _check("templates_dir exists", tpl_dir.exists(), str(tpl_dir))
-        if tpl_ok:
-            tpl_files = list(tpl_dir.glob("*.xlsx"))
-            _check("templates_dir contains .xlsx files", bool(tpl_files), f"{len(tpl_files)} found")
+        tpl_dir_raw = str(cfg.get("templates_dir") or "").strip()
+        if not tpl_dir_raw:
+            _check("templates_dir configured", False, "key missing or empty in validation_config.yaml")
+        else:
+            tpl_dir = Path(tpl_dir_raw)
+            tpl_ok = _check("templates_dir exists", tpl_dir.exists(), str(tpl_dir))
+            if tpl_ok:
+                tpl_files = list(tpl_dir.glob("*.xlsx"))
+                _check("templates_dir contains .xlsx files", bool(tpl_files), f"{len(tpl_files)} found")
     elif reference_mode == "previous_round":
         prev_file = str(cfg.get("previous_round_file") or "")
         prev_path = Path(prev_file) if Path(prev_file).is_absolute() else working_dir / prev_file
         _check("previous_round_file exists", prev_path.exists(), str(prev_path))
+    else:
+        _check("reference_mode is valid", False, f"unrecognised value {reference_mode!r} — expected 'latest_template' or 'previous_round'")
 
 
 def _run_validator() -> bool:
@@ -144,7 +150,7 @@ def _check_report(cfg: dict) -> None:
     today = time.strftime("%Y%m%d")
 
     candidates = sorted(
-        out_dir.glob(f"report_{tool}_{language}_{iso3}*{today}.xlsx"),
+        out_dir.glob(f"report_{tool}_{language}_{iso3}*{today}*.xlsx"),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
@@ -200,7 +206,7 @@ def _check_validated_questionnaire(cfg: dict) -> None:
     today = time.strftime("%Y%m%d")
 
     candidates = sorted(
-        out_dir.glob(f"validated_questionnaire_kobo_{language}_{iso3}*{today}.xlsx"),
+        out_dir.glob(f"validated_questionnaire_kobo_{language}_{iso3}*{today}*.xlsx"),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
@@ -232,7 +238,9 @@ def _check_admin_config() -> None:
         _check("admin_tools_config.yaml parses", False, str(exc))
         return
     _check("admin_tools_config.yaml parses", True)
-    _check("iso3 configured", bool(str(admin_cfg.get("iso3") or "").strip()))
+    val_cfg = yaml.safe_load(CFG_PATH.read_text(encoding="utf-8")) or {} if CFG_PATH.exists() else {}
+    iso3_value = str(admin_cfg.get("iso3") or val_cfg.get("iso3") or "").strip()
+    _check("iso3 configured", bool(iso3_value))
     source_mode = str((admin_cfg.get("source") or {}).get("mode") or "standard").lower()
     _check("source.mode is valid", source_mode in {"standard", "custom"}, f"got {source_mode!r}")
     sync_mode = str((admin_cfg.get("sync") or {}).get("mode") or "subset_from_agol").lower()

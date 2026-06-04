@@ -447,8 +447,8 @@ def _normalize_mandatory(val) -> str:
 def read_kobo_survey(path: str, language: str = "en", _wb=None) -> pl.DataFrame:
     EMPTY = {
         "Q Name": pl.Utf8, "Q Type": pl.Utf8, "list_name": pl.Utf8,
-        "module_key": pl.Utf8, "module": pl.Utf8,
-        "label": pl.Utf8, "required": pl.Utf8, "mandatory_category": pl.Utf8,
+        "module_key": pl.Utf8, "module": pl.Utf8, "module_en": pl.Utf8,
+        "label": pl.Utf8, "label_en": pl.Utf8, "required": pl.Utf8, "mandatory_category": pl.Utf8,
         "relevant": pl.Utf8, "constraint": pl.Utf8, "choice_filter": pl.Utf8,
         "appearance": pl.Utf8, "calculation": pl.Utf8, "hint": pl.Utf8,
         "excel_row": pl.Int64, "source_file": pl.Utf8,
@@ -489,12 +489,15 @@ def read_kobo_survey(path: str, language: str = "en", _wb=None) -> pl.DataFrame:
         if any(type_norm.startswith(t) for t in _GROUP_BEGIN_TYPES):
             module_key = q_name
             module_label = str(get(row, label_col) or "").strip() if label_col else ""
-            if not module_label and label_col_en:
-                module_label = str(get(row, label_col_en) or "").strip()
+            module_label_en = str(get(row, label_col_en) or "").strip() if label_col_en else ""
+            if not module_label and module_label_en:
+                module_label = module_label_en
             if not module_label:
                 module_label = module_key
+            if not module_label_en:
+                module_label_en = module_label
             if module_key:
-                module_stack.append((module_key, module_label))
+                module_stack.append((module_key, module_label, module_label_en))
             continue
 
         if any(type_norm.startswith(t) for t in _GROUP_END_TYPES):
@@ -541,6 +544,7 @@ def read_kobo_survey(path: str, language: str = "en", _wb=None) -> pl.DataFrame:
 
         module_key = module_stack[-1][0] if module_stack else ""
         module_label = module_stack[-1][1] if module_stack else ""
+        module_label_en = module_stack[-1][2] if module_stack else ""
 
         records.append({
             "Q Name"            : q_name,
@@ -548,7 +552,9 @@ def read_kobo_survey(path: str, language: str = "en", _wb=None) -> pl.DataFrame:
             "list_name"         : list_name,
             "module_key"        : module_key,
             "module"            : module_label,
+            "module_en"         : module_label_en,
             "label"             : str(get(row, label_col) or "") if label_col else "",
+            "label_en"          : str(get(row, label_col_en) or "") if label_col_en else "",
             "required"          : str(get(row, "required")    or "").strip().lower(),
             "mandatory_category": mand_cat,
             "relevant"          : str(get(row, "relevant")    or "").strip(),
@@ -955,6 +961,91 @@ _step("Placeholder normalisation")
 _PLACEHOLDER_RE = re.compile(r'#[^#]+#')
 
 
+def _normalize_additional_info_header(value) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip()).lower()
+
+
+def _additional_info_replacement_indexes(headers: list[str]) -> dict[str, int | None]:
+    norm_headers = [_normalize_additional_info_header(h) for h in headers]
+    generic_idx = next((i for i, h in enumerate(norm_headers) if h == "replacement"), None)
+
+    out: dict[str, int | None] = {}
+    for lang in ("en", "fr", "ar", "es"):
+        candidates = {
+            f"replacement ({lang})",
+            f"replacement {lang}",
+            f"replacement({lang})",
+        }
+        out[lang] = next((i for i, h in enumerate(norm_headers) if h in candidates), None)
+        if out[lang] is None and generic_idx is not None:
+            out[lang] = generic_idx
+    return out
+
+
+def _placeholder_aliases(s: str) -> set[str]:
+    """Generate tolerant alias tokens (case + simple singular/plural) for replacements."""
+    s = (s or "").strip()
+    if not s:
+        return set()
+    aliases = {s, s.lower(), s.upper()}
+    low = s.lower()
+    if low.endswith("s") and len(s) > 1:
+        stem = s[:-1]
+        aliases |= {stem, stem.lower(), stem.upper()}
+    else:
+        plus = s + "s"
+        aliases |= {plus, plus.lower(), plus.upper()}
+    return aliases
+
+
+def read_additional_info_all_languages(country_path: str) -> dict[str, dict[str, str]]:
+    """Read Additional information replacements for each workbook language column."""
+    out = {lang: {} for lang in ("en", "fr", "ar", "es")}
+    try:
+        wb = openpyxl.load_workbook(country_path, data_only=True, read_only=True)
+        if "Additional information" not in wb.sheetnames:
+            wb.close()
+            return out
+        ws = wb["Additional information"]
+        rows = list(ws.iter_rows(values_only=True))
+        wb.close()
+    except Exception:
+        return out
+
+    if len(rows) < 2:
+        return out
+
+    headers = [str(h).strip() if h is not None else "" for h in rows[1]]
+    orig_idx = next((i for i, h in enumerate(headers) if _normalize_additional_info_header(h).startswith("original")), None)
+    if orig_idx is None:
+        return out
+
+    replacement_idx_by_lang = _additional_info_replacement_indexes(headers)
+
+    for row in rows[2:]:
+        orig = row[orig_idx] if orig_idx < len(row) else None
+        if not orig or str(orig).strip() == "":
+            continue
+        row_pairs: dict[str, str] = {}
+        for lang, repl_idx in replacement_idx_by_lang.items():
+            if repl_idx is None or repl_idx >= len(row):
+                continue
+            repl = row[repl_idx]
+            repl_str = str(repl).strip() if repl is not None else ""
+            if repl_str in ("", "nan", "None"):
+                continue
+            row_pairs[lang] = repl_str
+
+        if not row_pairs:
+            continue
+
+        for lang, repl_str in row_pairs.items():
+            for alias in _placeholder_aliases(str(orig)):
+                out[lang][f"#{alias}#"] = repl_str
+
+    return out
+
+
 def read_additional_info_with_status(
     country_path: str,
     language: str = "en",
@@ -994,35 +1085,14 @@ def read_additional_info_with_status(
         return {}, status
     headers = [str(h).strip() if h is not None else "" for h in rows[1]]
 
-    orig_idx = next((i for i, h in enumerate(headers) if h.lower().startswith("original")), None)
-    if language == "fr":
-        repl_idx = next((i for i, h in enumerate(headers) if "replacement" in h.lower() and "fr" in h.lower()), None)
-    elif language == "ar":
-        repl_idx = next((i for i, h in enumerate(headers) if "replacement" in h.lower() and "ar" in h.lower()), None)
-    else:
-        repl_idx = next((i for i, h in enumerate(headers) if h.lower() == "replacement"), None)
-        if repl_idx is None:
-            repl_idx = next((i for i, h in enumerate(headers) if "replacement" in h.lower()), None)
+    orig_idx = next((i for i, h in enumerate(headers) if _normalize_additional_info_header(h).startswith("original")), None)
+    replacement_idx_by_lang = _additional_info_replacement_indexes(headers)
+    repl_idx = replacement_idx_by_lang.get(str(language or "en").strip().lower())
 
     if orig_idx is None or repl_idx is None:
         status["message"] = "Original/Replacement columns not found in Additional information sheet"
         return {}, status
     status["headers_found"] = True
-
-    def _placeholder_aliases(s: str) -> set[str]:
-        """Generate tolerant alias tokens (case + simple singular/plural) for replacements."""
-        s = (s or "").strip()
-        if not s:
-            return set()
-        aliases = {s, s.lower(), s.upper()}
-        low = s.lower()
-        if low.endswith("s") and len(s) > 1:
-            stem = s[:-1]
-            aliases |= {stem, stem.lower(), stem.upper()}
-        else:
-            plus = s + "s"
-            aliases |= {plus, plus.lower(), plus.upper()}
-        return aliases
 
     pairs: dict[str, str] = {}
     missing_rows: list[dict] = []
@@ -1320,7 +1390,7 @@ def replace_choice_lists_for_compare(choices_df: pl.DataFrame, country_rows: dic
 
 
 # --- CODE CELL 7 ---
-_VANILLA_COLS_SURVEY  = ["label", "constraint", "hint"]
+_VANILLA_COLS_SURVEY  = ["label", "label_en", "constraint", "hint"]
 _VANILLA_COLS_OPTIONS = ["option_label"]
 
 _replacement_input_issues_rows: list[dict] = []
@@ -1361,6 +1431,7 @@ def _count_hash_placeholders_in_text_df(df: pl.DataFrame, cols: list[str]) -> in
 
 if _cfg_skip_restore_and_replacement:
     replacement_pairs = {}
+    replacement_pairs_by_language = {lang: {} for lang in ("en", "fr", "ar", "es")}
     _additional_info_status = {
         "sheet_found": False,
         "headers_found": False,
@@ -1385,6 +1456,9 @@ if _cfg_skip_restore_and_replacement:
     print("Replacement preprocessing skipped by config.")
 else:
     # Read placeholder replacements from current questionnaire Additional information sheet
+    replacement_pairs_by_language = read_additional_info_all_languages(
+        run["questionnaire_path"],
+    )
     replacement_pairs, _additional_info_status = read_additional_info_with_status(
         run["questionnaire_path"],
         run["language"],
@@ -1393,6 +1467,13 @@ else:
     for k, v in replacement_pairs.items():
         print(f"  {k!r}  ->  {v!r}")
     print(f"Additional information status: {_additional_info_status.get('message', '')}")
+    _pair_counts = ", ".join(
+        f"{lang.upper()}={len(pairs)}"
+        for lang, pairs in replacement_pairs_by_language.items()
+        if pairs
+    )
+    if _pair_counts:
+        print(f"Additional information pairs by language: {_pair_counts}")
 
     # Probe Crop list availability early so missing inputs are flagged before output generation.
     _, _crop_compare_probe = read_crop_choice_rows_for_compare_with_status(
@@ -1702,20 +1783,123 @@ def compare_list_name_changes(current, reference):
     return result if result.height > 0 else pl.DataFrame(schema=EMPTY)
 
 
-def compare_question_labels(current_vanilla, reference, current_orig=None):
+def compare_question_labels(current_vanilla, reference, current_orig=None, language: str = "en"):
     """
-    Compare question label text.
-    current_vanilla: current survey with #placeholder# tokens restored (no false positives).
-    current_orig   : original current survey -- used so the report shows the actual filled-in label.
+    Compare question label text across both English and the target language.
+
+    current_vanilla: current survey with #placeholder# tokens restored (avoids false positives on
+                     target-language labels; EN labels are taken as-is from the questionnaire).
+    current_orig   : original current survey — used so the report shows actual filled-in values.
+    language       : configured language code (e.g. "en", "ar", "fr").
+
+    When language != "en" and label_en is present in both DataFrames, the function compares
+    both columns independently and sets lang_scope to "EN only", "<LANG> only", or
+    "EN + <LANG>" so the report clearly identifies which language(s) have a mismatch.
     """
     EMPTY = {
         "issue_type": pl.Utf8, "set_name": pl.Utf8, "Q Name": pl.Utf8,
         "field": pl.Utf8, "current": pl.Utf8, "reference": pl.Utf8,
-        "severity": pl.Utf8, "excel_row": pl.Int64,
+        "current_lang": pl.Utf8, "reference_lang": pl.Utf8,
+        "lang_scope": pl.Utf8, "severity": pl.Utf8, "excel_row": pl.Int64,
     }
     if "label" not in current_vanilla.columns or "label" not in reference.columns:
         return pl.DataFrame(schema=EMPTY)
 
+    _lang = str(language or "en").strip().lower()
+    _lang_tag = _lang.upper()
+    dual = (
+        _lang != "en"
+        and "label_en" in current_vanilla.columns
+        and "label_en" in reference.columns
+    )
+
+    if dual:
+        joined = (
+            current_vanilla.select(["Q Name", "label", "label_en", "excel_row"])
+            .join(
+                reference.select(["Q Name", "label", "label_en"]),
+                on="Q Name", how="inner", suffix="_ref",
+            )
+            .with_columns([
+                normalize_text_expr("label").alias("_norm_tgt"),
+                normalize_text_expr("label_ref").alias("_norm_tgt_ref"),
+                normalize_text_expr("label_en").alias("_norm_en"),
+                normalize_text_expr("label_en_ref").alias("_norm_en_ref"),
+            ])
+        )
+        _en_diff = (pl.col("_norm_en") != pl.col("_norm_en_ref")) & (pl.col("label_en_ref") != "")
+        _tgt_diff = (pl.col("_norm_tgt") != pl.col("_norm_tgt_ref")) & (pl.col("label_ref") != "")
+        diff = (
+            joined
+            .filter(_en_diff | _tgt_diff)
+            .drop(["_norm_tgt", "_norm_tgt_ref", "_norm_en", "_norm_en_ref"])
+        )
+        if diff.height == 0:
+            return pl.DataFrame(schema=EMPTY)
+
+        # Replace vanilla labels with actual filled-in values for display
+        if current_orig is not None:
+            orig_cols = {"Q Name"}
+            if "label" in current_orig.columns:
+                orig_cols.add("label")
+            if "label_en" in current_orig.columns:
+                orig_cols.add("label_en")
+            if len(orig_cols) > 1:
+                orig = current_orig.select(list(orig_cols))
+                rename_map = {}
+                if "label" in orig_cols:
+                    rename_map["label"] = "_actual_tgt"
+                if "label_en" in orig_cols:
+                    rename_map["label_en"] = "_actual_en"
+                orig = orig.rename(rename_map)
+                diff = diff.join(orig, on="Q Name", how="left")
+                if "_actual_tgt" in diff.columns:
+                    diff = diff.with_columns(
+                        pl.when(pl.col("_actual_tgt").is_not_null())
+                        .then(pl.col("_actual_tgt"))
+                        .otherwise(pl.col("label"))
+                        .alias("label")
+                    ).drop("_actual_tgt")
+                if "_actual_en" in diff.columns:
+                    diff = diff.with_columns(
+                        pl.when(pl.col("_actual_en").is_not_null())
+                        .then(pl.col("_actual_en"))
+                        .otherwise(pl.col("label_en"))
+                        .alias("label_en")
+                    ).drop("_actual_en")
+
+        # Recompute diff flags on the (possibly orig-substituted) display values
+        _en_diff_disp = (
+            (normalize_text_expr("label_en").str.strip_chars() != normalize_text_expr("label_en_ref").str.strip_chars())
+            & (pl.col("label_en_ref").cast(pl.Utf8).fill_null("").str.strip_chars() != "")
+        )
+        _tgt_diff_disp = (
+            (normalize_text_expr("label").str.strip_chars() != normalize_text_expr("label_ref").str.strip_chars())
+            & (pl.col("label_ref").cast(pl.Utf8).fill_null("").str.strip_chars() != "")
+        )
+        return (
+            diff
+            .with_columns([
+                pl.lit("label_mismatch").alias("issue_type"),
+                pl.lit("").alias("set_name"),
+                pl.lit("label").alias("field"),
+                pl.col("label_en").cast(pl.Utf8).fill_null("").alias("current"),
+                pl.col("label_en_ref").cast(pl.Utf8).fill_null("").alias("reference"),
+                pl.col("label").cast(pl.Utf8).fill_null("").alias("current_lang"),
+                pl.col("label_ref").cast(pl.Utf8).fill_null("").alias("reference_lang"),
+                pl.when(_en_diff_disp & _tgt_diff_disp).then(pl.lit(f"EN + {_lang_tag}"))
+                .when(_en_diff_disp).then(pl.lit("EN only"))
+                .when(_tgt_diff_disp).then(pl.lit(f"{_lang_tag} only"))
+                .otherwise(pl.lit(""))
+                .alias("lang_scope"),
+                pl.lit("medium").alias("severity"),
+            ])
+            .select(["issue_type", "set_name", "Q Name", "field",
+                     "current", "reference", "current_lang", "reference_lang",
+                     "lang_scope", "severity", "excel_row"])
+        )
+
+    # Single-language path: EN questionnaire or label_en not available in both DataFrames
     diff = (
         current_vanilla.select(["Q Name", "label", "excel_row"])
         .join(reference.select(["Q Name", "label"]), on="Q Name", how="inner", suffix="_ref")
@@ -1723,18 +1907,16 @@ def compare_question_labels(current_vanilla, reference, current_orig=None):
             normalize_text_expr("label").alias("_norm"),
             normalize_text_expr("label_ref").alias("_norm_ref"),
         ])
-        .filter(pl.col("_norm") != pl.col("_norm_ref"))
-        .filter(pl.col("label_ref") != "")
+        .filter((pl.col("_norm") != pl.col("_norm_ref")) & (pl.col("label_ref") != ""))
         .drop(["_norm", "_norm_ref"])
     )
     if diff.height == 0:
         return pl.DataFrame(schema=EMPTY)
 
-    # Replace vanilla label with the actual filled-in label for display in the report
     if current_orig is not None and "label" in current_orig.columns:
-        orig_labels = current_orig.select(["Q Name", "label"]).rename({"label": "_actual"})
+        orig = current_orig.select(["Q Name", "label"]).rename({"label": "_actual"})
         diff = (
-            diff.join(orig_labels, on="Q Name", how="left")
+            diff.join(orig, on="Q Name", how="left")
             .with_columns(
                 pl.when(pl.col("_actual").is_not_null())
                 .then(pl.col("_actual"))
@@ -1752,9 +1934,14 @@ def compare_question_labels(current_vanilla, reference, current_orig=None):
             pl.lit("label").alias("field"),
             pl.col("label").alias("current"),
             pl.col("label_ref").alias("reference"),
+            pl.lit("").alias("current_lang"),
+            pl.lit("").alias("reference_lang"),
+            pl.lit("").alias("lang_scope"),
             pl.lit("medium").alias("severity"),
         ])
-        .select(["issue_type", "set_name", "Q Name", "field", "current", "reference", "severity", "excel_row"])
+        .select(["issue_type", "set_name", "Q Name", "field",
+                 "current", "reference", "current_lang", "reference_lang",
+                 "lang_scope", "severity", "excel_row"])
     )
 
 
@@ -2526,7 +2713,7 @@ def validate_questionnaire_structure(
             .group_by("_q")
             .agg([
                 pl.len().alias("_n"),
-                pl.col("excel_row").min().alias("_row"),
+                pl.col("excel_row").max().alias("_row"),
             ])
             .filter(pl.col("_n") > 1)
         )
@@ -2703,6 +2890,7 @@ def _module_rows_from_survey(survey_df: pl.DataFrame) -> pl.DataFrame:
         "module_key_norm": pl.Utf8,
         "module_key": pl.Utf8,
         "module": pl.Utf8,
+        "module_en": pl.Utf8,
         "excel_row": pl.Int64,
     }
     if (
@@ -2712,6 +2900,11 @@ def _module_rows_from_survey(survey_df: pl.DataFrame) -> pl.DataFrame:
         or "module" not in survey_df.columns
     ):
         return pl.DataFrame(schema=schema)
+
+    has_module_en = "module_en" in survey_df.columns
+    select_cols = ["module_key_norm", "module_key", "module", "excel_row"]
+    if has_module_en:
+        select_cols = ["module_key_norm", "module_key", "module", "module_en", "excel_row"]
 
     rows = (
         survey_df
@@ -2723,21 +2916,28 @@ def _module_rows_from_survey(survey_df: pl.DataFrame) -> pl.DataFrame:
             .otherwise(pl.col("module_key").cast(pl.Utf8))
             .alias("module")
         )
-        .select(["module_key_norm", "module_key", "module", "excel_row"])
+        .select(select_cols)
     )
     if rows.height == 0:
         return pl.DataFrame(schema=schema)
 
-    return (
+    agg_exprs = [
+        pl.col("module_key").first().alias("module_key"),
+        pl.col("module").first().alias("module"),
+        pl.col("excel_row").min().alias("excel_row"),
+    ]
+    if has_module_en:
+        agg_exprs.append(pl.col("module_en").first().alias("module_en"))
+
+    result = (
         rows
         .sort(["module_key_norm", "excel_row"])
         .group_by("module_key_norm")
-        .agg([
-            pl.col("module_key").first().alias("module_key"),
-            pl.col("module").first().alias("module"),
-            pl.col("excel_row").min().alias("excel_row"),
-        ])
+        .agg(agg_exprs)
     )
+    if "module_en" not in result.columns:
+        result = result.with_columns(pl.lit("").alias("module_en"))
+    return result
 
 
 def validate_module_presence(
@@ -2752,7 +2952,8 @@ def validate_module_presence(
     """
     schema = {
         "issue_type": pl.Utf8, "set_name": pl.Utf8, "Q Name": pl.Utf8,
-        "module": pl.Utf8, "field": pl.Utf8, "current": pl.Utf8, "reference": pl.Utf8,
+        "module": pl.Utf8, "module_en": pl.Utf8, "field": pl.Utf8,
+        "current": pl.Utf8, "reference": pl.Utf8,
         "severity": pl.Utf8, "excel_row": pl.Int64,
     }
 
@@ -2773,12 +2974,14 @@ def validate_module_presence(
     for key in sorted(tpl_keys - cur_keys):
         src = tpl_map.get(key, {})
         module_label = str(src.get("module") or src.get("module_key") or key)
+        module_label_en = str(src.get("module_en") or module_label)
         module_key = str(src.get("module_key") or key)
         rows.append({
             "issue_type": "module_removed",
             "set_name": "questionnaire_structure",
             "Q Name": "",
             "module": module_label,
+            "module_en": module_label_en,
             "field": "module",
             "current": "missing_in_current",
             "reference": f"Required by template: {module_key}",
@@ -2789,12 +2992,14 @@ def validate_module_presence(
     for key in sorted(cur_keys - ref_keys):
         src = cur_map.get(key, {})
         module_label = str(src.get("module") or src.get("module_key") or key)
+        module_label_en = str(src.get("module_en") or module_label)
         module_key = str(src.get("module_key") or key)
         rows.append({
             "issue_type": "module_added",
             "set_name": "questionnaire_structure",
             "Q Name": "",
             "module": module_label,
+            "module_en": module_label_en,
             "field": "module",
             "current": f"present: {module_key}",
             "reference": "missing_in_reference",
@@ -2837,6 +3042,21 @@ def _attach_module_column_to_issues(
             .select(["Q Name", "_module_from_qname", "_p"])
         )
 
+    def _lookup_part_en(df: pl.DataFrame, priority: int) -> pl.DataFrame:
+        if df is None or df.height == 0 or "Q Name" not in df.columns or "module_en" not in df.columns:
+            return pl.DataFrame(schema={"Q Name": pl.Utf8, "_module_en_from_qname": pl.Utf8, "_p": pl.Int64})
+        return (
+            df
+            .select(["Q Name", "module_en"])
+            .with_columns([
+                pl.col("Q Name").cast(pl.Utf8).fill_null("").str.strip_chars().alias("Q Name"),
+                pl.col("module_en").cast(pl.Utf8).fill_null("").str.strip_chars().alias("_module_en_from_qname"),
+                pl.lit(priority).alias("_p"),
+            ])
+            .filter((pl.col("Q Name") != "") & (pl.col("_module_en_from_qname") != ""))
+            .select(["Q Name", "_module_en_from_qname", "_p"])
+        )
+
     module_lookup = (
         pl.concat([
             _lookup_part(current_survey, 2),
@@ -2848,9 +3068,22 @@ def _attach_module_column_to_issues(
         .agg(pl.col("_module_from_qname").last().alias("_module_from_qname"))
     )
 
+    module_en_lookup = (
+        pl.concat([
+            _lookup_part_en(current_survey, 2),
+            _lookup_part_en(reference_survey, 1),
+            _lookup_part_en(template_survey, 0),
+        ], how="vertical")
+        .sort(["Q Name", "_p"])
+        .group_by("Q Name")
+        .agg(pl.col("_module_en_from_qname").last().alias("_module_en_from_qname"))
+    )
+
     out = issues_df
     if "module" not in out.columns:
         out = out.with_columns(pl.lit("").alias("module"))
+    if "module_en" not in out.columns:
+        out = out.with_columns(pl.lit("").alias("module_en"))
 
     out = out.join(module_lookup, on="Q Name", how="left")
     out = out.with_columns(
@@ -2859,6 +3092,15 @@ def _attach_module_column_to_issues(
         .otherwise(pl.col("_module_from_qname").cast(pl.Utf8).fill_null(""))
         .alias("module")
     ).drop("_module_from_qname")
+
+    out = out.join(module_en_lookup, on="Q Name", how="left")
+    out = out.with_columns(
+        pl.when(pl.col("module_en").cast(pl.Utf8).fill_null("").str.strip_chars() != "")
+        .then(pl.col("module_en").cast(pl.Utf8))
+        .otherwise(pl.col("_module_en_from_qname").cast(pl.Utf8).fill_null(""))
+        .alias("module_en")
+    ).drop("_module_en_from_qname")
+
     return out
 
 
@@ -2871,9 +3113,7 @@ _step("Critical sets")
 import yaml
 from pathlib import Path as _Path
 
-_CRIT_YAML = _Path(
-    "c:/Users/edoar/WORK/FAO/repo/questionnaire_validation_revision/scripts/critical_sets.yaml"
-)
+_CRIT_YAML = _Path(__file__).parent.parent / "configuration" / "critical_sets.yaml"
 rules = {"exact_sets": {}, "min_count_sets": {}, "crop_harvest": {}}
 if _CRIT_YAML.exists():
     with open(_CRIT_YAML, encoding="utf-8") as _f:
@@ -4676,7 +4916,7 @@ list_name_issues = compare_list_name_changes(current_cmp_q, reference_cmp_q)
 print(f"Choices-list changes: {list_name_issues.height}")
 
 # Field-level comparisons -- vanilla versions for label/constraint
-label_issues       = compare_question_labels(current_van_q, reference_cmp_q, current_cmp_q)
+label_issues       = compare_question_labels(current_van_q, reference_cmp_q, current_cmp_q, language=str(cfg.get("language", "en")))
 constraint_issues  = compare_constraint_changes(current_van_q, reference_cmp_q, current_cmp_q)
 type_issues        = compare_type_changes(
     current_cmp_q,
@@ -5116,9 +5356,8 @@ _mand_lookup = (
         reference_survey.select(["Q Name", "mandatory_category"]).with_columns(pl.lit(0).alias("_p")),
         current_survey_cmp.select(["Q Name", "mandatory_category"]).with_columns(pl.lit(1).alias("_p")),
     ], how="vertical")
-    .sort(["Q Name", "_p"])
     .group_by("Q Name")
-    .agg(pl.col("mandatory_category").last().alias("mandatory_cat"))
+    .agg(pl.col("mandatory_category").sort_by("_p").last().alias("mandatory_cat"))
 )
 all_issues = (
     all_issues
@@ -5359,13 +5598,15 @@ def _action_for_issue_type(issue_type: str) -> str:
 
 _kobo_report_lang = str(run.get("language", "") or "").upper().strip()
 _kobo_report_lang_label = _kobo_report_lang if (_kobo_report_lang and _kobo_report_lang != "EN") else "Language"
+_kobo_module_tgt_label = f"Module ({_kobo_report_lang_label})" if _kobo_report_lang != "EN" else "Module"
 
 COL_MAP = [
     ("issue_type",    "Issue type"),
     ("mandatory_cat", "Type"),
     ("set_name",      "Set"),
     ("Q Name",        "Q Name"),
-    ("module",        "Module"),
+    ("module_en",     "Module (EN)"),
+    ("module",        _kobo_module_tgt_label),
     ("list_name",     "list_name"),
     ("option_name",   "name"),
     ("field",         "Detail"),
@@ -5386,6 +5627,11 @@ def _col_map_with_field_header(field_header: str) -> list[tuple[str, str]]:
 
 _COL_MAP_FIELD = _col_map_with_field_header("Field")
 _COL_MAP_DETAIL = _col_map_with_field_header("Detail")
+
+# Questionnaire Structure and Replacement Issues sheets — no choice-level columns,
+# no set_name (which belongs only to Critical Sets).
+_EXCLUDE_STRUCT = {"list_name", "option_name", "set_name"}
+_COL_MAP_STRUCT = [(s, d) for s, d in _COL_MAP_FIELD if s not in _EXCLUDE_STRUCT]
 
 def _prepare_table_df(df: pl.DataFrame) -> pl.DataFrame:
     if "issue_type" in df.columns and "action" not in df.columns:
@@ -6073,10 +6319,10 @@ def write_questionnaire_structure_sheet(wb, all_issues):
         pl.col("issue_type").is_in(list(RELEVANT_ISSUE_TYPES))
     ).sort(["severity", "Q Name"])
     rel_df_view = _prepare_table_df(rel_df)
-    rel_cols = _resolve_table_cols(rel_df_view, col_map=_COL_MAP_FIELD)
+    rel_cols = _resolve_table_cols(rel_df_view, col_map=_COL_MAP_STRUCT)
     _sect(ws, row, "QUESTIONNAIRE STRUCTURE CHECKS  Skip logic references (relevant)", 8)
     _rel_start = row + 1
-    row = _table(ws, _rel_start, rel_df_view, apply_view=False, col_map=_COL_MAP_FIELD)
+    row = _table(ws, _rel_start, rel_df_view, apply_view=False, col_map=_COL_MAP_STRUCT)
     _apply_inline_diff_for_issue(
         ws,
         _rel_start,
@@ -6091,7 +6337,7 @@ def write_questionnaire_structure_sheet(wb, all_issues):
         pl.col("issue_type") == "type_changed"
     ).sort(["severity", "Q Name", "field"])
     _sect(ws, row, "Q TYPE INTEGRITY ISSUES", 8)
-    row = _table(ws, row + 1, qtype_df, apply_view=False, col_map=_COL_MAP_FIELD)
+    row = _table(ws, row + 1, qtype_df, apply_view=False, col_map=_COL_MAP_STRUCT)
 
     # Box 3: duplicate/token syntax checks
     row += 1
@@ -6103,7 +6349,7 @@ def write_questionnaire_structure_sheet(wb, all_issues):
         ])
     ).sort(["severity", "Q Name", "field"])
     _sect(ws, row, "QUESTIONNAIRE STRUCTURE CHECKS  (Duplicates, KoBO references, modules)", 8)
-    _table(ws, row + 1, struct_df, apply_view=False, col_map=_COL_MAP_FIELD)
+    _table(ws, row + 1, struct_df, apply_view=False, col_map=_COL_MAP_STRUCT)
 
     # Avoid frozen panes in multi-box sheets (this was causing navigation/display issues).
     ws.freeze_panes = "A1"
@@ -6116,7 +6362,7 @@ def write_replacement_issues_sheet(wb, all_issues):
     df = all_issues.filter(pl.col("issue_type").is_in(list(REPLACEMENT_ISSUE_TYPES))).sort(["severity", "Q Name", "field"])
     df_view = _prepare_table_df(df)
     _sect(ws, 1, "REPLACEMENT ISSUES  Placeholder and Additional information checks", 8)
-    next_row = _table(ws, 2, df_view, apply_view=False, col_map=_COL_MAP_FIELD)
+    next_row = _table(ws, 2, df_view, apply_view=False, col_map=_COL_MAP_STRUCT)
 
     rp_df = (
         all_issues
@@ -6124,11 +6370,11 @@ def write_replacement_issues_sheet(wb, all_issues):
         .sort(["severity", "issue_type", "Q Name"])
     )
     rp_df_view = _prepare_table_df(rp_df)
-    rp_cols = _resolve_table_cols(rp_df_view, col_map=_COL_MAP_FIELD)
+    rp_cols = _resolve_table_cols(rp_df_view, col_map=_COL_MAP_STRUCT)
     next_row += 1
     _sect(ws, next_row, "ADDITIONAL INFORMATION REPLACEMENT CHANGES  (previous_round informational)", 8)
     rp_start = next_row + 1
-    _table(ws, rp_start, rp_df_view, apply_view=False, col_map=_COL_MAP_FIELD)
+    _table(ws, rp_start, rp_df_view, apply_view=False, col_map=_COL_MAP_STRUCT)
     _apply_inline_diff_for_issue(
         ws,
         rp_start,
@@ -6602,9 +6848,10 @@ def _rebuild_choices_sheet(
         styles = _row_styles(cells)
         list_val = vals[list_col] if list_col < len(vals) else None
         list_txt = str(list_val).strip() if list_val is not None else ""
+        list_txt_norm = list_txt.lower()
 
-        if list_txt in skip:
-            style_by_list.setdefault(list_txt, styles)
+        if list_txt_norm in skip:
+            style_by_list.setdefault(list_txt_norm, styles)
             if blank_style is None and _is_blank(vals):
                 blank_style = styles
             if sample_filter_col is not None and sample_filter_col < len(vals):
@@ -6825,18 +7072,62 @@ def _remove_choices_lists_rows(wb, list_names: set[str]) -> int:
     return removed
 
 
-def _apply_replacements_to_wb(wb, replacement_pairs: dict) -> None:
-    """Apply #placeholder# -> value to every string cell in survey and choices sheets."""
-    if not replacement_pairs:
+def _detect_kobo_header_language(header_value: object) -> str | None:
+    header = str(header_value or "").strip().lower()
+    if not header:
+        return None
+
+    for lang, canonical in LANG_LABEL_COL.items():
+        if header == canonical.lower():
+            return lang
+
+    match = re.search(r"\((en|fr|ar|es)\)\s*$", header)
+    if match:
+        return match.group(1).lower()
+
+    if "::english" in header or header.endswith("_english"):
+        return "en"
+    if "::french" in header or header.endswith("_french"):
+        return "fr"
+    if "::arabic" in header or header.endswith("_arabic"):
+        return "ar"
+    if "::spanish" in header or header.endswith("_spanish"):
+        return "es"
+    return None
+
+
+def _apply_replacements_to_wb(
+    wb,
+    replacement_pairs: dict,
+    replacement_pairs_by_language: dict[str, dict[str, str]] | None = None,
+    target_language: str = "en",
+) -> None:
+    """Apply #placeholder# -> value to workbook text, respecting per-language columns."""
+    if not replacement_pairs and not any((replacement_pairs_by_language or {}).values()):
         return
     for sheet_name in ("survey", "choices"):
         if sheet_name not in wb.sheetnames:
             continue
-        for row in wb[sheet_name].iter_rows():
+        ws = wb[sheet_name]
+        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1), [])]
+        for row_idx, row in enumerate(ws.iter_rows(), start=1):
             for cell in row:
                 if isinstance(cell.value, str) and "#" in cell.value:
+                    col_header = headers[cell.column - 1] if cell.column - 1 < len(headers) else None
+                    col_lang = _detect_kobo_header_language(col_header)
+                    if row_idx == 1:
+                        col_lang = None
+                    active_pairs = replacement_pairs
+                    if col_lang and replacement_pairs_by_language and replacement_pairs_by_language.get(col_lang):
+                        active_pairs = replacement_pairs_by_language[col_lang]
+                    elif not col_lang and replacement_pairs_by_language:
+                        tgt_pairs = replacement_pairs_by_language.get(str(target_language or "en").lower(), {})
+                        if tgt_pairs:
+                            active_pairs = tgt_pairs
+                    if not active_pairs:
+                        continue
                     v = cell.value
-                    for key, val in replacement_pairs.items():
+                    for key, val in sorted(active_pairs.items(), key=lambda x: len(x[0]), reverse=True):
                         if key in v:
                             v = v.replace(key, str(val))
                     cell.value = v
@@ -7610,13 +7901,18 @@ def produce_validated_questionnaire(
         if "run" in globals():
             _tpl_restore_path = run.get("template_path") or run.get("reference_path")
         if _tpl_restore_path:
+            _replacement_pairs_for_restore = replacement_pairs
+            if replacement_pairs_by_language:
+                _replacement_pairs_for_restore = {}
+                for _pairs in replacement_pairs_by_language.values():
+                    _replacement_pairs_for_restore.update(_pairs or {})
             # Pass replacement_pairs only when we have pairs (filters restore to
             # known-replaceable tokens). Pass None when pairs are absent so ALL
             # template placeholder cells are restored, making them visible in output.
             _restore_stats = _restore_placeholder_tokens_from_template(
                 wb,
                 str(_tpl_restore_path),
-                replacement_pairs=replacement_pairs if _can_run_replace else None,
+                replacement_pairs=_replacement_pairs_for_restore if _can_run_replace else None,
             )
             if _restore_stats.get("error"):
                 _add_row(
@@ -7645,10 +7941,9 @@ def produce_validated_questionnaire(
                 )
 
                 if (_miss_s + _miss_c) > 0:
-                    _sev = "high" if not replacement_pairs else "info"
-                    _st = "FAIL" if not replacement_pairs else "PASS"
-                    if replacement_pairs:
-                        _det += "; replacements loaded, so unresolved rows are still evaluated after replacement"
+                    _sev = "high"
+                    _st = "FAIL"
+                    _det += "; missing rows cannot be restored by replacement pairs"
                 elif (_skp_s + _skp_c) > 0:
                     _sev = "medium"
                     _st = "WARN"
@@ -7662,7 +7957,7 @@ def produce_validated_questionnaire(
                     _sev,
                 )
 
-                if (_miss_s + _miss_c) > 0 and not replacement_pairs:
+                if (_miss_s + _miss_c) > 0:
                     _iss_sev = "high"
                     for _qn in (_restore_stats.get("survey_missing_qnames") or []):
                         _add_issue_row(
@@ -7697,7 +7992,18 @@ def produce_validated_questionnaire(
 
         # -- 5. Apply #placeholder# -> actual values ----------------------------
         if _can_run_replace:
-            _apply_replacements_to_wb(wb, replacement_pairs)
+            _apply_replacements_to_wb(
+                wb,
+                replacement_pairs,
+                replacement_pairs_by_language=replacement_pairs_by_language,
+                target_language=run.get("language", "en"),
+            )
+            _add_row(
+                "Placeholder replacement",
+                "PASS",
+                f"Applied {len(replacement_pairs)} replacement pair(s) to survey and choices sheets",
+                "pass",
+            )
         else:
             _add_row(
                 "Placeholder replacement",

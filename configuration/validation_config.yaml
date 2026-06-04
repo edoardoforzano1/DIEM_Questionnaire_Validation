@@ -12,7 +12,7 @@ config_profile: ""
 # If empty, defaults to <output_dir>/config_profiles/
 config_profiles_dir: ""
 
-tool: "geopoll"
+tool: "Kobo"
 
 # =============================================================================
 #  CORE SETTINGS  (used identically by both tools — change these each run)
@@ -22,7 +22,7 @@ tool: "geopoll"
 working_dir: "C:/Temp"
 
 # Current questionnaire filename (resolved under working_dir).
-questionnaire_file: "DiEM questionnaire 2026_26may_PSE_R2_ar.xlsx"
+questionnaire_file: "Questionnaire_PSE_R2_ar_kobo_03062026_rgf (1).xlsx"
 
 # Language code: en | fr | ar | es
 language: "ar"
