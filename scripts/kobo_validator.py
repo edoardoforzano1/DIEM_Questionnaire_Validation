@@ -363,6 +363,99 @@ def _find_label_col(headers: list, language: str) -> str | None:
     return next((h for h in headers if h.startswith("label::")), None)
 
 
+_CHOICES_PARENT_HEADER_ALIASES = {
+    "my_filter_admin",
+    "choice_filter",
+    "filter",
+    "tema",
+    "team",
+}
+
+
+def _choices_header_key(value) -> str:
+    return str(value or "").strip().lower()
+
+
+def _choices_header_concept(value) -> str:
+    key = _choices_header_key(value)
+    if key in _CHOICES_PARENT_HEADER_ALIASES:
+        return "__admin_parent__"
+    return key
+
+
+def _resolve_choices_output_headers(current_headers: list[str], template_headers: list[str] | None = None) -> list[str]:
+    out = [str(h or "").strip() for h in (template_headers or current_headers or [])]
+    seen_keys = {_choices_header_key(h) for h in out if _choices_header_key(h)}
+    seen_concepts = {_choices_header_concept(h) for h in out if _choices_header_key(h)}
+    for header in current_headers or []:
+        txt = str(header or "").strip()
+        key = _choices_header_key(txt)
+        if not key:
+            continue
+        concept = _choices_header_concept(txt)
+        if key in seen_keys or concept in seen_concepts:
+            continue
+        out.append(txt)
+        seen_keys.add(key)
+        seen_concepts.add(concept)
+    return out
+
+
+def _remap_choices_row_to_headers(
+    values: list,
+    styles: list,
+    source_headers: list[str],
+    target_headers: list[str],
+    fallback_styles: list | None = None,
+) -> tuple[list, list]:
+    target_len = len(target_headers)
+    out_vals = [None] * target_len
+    out_styles = [None] * target_len
+
+    source_exact = {}
+    source_by_concept = {}
+    for idx, header in enumerate(source_headers):
+        key = _choices_header_key(header)
+        if not key:
+            continue
+        source_exact.setdefault(key, idx)
+        source_by_concept.setdefault(_choices_header_concept(header), idx)
+
+    generic_style = styles[0] if styles else None
+    for idx, header in enumerate(target_headers):
+        source_idx = source_exact.get(_choices_header_key(header))
+        if source_idx is None:
+            source_idx = source_by_concept.get(_choices_header_concept(header))
+        if source_idx is not None and source_idx < len(values):
+            out_vals[idx] = values[source_idx]
+            if source_idx < len(styles):
+                out_styles[idx] = _style_copy(styles[source_idx])
+        elif fallback_styles is not None and idx < len(fallback_styles) and fallback_styles[idx] is not None:
+            out_styles[idx] = _style_copy(fallback_styles[idx])
+        elif idx < len(styles) and styles[idx] is not None:
+            out_styles[idx] = _style_copy(styles[idx])
+        else:
+            out_styles[idx] = _style_copy(generic_style) if generic_style is not None else None
+
+    return out_vals, out_styles
+
+
+def _read_choices_headers_from_workbook(path: str) -> list[str]:
+    try:
+        wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    except Exception:
+        return []
+    try:
+        if "choices" not in wb.sheetnames:
+            return []
+        row = next(wb["choices"].iter_rows(min_row=1, max_row=1, values_only=True), None)
+        if not row:
+            return []
+        return [str(v).strip() if v is not None else "" for v in row]
+    finally:
+        wb.close()
+
+
 _INVISIBLE_TOKEN_CHARS = {
     ord("\u200b"): None,  # zero-width space
     ord("\u200c"): None,  # zero-width non-joiner
@@ -2639,7 +2732,7 @@ def validate_relevant(
                 issues.append({
                     "issue_type": "broken_relevant_reference",
                     "set_name": "", "Q Name": qname, "field": "relevant",
-                    "current"  : relevant[:220],
+                    "current"  : relevant,
                     "reference": f"missing variables: {truly_missing}",
                     "severity" : "high", "excel_row": excel_row,
                 })
@@ -2650,7 +2743,7 @@ def validate_relevant(
                 issues.append({
                     "issue_type": "relevant_inexact_reference",
                     "set_name": "", "Q Name": qname, "field": "relevant",
-                    "current"  : relevant[:220],
+                    "current"  : relevant,
                     "reference": f"${{{v}}} not found; {similar!r} exists with similar name",
                     "severity" : "high", "excel_row": excel_row,
                 })
@@ -2663,8 +2756,8 @@ def validate_relevant(
             issues.append({
                 "issue_type": "relevant_modified",
                 "set_name": "", "Q Name": qname, "field": "relevant",
-                "current"  : relevant[:220],
-                "reference": ref_relevant[:220],
+                "current"  : relevant,
+                "reference": ref_relevant,
                 "severity" : "medium", "excel_row": excel_row,
             })
 
@@ -2675,11 +2768,73 @@ def validate_relevant(
     )
 
 
+def validate_choice_label_language_completeness(path: str, target_language: str) -> pl.DataFrame:
+    EMPTY = {
+        "issue_type": pl.Utf8, "set_name": pl.Utf8, "Q Name": pl.Utf8,
+        "field": pl.Utf8, "current": pl.Utf8, "reference": pl.Utf8,
+        "severity": pl.Utf8, "excel_row": pl.Int64,
+    }
+    lang = str(target_language or "").strip().lower()
+    if not path or lang == "en":
+        return pl.DataFrame(schema=EMPTY)
+
+    try:
+        wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    except Exception:
+        return pl.DataFrame(schema=EMPTY)
+
+    try:
+        if "choices" not in wb.sheetnames:
+            return pl.DataFrame(schema=EMPTY)
+        ws = wb["choices"]
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            return pl.DataFrame(schema=EMPTY)
+
+        headers = [str(h).strip() if h is not None else "" for h in rows[0]]
+        idx = {h: i for i, h in enumerate(headers) if h}
+        list_col = idx.get("list_name")
+        name_col = idx.get("name")
+        en_col = idx.get(LANG_LABEL_COL.get("en", "label::English (en)"))
+        tgt_header = LANG_LABEL_COL.get(lang, f"label::{target_language}")
+        tgt_col = idx.get(tgt_header)
+        if list_col is None or name_col is None or en_col is None:
+            return pl.DataFrame(schema=EMPTY)
+
+        records: list[dict] = []
+        for excel_row, row in enumerate(rows[1:], start=2):
+            list_name = str((row[list_col] if list_col < len(row) else "") or "").strip()
+            option_name = str((row[name_col] if name_col < len(row) else "") or "").strip()
+            if not list_name or not option_name:
+                continue
+            en_label = str((row[en_col] if en_col < len(row) else "") or "").strip()
+            tgt_label = str((row[tgt_col] if tgt_col is not None and tgt_col < len(row) else "") or "").strip()
+            if bool(en_label) == bool(tgt_label):
+                continue
+            records.append({
+                "issue_type": "choice_missing_bilingual_label",
+                "set_name": "questionnaire_structure",
+                "Q Name": "",
+                "field": "choices bilingual label completeness",
+                "current": (
+                    f"list={list_name} | name={option_name} | "
+                    f"EN='{en_label}' | {lang.upper()}='{tgt_label}'"
+                ),
+                "reference": f"Both English and {lang.upper()} choice labels should be filled together",
+                "severity": "high",
+                "excel_row": excel_row,
+            })
+        return pl.DataFrame(records) if records else pl.DataFrame(schema=EMPTY)
+    finally:
+        wb.close()
+
+
 def validate_questionnaire_structure(
     current_survey: pl.DataFrame,
     current_choices: pl.DataFrame | None = None,
     template_survey: pl.DataFrame | None = None,
     replacement_pairs: dict[str, str] | None = None,
+    choices_label_completeness_issues: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     """
     Structural checks for token/placeholder integrity in survey text/formula fields.
@@ -2759,6 +2914,9 @@ def validate_questionnaire_structure(
                 "severity": "high",
                 "excel_row": None,
             })
+
+    if choices_label_completeness_issues is not None and choices_label_completeness_issues.height > 0:
+        issues.extend(choices_label_completeness_issues.to_dicts())
 
     if not has_text_fields:
         return pl.DataFrame(issues) if issues else pl.DataFrame(schema=EMPTY)
@@ -5004,11 +5162,19 @@ print(
 relevant_issues = validate_relevant(current_cmp_q, reference_cmp_q)
 print(f"Relevant issues: {relevant_issues.height}")
 
+choice_label_completeness_issues = validate_choice_label_language_completeness(
+    run["questionnaire_path"],
+    run["language"],
+)
+if choice_label_completeness_issues.height > 0:
+    print(f"Choices bilingual-label completeness issues: {choice_label_completeness_issues.height}")
+
 structure_issues = validate_questionnaire_structure(
     current_survey_cmp,
     current_choices=current_choices,
     template_survey=template_survey,
     replacement_pairs=replacement_pairs,
+    choices_label_completeness_issues=choice_label_completeness_issues,
 )
 print(f"Questionnaire structure issues: {structure_issues.height}")
 
@@ -5456,6 +5622,7 @@ FILL_INFO   = PatternFill("solid", fgColor="CFE2F3")
 FILL_PASS   = PatternFill("solid", fgColor="D9EAD3")
 FILL_HEADER = PatternFill("solid", fgColor="274E13")
 FILL_SECT   = PatternFill("solid", fgColor="E8F5E9")
+FILL_HIGHLIGHT_YELLOW = PatternFill("solid", fgColor="FFF2CC")
 
 FONT_TITLE  = Font(bold=True, size=13, color="274E13")
 FONT_HDR    = Font(bold=True, color="FFFFFF", size=11)
@@ -5510,6 +5677,8 @@ _ISSUE_LABELS = {
     "module_added"             : "Module added vs reference",
     "duplicate_qname"          : "Duplicate question name",
     "duplicate_choice_name"    : "Duplicate choice name in list",
+    "choice_missing_bilingual_label": "Choice label missing in one language",
+    "replacement_admin_parent_mismatch": "Admin parent pcode mismatch in validated choices",
 }
 
 def _hdr(ws, row, vals):
@@ -5538,6 +5707,20 @@ def _autofit(ws, mn=12, mx=60):
     for col_cells in ws.columns:
         w = max((len(str(c.value)) if c.value else 0) for c in col_cells)
         ws.column_dimensions[get_column_letter(col_cells[0].column)].width = min(max(w+2, mn), mx)
+
+
+def _ensure_column_widths_from_header(ws, header_row: int, min_widths: dict[str, float]):
+    """Widen specific report columns after autofit when their content is intentionally verbose."""
+    if not min_widths:
+        return
+    for cell in ws[header_row]:
+        header = str(cell.value or "").strip()
+        target_width = min_widths.get(header)
+        if target_width is None:
+            continue
+        col_letter = get_column_letter(cell.column)
+        current_width = ws.column_dimensions[col_letter].width or 0
+        ws.column_dimensions[col_letter].width = max(current_width, target_width)
 
 ISSUE_ACTION_MAP = {
     "added_question": "Review added question and confirm it is intentional",
@@ -5574,12 +5757,14 @@ ISSUE_ACTION_MAP = {
     "relevant_modified": "Review relevant expression change",
     "duplicate_qname": "Rename duplicate question names to unique values",
     "duplicate_choice_name": "Rename duplicate choice names in list",
+    "choice_missing_bilingual_label": "Fill both English and target-language choice labels together",
     "placeholder_should_use_kobo_ref": "Use KoBo variable syntax ${var} instead of plain placeholder",
     "placeholder_not_found": "Add missing placeholder key or correct typo",
     "replacement_malformed_placeholder": "Fix malformed placeholder syntax (use balanced #token#)",
     "kobo_ref_loose_syntax": "Replace loose $var syntax with ${var}",
     "kobo_ref_malformed_syntax": "Fix malformed KoBo reference syntax and use ${var}",
     "kobo_ref_missing_variable": "Fix ${var} reference to an existing survey variable",
+    "replacement_admin_parent_mismatch": "Align admin parent pcodes with the higher-level admin name column",
     "module_removed": "Restore required template module in survey",
     "module_added": "Informational: module exists in current but not in selected reference",
     "missing_critical_question": "Add missing critical question",
@@ -5678,6 +5863,7 @@ def _resolve_table_cols(df: pl.DataFrame, col_map=None) -> list[tuple[str, str]]
 def _table(ws, start_row, df, apply_view=True, col_map=None):
     df = _prepare_table_df(df)
     cols = _resolve_table_cols(df, col_map=col_map)
+    qname_col = next((i for i, (src, _) in enumerate(cols, start=1) if src == "Q Name"), None)
     _hdr(ws, start_row, [d for _, d in cols])
     r = start_row + 1
     if df.height == 0:
@@ -5687,6 +5873,8 @@ def _table(ws, start_row, df, apply_view=True, col_map=None):
         for c, (src, _) in enumerate(cols, 1):
             ws.cell(row=r, column=c, value=rd.get(src))
         _style_row(ws, r, len(cols), rd.get("severity", ""))
+        if qname_col:
+            ws.cell(row=r, column=qname_col).font = Font(bold=True, size=10)
         r += 1
     if apply_view:
         ws.freeze_panes = f"A{start_row+1}"
@@ -5926,7 +6114,7 @@ CRITICAL_ISSUE_TYPES = {
 RELEVANT_ISSUE_TYPES  = {"broken_relevant_reference", "relevant_inexact_reference", "relevant_modified"}
 STRUCTURE_ISSUE_TYPES = {
     "kobo_ref_loose_syntax", "kobo_ref_missing_variable", "kobo_ref_malformed_syntax",
-    "duplicate_qname", "duplicate_choice_name", "type_changed",
+    "duplicate_qname", "duplicate_choice_name", "choice_missing_bilingual_label", "type_changed",
     "module_removed", "module_added",
 }
 REPLACEMENT_ISSUE_TYPES = {
@@ -5936,6 +6124,7 @@ REPLACEMENT_ISSUE_TYPES = {
     "replacement_input_missing_additional_info",
     "replacement_input_missing_crop_list",
     "replacement_restore_missing_target_row",
+    "replacement_admin_parent_mismatch",
 }
 
 CORE_QUESTION_CHANGE_ISSUE_TYPES = {
@@ -6211,9 +6400,9 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
     _struct_ok   = _base_struct_all == 0
     _struct_det  = (
         f"{_base_struct_all} issue(s): Q type integrity={_qtype}; duplicate Q Name={_dup_q}; "
-        f"duplicate choice name={_dup_choice}; KoBo refs={_other_struct}"
+        f"duplicate choice name={_dup_choice}; other structure checks={_other_struct}"
         if not _struct_ok else
-        "No issues in Q type integrity, duplicates, or KoBo references"
+        "No issues in Q type integrity, duplicates, or other structure checks"
     )
     _check_row(ws, r, "Q type integrity, duplicates and KoBo references", _struct_ok, _struct_det); r += 1
     _module_ok = _module_removed == 0
@@ -6252,6 +6441,16 @@ def write_summary_sheet(wb, all_issues, rules=None, critical_issues=None,
                 ws.cell(row=r, column=2).font = Font(bold=True, size=10, color="1F4E78")
             else:
                 ws.cell(row=r, column=2).font = Font(bold=True, size=10, color="CC0000")
+            r += 1
+
+    _repl_notes = (replacement_status or {}).get("notes", [])
+    if _repl_notes:
+        r += 1
+        _sect(ws, r, "VALIDATED OUTPUT UPDATE NOTES", 4); r += 1
+        _hdr(ws, r, ["Note", "", "", ""]); r += 1
+        for note in _repl_notes:
+            ws.cell(row=r, column=1, value=note)
+            _style_row(ws, r, 4, "info")
             r += 1
 
     r += 1
@@ -6313,6 +6512,7 @@ def write_questionnaire_structure_sheet(wb, all_issues):
     ws = wb.create_sheet("Questionnaire Structure")
     ws.sheet_view.showGridLines = False
     row = 1
+    relevant_widths = {"Current value": 110, "Reference / rule": 110}
 
     # Box 1: legacy relevant checks
     rel_df = all_issues.filter(
@@ -6344,6 +6544,7 @@ def write_questionnaire_structure_sheet(wb, all_issues):
     struct_df = all_issues.filter(
         pl.col("issue_type").is_in([
             "duplicate_qname", "duplicate_choice_name",
+            "choice_missing_bilingual_label",
             "kobo_ref_loose_syntax", "kobo_ref_malformed_syntax", "kobo_ref_missing_variable",
             "module_removed", "module_added",
         ])
@@ -6354,6 +6555,7 @@ def write_questionnaire_structure_sheet(wb, all_issues):
     # Avoid frozen panes in multi-box sheets (this was causing navigation/display issues).
     ws.freeze_panes = "A1"
     _autofit(ws)
+    _ensure_column_widths_from_header(ws, _rel_start, relevant_widths)
 
 
 def write_replacement_issues_sheet(wb, all_issues):
@@ -6394,6 +6596,7 @@ def write_relevant_sheet(wb, all_issues):
     _sect(ws, 1, "RELEVANT CHANGES  KoBO skip-logic (relevant column)", 8)
     _table(ws, 2, df, col_map=_COL_MAP_FIELD)
     _autofit(ws)
+    _ensure_column_widths_from_header(ws, 2, {"Current value": 110, "Reference / rule": 110})
 
 
 def write_question_changes_sheet(wb, all_issues):
@@ -6757,29 +6960,39 @@ def _rebuild_choices_sheet(
     wb,
     country_rows: dict[str, list[tuple]],
     target_language: str = "en",
-) -> None:
+    template_headers: list[str] | None = None,
+) -> dict:
     """
     Replace all rows belonging to country_rows list_names with fresh data.
     Non-country rows and empty separator rows are preserved in their original order.
     New country blocks are appended at the end, each preceded by an empty separator row.
-    admin2 rows also populate col 5 (adm1_pcode) for choice_filter cascading.
+    The output choices header row is aligned to the template header layout when provided.
     """
     ws = wb["choices"]
     all_rows_cells = list(ws.iter_rows(min_row=1, max_row=ws.max_row, max_col=ws.max_column))
     if not all_rows_cells:
-        return
+        return {
+            "used_template_headers": False,
+            "template_header_count": 0,
+            "source_only_headers_appended": 0,
+            "extra_admin_rows": {},
+            "extra_admin_rows_total": 0,
+            "final_headers": [],
+            "original_admin_counts": {},
+            "written_admin_counts": {},
+        }
 
-    n_cols = ws.max_column or 5
+    src_n_cols = ws.max_column or 5
 
     def _row_values(cells):
         vals = [c.value for c in cells]
-        if len(vals) < n_cols:
-            vals.extend([None] * (n_cols - len(vals)))
-        return vals[:n_cols]
+        if len(vals) < src_n_cols:
+            vals.extend([None] * (src_n_cols - len(vals)))
+        return vals[:src_n_cols]
 
     def _row_styles(cells):
         styles = []
-        for i in range(n_cols):
+        for i in range(src_n_cols):
             if i < len(cells):
                 styles.append(_style_copy(cells[i]._style))
             else:
@@ -6788,8 +7001,13 @@ def _rebuild_choices_sheet(
 
     header_vals = _row_values(all_rows_cells[0])
     header_styles = _row_styles(all_rows_cells[0])
-    headers = [str(h).strip() if h is not None else "" for h in header_vals]
-    col_idx = {h: i for i, h in enumerate(headers)}
+    source_headers = [str(h).strip() if h is not None else "" for h in header_vals]
+    output_headers = _resolve_choices_output_headers(source_headers, template_headers)
+    n_cols = max(len(output_headers), 5)
+    if len(output_headers) < n_cols:
+        output_headers.extend([""] * (n_cols - len(output_headers)))
+    output_col_idx = {h: i for i, h in enumerate(output_headers)}
+    col_idx = {h: i for i, h in enumerate(source_headers)}
     skip = set(country_rows.keys())
 
     list_col = col_idx.get("list_name", 0)
@@ -6797,11 +7015,11 @@ def _rebuild_choices_sheet(
     en_label_col = col_idx.get(LANG_LABEL_COL.get("en", "label::English (en)"))
     tgt_label_name = LANG_LABEL_COL.get(str(target_language or "").lower(), f"label::{target_language}")
     tgt_label_col = col_idx.get(tgt_label_name)
-    fallback_label_name = _find_label_col(headers, str(target_language or "en"))
+    fallback_label_name = _find_label_col(source_headers, str(target_language or "en"))
     fallback_label_col = col_idx.get(fallback_label_name) if fallback_label_name else None
 
     admin_filter_col = None
-    for c in ("my_filter_admin", "choice_filter", "filter"):
+    for c in ("my_filter_admin", "choice_filter", "filter", "tema", "team"):
         if c in col_idx:
             admin_filter_col = col_idx[c]
             break
@@ -6837,11 +7055,27 @@ def _rebuild_choices_sheet(
     def _is_blank(values):
         return all(v is None or str(v).strip() == "" for v in values)
 
+    original_admin_counts = {"admin1": 0, "admin2": 0, "admin3": 0}
+
     # Keep non-country rows (with styles) and capture style templates for replaced lists.
-    kept_rows: list[tuple[list, list]] = []
+    kept_rows: list[tuple[list, list, bool]] = []
     style_by_list: dict[str, list] = {}
     blank_style = None
     generic_style = _row_styles(all_rows_cells[1]) if len(all_rows_cells) > 1 else header_styles
+    _, header_styles_out = _remap_choices_row_to_headers(
+        header_vals,
+        header_styles,
+        source_headers,
+        output_headers,
+        fallback_styles=header_styles,
+    )
+    _, generic_style_out = _remap_choices_row_to_headers(
+        header_vals,
+        generic_style,
+        source_headers,
+        output_headers,
+        fallback_styles=generic_style,
+    )
 
     for cells in all_rows_cells[1:]:
         vals = _row_values(cells)
@@ -6849,11 +7083,21 @@ def _rebuild_choices_sheet(
         list_val = vals[list_col] if list_col < len(vals) else None
         list_txt = str(list_val).strip() if list_val is not None else ""
         list_txt_norm = list_txt.lower()
+        remapped_vals, remapped_styles = _remap_choices_row_to_headers(
+            vals,
+            styles,
+            source_headers,
+            output_headers,
+            fallback_styles=generic_style_out,
+        )
+
+        if list_txt_norm in original_admin_counts and not _is_blank(vals):
+            original_admin_counts[list_txt_norm] += 1
 
         if list_txt_norm in skip:
-            style_by_list.setdefault(list_txt_norm, styles)
+            style_by_list.setdefault(list_txt_norm, remapped_styles)
             if blank_style is None and _is_blank(vals):
-                blank_style = styles
+                blank_style = remapped_styles
             if sample_filter_col is not None and sample_filter_col < len(vals):
                 old_code = vals[name_col] if name_col < len(vals) else None
                 if fallback_label_col is not None and fallback_label_col < len(vals):
@@ -6869,41 +7113,63 @@ def _rebuild_choices_sheet(
             continue
 
         if blank_style is None and _is_blank(vals):
-            blank_style = styles
-        kept_rows.append((vals, styles))
+            blank_style = remapped_styles
+        kept_rows.append((remapped_vals, remapped_styles, False))
 
     if blank_style is None:
-        blank_style = generic_style
+        blank_style = generic_style_out
 
     # Build new country blocks, each preceded by an empty separator row.
-    new_rows: list[tuple[list, list]] = []
+    new_rows: list[tuple[list, list, bool]] = []
+    final_list_col = output_col_idx.get("list_name", 0)
+    final_name_col = output_col_idx.get("name", 1)
+    final_en_label_col = output_col_idx.get(LANG_LABEL_COL.get("en", "label::English (en)"))
+    final_tgt_label_col = output_col_idx.get(tgt_label_name)
+    final_fallback_label_name = _find_label_col(output_headers, str(target_language or "en"))
+    final_fallback_label_col = output_col_idx.get(final_fallback_label_name) if final_fallback_label_name else None
+    final_admin_filter_col = None
+    for c in ("my_filter_admin", "choice_filter", "filter", "tema", "team"):
+        if c in output_col_idx:
+            final_admin_filter_col = output_col_idx[c]
+            break
+    if final_admin_filter_col is None and n_cols >= 5:
+        final_admin_filter_col = 4
+    final_sample_filter_col = output_col_idx.get("my_filter_sample")
+    extra_admin_rows: dict[str, int] = {}
+    written_admin_counts: dict[str, int] = {}
+
     for list_name, entries in country_rows.items():
-        new_rows.append(([None] * n_cols, blank_style))
-        row_style = style_by_list.get(str(list_name), generic_style)
-        for entry in entries:
+        new_rows.append(([None] * n_cols, blank_style, False))
+        row_style = style_by_list.get(str(list_name), generic_style_out)
+        written_n = 0
+        for entry_idx, entry in enumerate(entries, start=1):
             row = [None] * n_cols
-            row[list_col] = list_name
-            row[name_col] = entry[0] if len(entry) > 0 else ""
+            row[final_list_col] = list_name
+            row[final_name_col] = entry[0] if len(entry) > 0 else ""
 
             if list_name in _CROP_SPECIALS:
                 en_lbl = str(entry[1] if len(entry) > 1 else "").strip()
                 tgt_lbl = str(entry[2] if len(entry) > 2 else en_lbl).strip()
-                if en_label_col is not None:
-                    row[en_label_col] = en_lbl
-                if tgt_label_col is not None:
-                    row[tgt_label_col] = tgt_lbl
-                if en_label_col is None and tgt_label_col is None and fallback_label_col is not None:
-                    row[fallback_label_col] = tgt_lbl
+                if final_en_label_col is not None:
+                    row[final_en_label_col] = en_lbl
+                if final_tgt_label_col is not None:
+                    row[final_tgt_label_col] = tgt_lbl
+                if final_en_label_col is None and final_tgt_label_col is None and final_fallback_label_col is not None:
+                    row[final_fallback_label_col] = tgt_lbl
             else:
                 admin_lbl = str(entry[1] if len(entry) > 1 else "").strip()
-                if fallback_label_col is not None:
-                    row[fallback_label_col] = admin_lbl
-                elif en_label_col is not None:
-                    row[en_label_col] = admin_lbl
-                if len(entry) > 2 and admin_filter_col is not None:
-                    row[admin_filter_col] = entry[2]
+                if final_fallback_label_col is not None:
+                    row[final_fallback_label_col] = admin_lbl
+                elif final_en_label_col is not None:
+                    row[final_en_label_col] = admin_lbl
+                if len(entry) > 2 and final_admin_filter_col is not None:
+                    row[final_admin_filter_col] = entry[2]
                 # Preserve existing sample filters for matching admin rows.
-                if sample_filter_col is not None and sample_filter_col < n_cols and _norm_key(list_name) in {"admin1", "admin2", "admin3"}:
+                if (
+                    final_sample_filter_col is not None
+                    and final_sample_filter_col < n_cols
+                    and _norm_key(list_name) in {"admin1", "admin2", "admin3"}
+                ):
                     list_key = _norm_key(list_name)
                     code_key = _norm_key(entry[0] if len(entry) > 0 else "")
                     label_key = _norm_key(admin_lbl)
@@ -6916,17 +7182,42 @@ def _rebuild_choices_sheet(
                     if preserved_sample is None and label_key:
                         preserved_sample = preserved_sample_by_label.get((list_key, label_key))
                     if preserved_sample is not None:
-                        row[sample_filter_col] = preserved_sample
-            new_rows.append((row, row_style))
+                        row[final_sample_filter_col] = preserved_sample
+
+            written_n += 1
+            highlight_extra = (
+                _norm_key(list_name) in {"admin1", "admin2", "admin3"}
+                and entry_idx > original_admin_counts.get(_norm_key(list_name), 0)
+            )
+            if highlight_extra:
+                extra_admin_rows[_norm_key(list_name)] = extra_admin_rows.get(_norm_key(list_name), 0) + 1
+            new_rows.append((row, row_style, highlight_extra))
+        if _norm_key(list_name) in {"admin1", "admin2", "admin3"}:
+            written_admin_counts[_norm_key(list_name)] = written_n
 
     # Rewrite choices with preserved styles.
-    payload = [(header_vals, header_styles)] + kept_rows + new_rows
+    payload = [(output_headers, header_styles_out, False)] + kept_rows + new_rows
     ws.delete_rows(1, ws.max_row)
-    for r_idx, (vals, styles) in enumerate(payload, start=1):
+    for r_idx, (vals, styles, highlight_extra) in enumerate(payload, start=1):
         for c_idx in range(1, n_cols + 1):
             cell = ws.cell(row=r_idx, column=c_idx, value=vals[c_idx - 1] if c_idx - 1 < len(vals) else None)
             if c_idx - 1 < len(styles) and styles[c_idx - 1] is not None:
                 cell._style = _style_copy(styles[c_idx - 1])
+            if highlight_extra:
+                cell.fill = FILL_HIGHLIGHT_YELLOW
+
+    template_header_count = len([h for h in (template_headers or []) if str(h or "").strip() != ""])
+    appended_headers = max(0, len([h for h in output_headers if str(h or "").strip() != ""]) - template_header_count)
+    return {
+        "used_template_headers": bool(template_headers),
+        "template_header_count": template_header_count,
+        "source_only_headers_appended": appended_headers if template_headers else 0,
+        "extra_admin_rows": extra_admin_rows,
+        "extra_admin_rows_total": sum(extra_admin_rows.values()),
+        "final_headers": output_headers,
+        "original_admin_counts": original_admin_counts,
+        "written_admin_counts": written_admin_counts,
+    }
 
 
 def _strip_skipped_module_blocks_from_survey_sheet(
@@ -7349,6 +7640,162 @@ def _count_blank_labels_for_lists(wb, list_names: list[str], label_col: str) -> 
     return total, blank
 
 
+def _validate_admin_parent_links_in_choices_sheet(wb) -> dict:
+    stats = {
+        "checked": {"admin2": 0, "admin3": 0},
+        "issues": [],
+        "parent_column": "",
+        "header_present": False,
+    }
+    if "choices" not in wb.sheetnames:
+        return stats
+
+    ws = wb["choices"]
+    row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), None)
+    if not row:
+        return stats
+
+    headers = [str(h).strip() if h is not None else "" for h in row]
+    idx = {h: i for i, h in enumerate(headers) if h}
+    list_col = idx.get("list_name")
+    name_col = idx.get("name")
+    parent_col = None
+    parent_header = ""
+    for candidate in ("my_filter_admin", "choice_filter", "filter", "tema", "team"):
+        if candidate in idx:
+            parent_col = idx[candidate]
+            parent_header = candidate
+            break
+    stats["parent_column"] = parent_header
+    stats["header_present"] = parent_col is not None
+
+    if list_col is None or name_col is None or parent_col is None:
+        return stats
+
+    names_by_list = {"admin1": set(), "admin2": set(), "admin3": set()}
+    rows_by_list = {"admin2": [], "admin3": []}
+
+    for excel_row, values in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        list_name = _normalize_list_token(values[list_col] if list_col < len(values) else "")
+        if list_name not in names_by_list:
+            continue
+        code = str((values[name_col] if name_col < len(values) else "") or "").strip()
+        parent = str((values[parent_col] if parent_col < len(values) else "") or "").strip()
+        if code:
+            names_by_list[list_name].add(code)
+        if list_name in rows_by_list and code:
+            rows_by_list[list_name].append({
+                "excel_row": excel_row,
+                "list_name": list_name,
+                "code": code,
+                "parent": parent,
+            })
+
+    expectations = {
+        "admin2": ("admin1", "admin1.name"),
+        "admin3": ("admin2", "admin2.name"),
+    }
+    for list_name, rows in rows_by_list.items():
+        parent_list, parent_ref = expectations[list_name]
+        valid_parent_codes = names_by_list.get(parent_list, set())
+        for row_info in rows:
+            stats["checked"][list_name] += 1
+            parent = row_info["parent"]
+            if not parent:
+                stats["issues"].append({
+                    "list_name": list_name,
+                    "code": row_info["code"],
+                    "parent": parent,
+                    "expected_parent_list": parent_list,
+                    "reference": parent_ref,
+                    "excel_row": row_info["excel_row"],
+                    "problem": "missing",
+                })
+            elif parent not in valid_parent_codes:
+                stats["issues"].append({
+                    "list_name": list_name,
+                    "code": row_info["code"],
+                    "parent": parent,
+                    "expected_parent_list": parent_list,
+                    "reference": parent_ref,
+                    "excel_row": row_info["excel_row"],
+                    "problem": "not_found",
+                })
+
+    return stats
+
+
+def _highlight_admin_parent_issue_rows_in_choices_sheet(
+    wb,
+    issues: list[dict],
+    target_lists: set[str] | None = None,
+) -> int:
+    if "choices" not in wb.sheetnames or not issues:
+        return 0
+
+    wanted = {
+        _normalize_list_token(v)
+        for v in (target_lists or {"admin3"})
+        if _normalize_list_token(v)
+    }
+    if not wanted:
+        return 0
+
+    ws = wb["choices"]
+    rows_to_highlight = sorted({
+        int(rr.get("excel_row"))
+        for rr in issues
+        if isinstance(rr.get("excel_row"), int)
+        and _normalize_list_token(rr.get("list_name")) in wanted
+        and int(rr.get("excel_row")) >= 2
+    })
+    if not rows_to_highlight:
+        return 0
+
+    for excel_row in rows_to_highlight:
+        for cell in ws[excel_row]:
+            cell.fill = FILL_MEDIUM
+    return len(rows_to_highlight)
+
+
+def _write_admin_parent_mismatch_text_report(
+    out_file: Path,
+    issues: list[dict],
+    label: str = "admin3",
+) -> Path:
+    wanted = _normalize_list_token(label)
+    filtered = [
+        rr for rr in (issues or [])
+        if _normalize_list_token(rr.get("list_name")) == wanted
+    ]
+
+    lines = [
+        "Admin parent mismatch report",
+        f"List: {label}",
+        f"Count: {len(filtered)}",
+        "",
+    ]
+
+    if not filtered:
+        lines.append("No invalid admin parent references found.")
+    else:
+        lines.append("excel_row\tcode\tparent\tproblem\texpected_parent_list\treference")
+        for rr in filtered:
+            lines.append(
+                "\t".join([
+                    str(rr.get("excel_row") or ""),
+                    str(rr.get("code") or ""),
+                    str(rr.get("parent") or ""),
+                    str(rr.get("problem") or ""),
+                    str(rr.get("expected_parent_list") or ""),
+                    str(rr.get("reference") or ""),
+                ])
+            )
+
+    out_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return out_file
+
+
 def _choices_has_language_col(path: str, language: str) -> bool:
     target = LANG_LABEL_COL.get(str(language or "").lower(), f"label::{language}")
     try:
@@ -7576,7 +8023,7 @@ def produce_validated_questionnaire(
     _rt_kobo = (f"_{_round_kobo}" if _round_kobo else "")
     dest = str(out / f"validated_questionnaire_kobo_{lang}_{iso3.upper()}{_rt_kobo}_{_date.today():%Y%m%d}.xlsx")
 
-    replacement_status = {"rows": []}
+    replacement_status = {"rows": [], "notes": []}
     replacement_issue_rows: list[dict] = []
     _kobo_opt_local = cfg.get("kobo_options", {}) or {}
     _include_admin3 = _as_bool(_kobo_opt_local.get("include_admin3", False), False)
@@ -7636,6 +8083,10 @@ def produce_validated_questionnaire(
 
     _copy2(src, dest)
     wb = openpyxl.load_workbook(dest)
+    _template_choices_path = ""
+    if "run" in globals():
+        _template_choices_path = str(run.get("template_path") or run.get("reference_path") or "")
+    _template_choices_headers = _read_choices_headers_from_workbook(_template_choices_path) if _template_choices_path else []
 
     _crop_lists = ["crop", "crop2", "crop3"]
     _admin_lists = ["admin1", "admin2"] + (["admin3"] if _include_admin3 else [])
@@ -7775,8 +8226,137 @@ def produce_validated_questionnaire(
             _add_row("AGOL fetch admin3", "WARN", "admin3=0", "medium")
 
     country_rows = {**crop_rows, **admin_rows}
-    if country_rows:
-        _rebuild_choices_sheet(wb, country_rows, target_language=lang)
+    _choices_rebuild_stats = _rebuild_choices_sheet(
+        wb,
+        country_rows,
+        target_language=lang,
+        template_headers=_template_choices_headers,
+    )
+    if _choices_rebuild_stats.get("used_template_headers"):
+        _det = (
+            f"Applied {_choices_rebuild_stats.get('template_header_count', 0)} template header(s)"
+        )
+        _extra_hdr = int(_choices_rebuild_stats.get("source_only_headers_appended", 0) or 0)
+        if _extra_hdr > 0:
+            _det += f"; appended {_extra_hdr} source-only header(s)"
+        _add_row("Choices header alignment", "PASS", _det, "pass")
+    else:
+        _add_row(
+            "Choices header alignment",
+            "WARN",
+            "Template choices headers unavailable; kept source header layout",
+            "medium",
+        )
+
+    _extra_admin_rows = _choices_rebuild_stats.get("extra_admin_rows") or {}
+    _extra_admin_total = int(_choices_rebuild_stats.get("extra_admin_rows_total", 0) or 0)
+    if _extra_admin_total > 0:
+        _parts = [f"{ln}={cnt}" for ln, cnt in sorted(_extra_admin_rows.items()) if cnt]
+        _det = f"{_extra_admin_total} extra admin row(s) highlighted in yellow"
+        if _parts:
+            _det += f" ({', '.join(_parts)})"
+        _add_row("Admin boundary additions", "WARN", _det, "medium")
+        replacement_status["notes"].append(
+            "Admin boundary updates: " + _det + "."
+        )
+    else:
+        _add_row("Admin boundary additions", "PASS", "No extra admin rows beyond the original choices sheet", "pass")
+
+    _admin_parent_stats = _validate_admin_parent_links_in_choices_sheet(wb)
+    _admin_parent_issues = _admin_parent_stats.get("issues") or []
+    _admin3_parent_issues = [
+        rr for rr in _admin_parent_issues
+        if _normalize_list_token(rr.get("list_name")) == "admin3"
+    ]
+    _admin3_parent_highlighted = 0
+    _parent_header = _admin_parent_stats.get("parent_column") or "my_filter_admin"
+    if not _admin_parent_stats.get("header_present"):
+        _add_row(
+            "Admin parent pcode integrity",
+            "FAIL",
+            "choices sheet does not contain a recognized admin parent column after header alignment",
+            "high",
+        )
+    else:
+        _checked_admin2 = int((_admin_parent_stats.get("checked") or {}).get("admin2", 0) or 0)
+        _checked_admin3 = int((_admin_parent_stats.get("checked") or {}).get("admin3", 0) or 0)
+        if not _admin_parent_issues:
+            _add_row(
+                "Admin parent pcode integrity",
+                "PASS",
+                f"admin2 checked={_checked_admin2}; admin3 checked={_checked_admin3}",
+                "pass",
+            )
+        else:
+            _examples = []
+            for rr in _admin_parent_issues[:4]:
+                if rr.get("problem") == "missing":
+                    _examples.append(f"{rr['list_name']}/{rr['code']}: missing parent")
+                else:
+                    _examples.append(f"{rr['list_name']}/{rr['code']}: {rr['parent']} not in {rr['expected_parent_list']}")
+            _det = (
+                f"{len(_admin_parent_issues)} invalid admin parent reference(s) "
+                f"(admin2 checked={_checked_admin2}; admin3 checked={_checked_admin3})"
+            )
+            if _examples:
+                _det += " | examples: " + "; ".join(_examples)
+            _add_row("Admin parent pcode integrity", "FAIL", _det, "high")
+            _missing_n = sum(1 for rr in _admin_parent_issues if rr.get("problem") == "missing")
+            _not_found_n = len(_admin_parent_issues) - _missing_n
+            _summary_current = (
+                f"{len(_admin_parent_issues)} invalid admin parent reference(s) in '{_parent_header}' "
+                f"(missing={_missing_n}, not found={_not_found_n}; "
+                f"admin2 checked={_checked_admin2}, admin3 checked={_checked_admin3})"
+            )
+            if _examples:
+                _summary_current += " | examples: " + "; ".join(_examples)
+            _add_issue_row(
+                "replacement_admin_parent_mismatch",
+                _parent_header,
+                _summary_current,
+                "Use admin1 pcodes for admin2 rows and admin2 pcodes for admin3 rows in the validated choices output",
+                severity="high",
+                list_name="admin2/admin3",
+                option_name="",
+                excel_row=min(
+                    (int(rr.get("excel_row")) for rr in _admin_parent_issues if isinstance(rr.get("excel_row"), int)),
+                    default=None,
+                ),
+            )
+        _admin3_parent_highlighted = _highlight_admin_parent_issue_rows_in_choices_sheet(
+            wb,
+            _admin3_parent_issues,
+            target_lists={"admin3"},
+        )
+
+    _admin3_parent_report = out / (
+        f"admin3_parent_mismatches_kobo_{lang}_{iso3.upper()}{_rt_kobo}_{_date.today():%Y%m%d}.txt"
+    )
+    if _admin_parent_stats.get("header_present"):
+        try:
+            _write_admin_parent_mismatch_text_report(
+                _admin3_parent_report,
+                _admin_parent_issues,
+                label="admin3",
+            )
+            _report_name = _admin3_parent_report.name
+            if _admin3_parent_issues:
+                _det = (
+                    f"{len(_admin3_parent_issues)} admin3 mismatch row(s) exported to {_report_name}; "
+                    f"{_admin3_parent_highlighted} row(s) highlighted in choices"
+                )
+                _add_row("Admin3 mismatch export", "WARN", _det, "medium")
+                replacement_status["notes"].append("Admin3 mismatch list: " + _report_name)
+            else:
+                _add_row(
+                    "Admin3 mismatch export",
+                    "PASS",
+                    f"No admin3 parent mismatches; wrote {_report_name}",
+                    "pass",
+                )
+            print(f"  Admin3 parent mismatch list: {_admin3_parent_report}")
+        except Exception as e:
+            _add_row("Admin3 mismatch export", "FAIL", f"Could not write mismatch list: {e}", "high")
 
     # Verify choices replacement counts in workbook
     if _skip_restore_and_replacement:

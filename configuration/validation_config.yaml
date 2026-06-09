@@ -22,13 +22,13 @@ tool: "Kobo"
 working_dir: "C:/Temp"
 
 # Current questionnaire filename (resolved under working_dir).
-questionnaire_file: "Questionnaire_PSE_R2_ar_kobo_03062026_rgf (1).xlsx"
+questionnaire_file: "NIGERIA DEAL NGA_R12_en_2026 (1).xlsx"
 
 # Language code: en | fr | ar | es
-language: "ar"
+language: "en"
 
 # ISO3 country code
-iso3: "PSE"
+iso3: "NGA"
 
 # Reference mode:
 #   latest_template -> auto-detect newest matching file in templates_dir
@@ -85,7 +85,7 @@ kobo_options:
   # Optional: include admin3 fetch/rebuild from AGOL.
   # true  -> fetch admin3 and rebuild admin3 choices
   # false -> skip admin3 fetch and keep existing admin3 values untouched
-  include_admin3: false
+  include_admin3: False
 
   # Optional: skip placeholder restore/replacement and crop-list rebuild.
   # true  -> keep already-personalized values as-is; do not use Additional information/Crop list

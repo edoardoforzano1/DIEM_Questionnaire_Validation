@@ -1,6 +1,6 @@
 # Admin Tools
 
-Two standalone utilities for checking and updating the administrative boundary lists (admin1, admin2, admin3) in a validated questionnaire. Both tools read their configuration from `configuration/admin_tools_config.yaml` and fetch the reference data live from ArcGIS Online (AGOL).
+Three standalone utilities are available for checking and updating the administrative boundary lists (admin1, admin2, admin3) in a validated questionnaire. All three read their configuration from `configuration/admin_tools_config.yaml`. Two of them fetch reference data live from ArcGIS Online (AGOL), while the remap tool works only from the local questionnaire content.
 
 ---
 
@@ -105,6 +105,68 @@ tool_admin_sync --config "C:/path/to/admin_tools_config.yaml"
 # Skip writing output (useful for confirming the source file resolves correctly)
 # Set dry_run: true in admin_tools_config.yaml instead
 ```
+
+---
+
+## tool_admin_parent_remap
+
+Creates a repaired copy of the questionnaire when `admin3` rows still point to old `admin2` codes, but the questionnaire has already replaced `admin2` with merged local codes such as `NG021008_13_31_14`.
+
+This tool does **not** query AGOL. Instead, it inspects the existing `admin2` rows in the questionnaire, detects merged-code patterns, infers which original `admin2` codes each merged row represents, and then updates invalid `admin3` parent references when the mapping is unambiguous.
+
+### What it does
+
+The tool reads the `choices` sheet and:
+
+1. collects all `admin2` and `admin3` rows
+2. detects merged `admin2` codes such as `NG021008_13_31_14`
+3. expands them into their inferred original members such as `NG021008`, `NG021013`, `NG021031`, `NG021014`
+4. scans `admin3` parent values in `my_filter_admin` / `choice_filter` / `filter`
+5. replaces an invalid parent only when exactly one merged `admin2` code matches
+
+It leaves unresolved or ambiguous cases unchanged and records them in the report.
+
+### Output files
+
+The tool writes up to three files to the configured `output_dir`:
+
+- **`{source_name}_admin3parentremap_{timestamp}.xlsx`** — repaired workbook copy with remapped `admin3` parent cells highlighted
+- **`{source_name}_admin3parentremap_{timestamp}.txt`** — plain-text summary listing merged definitions and every invalid `admin3` parent row
+- **`{source_name}_admin3parentremap_details_{timestamp}.csv`** — row-level machine-readable audit trail with `replace`, `unresolved`, `ambiguous`, or `missing_parent`
+
+### How to run
+
+From the repository root:
+
+```powershell
+tool_admin_parent_remap
+```
+
+Optional overrides:
+
+```powershell
+# Use a specific questionnaire file
+tool_admin_parent_remap --source-file "validated_questionnaire_kobo_en_NGA_R12_20260609.xlsx"
+
+# Write outputs somewhere else for a one-off run
+tool_admin_parent_remap --output-dir "C:/Temp/remap_test"
+
+# Analyse only without writing files
+tool_admin_parent_remap --dry-run
+
+# Use a different config file
+tool_admin_parent_remap --config "C:/path/to/admin_tools_config.yaml"
+```
+
+### When to use it
+
+Use `tool_admin_parent_remap` when:
+
+- `tool_admin_check` or the KoBo validator shows `admin3` parent mismatches
+- the `admin2` list contains custom merged local codes
+- you want to repair `admin3` parent references without rebuilding `admin3` from AGOL
+
+Do **not** use it as a substitute for `tool_admin_sync` when the admin hierarchy itself should come from AGOL.
 
 ---
 
